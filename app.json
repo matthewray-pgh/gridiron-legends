@@ -1,11 +1,12 @@
 {
   "expo": {
-    "name": "GridIronLegends",
-    "slug": "GridIronLegends",
+    "name": "Gridiron Legends",
+    "slug": "gridiron-legends",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "description": "Build the ultimate all-time NFL roster and simulate a perfect 20-0 season. Not affiliated with or endorsed by the NFL, NFLPA, or any team.",
     "ios": {
       "supportsTablet": true
     },
