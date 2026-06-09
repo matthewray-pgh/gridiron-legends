@@ -1,0 +1,21 @@
+{
+  "records": [
+    {
+      "id": "aaron_rodgers_gb_2011_2015",
+      "playerId": "aaron_rodgers",
+      "team": "GB",
+      "era": "2011_2015",
+      "position": "QB",
+      "season": 2011,
+      "stats": {
+        "passingYards": 4643,
+        "passingTouchdowns": 45,
+        "interceptions": 6,
+        "rushingYards": 257,
+        "rushingTouchdowns": 2
+      },
+      "ratings": { "overall": 99 },
+      "awards": []
+    }
+  ]
+}
