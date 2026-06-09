@@ -53,7 +53,7 @@ export function PlayerCard({ player, passCount, maxPasses, hideStats = false, co
       {/* Stats */}
       {!compact && (
         <View style={styles.statsBox}>
-          <Text style={styles.statsLabel}>CAREER STATS</Text>
+          <Text style={styles.statsLabel}>SEASON SNAPSHOT</Text>
           {hideStats ? (
             <Text style={styles.statsValue}>Stats hidden — trust your memory 🧠</Text>
           ) : (
@@ -63,7 +63,7 @@ export function PlayerCard({ player, passCount, maxPasses, hideStats = false, co
             {Array.from({ length: 5 }).map((_, i) => (
               <View
                 key={i}
-                style={[styles.ratingBar, { backgroundColor: i < ratingBars ? Colors.green : Colors.bgCard }]}
+                style={[styles.ratingBar, { backgroundColor: i < ratingBars ? Colors.gold : Colors.bgCard }]}
               />
             ))}
           </View>
@@ -80,6 +80,10 @@ const styles = StyleSheet.create({
     borderRadius: Radius.xl,
     padding: 20,
     borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.28,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
     marginHorizontal: 20,
     marginVertical: 8,
   },
@@ -126,11 +130,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   statsBox: {
-    backgroundColor: Colors.bgPrimary,
+    backgroundColor: Colors.bgCardDeep,
     borderRadius: Radius.md,
     padding: 12,
     marginTop: 14,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   statsLabel: {
     fontSize: Typography.xs,

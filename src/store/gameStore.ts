@@ -1,26 +1,26 @@
 import { create } from 'zustand';
-import { Player, Position, DRAFT_POSITIONS, PLAYERS } from '../data/players';
+import {
+  Player,
+  Position,
+  DRAFT_POSITIONS,
+  GENERATED_ERA_OPTIONS,
+  getAllPlayersForSpin,
+  getPlayableSpinCombosForOpenPositions,
+  getViableTeamAbbrs,
+} from '../data/players';
 
 export type GameMode = 'daily' | 'classic' | 'iq';
 export type TeamScope = 'all' | 'single';
 export type SpinState = 'pre' | 'spinning' | 'revealed' | 'picked';
 
 export type EraToken =
-  | 'Legends (pre-1999)'
-  | '1999-2005'
+  | '2000-2005'
   | '2006-2010'
   | '2011-2015'
   | '2016-2020'
   | '2021-2025';
 
-export const ERA_OPTIONS: EraToken[] = [
-  'Legends (pre-1999)',
-  '1999-2005',
-  '2006-2010',
-  '2011-2015',
-  '2016-2020',
-  '2021-2025',
-];
+export const ERA_OPTIONS: EraToken[] = [...GENERATED_ERA_OPTIONS];
 
 export interface Franchise {
   id: string;
@@ -62,7 +62,6 @@ export interface GameState {
   roster: Partial<Record<Position, Player>>;
   isComplete: boolean;
 
-  // Actions
   setMode: (mode: GameMode) => void;
   beginDraftSession: (params: { teamScope: TeamScope; selectedEras: EraToken[] }) => void;
   rollSpin: () => void;
@@ -70,9 +69,13 @@ export interface GameState {
   setSpinState: (state: SpinState) => void;
   keepPlayer: () => void;
   passPlayer: () => void;
+  setPlayerIndex: (index: number) => void;
+  assignPlayerToPosition: (position: Position) => void;
   resetGame: () => void;
   currentPosition: () => Position;
-  currentPlayer: () => Player;
+  openPositions: () => Position[];
+  currentCandidates: () => Player[];
+  currentPlayer: () => Player | null;
   maxPasses: () => number;
 }
 
@@ -118,16 +121,43 @@ export const useGameStore = create<GameState>((set, get) => ({
   rollSpin: () => {
     const { teamScope, selectedEras, lockedTeam } = get();
     const eras = selectedEras.length > 0 ? selectedEras : ERA_OPTIONS;
-    const era = eras[Math.floor(Math.random() * eras.length)];
+    const openPositions = get().openPositions();
 
-    let team = lockedTeam;
-    if (teamScope === 'all' || !team) {
-      team = FRANCHISES[Math.floor(Math.random() * FRANCHISES.length)];
+    if (openPositions.length === 0) {
+      set({ currentSpin: null, spinState: 'picked' });
+      return;
+    }
+
+    const viableTeamAbbrs = getViableTeamAbbrs(FRANCHISES.map((franchise) => franchise.abbr), eras);
+    const availableTeams = teamScope === 'single'
+      ? (lockedTeam
+        ? [lockedTeam]
+        : FRANCHISES.filter((team) => viableTeamAbbrs.includes(team.abbr)))
+      : FRANCHISES;
+
+    const playableCombos = getPlayableSpinCombosForOpenPositions(
+      openPositions,
+      availableTeams.map((team) => team.abbr),
+      eras,
+    );
+
+    if (playableCombos.length === 0) {
+      set({ currentSpin: null, spinState: 'pre' });
+      return;
+    }
+
+    const selectedCombo = playableCombos[Math.floor(Math.random() * playableCombos.length)];
+    const team = availableTeams.find((entry) => entry.abbr === selectedCombo.teamAbbr);
+
+    if (!team) {
+      set({ currentSpin: null, spinState: 'pre' });
+      return;
     }
 
     set({
       lockedTeam: teamScope === 'single' ? team : null,
-      currentSpin: { team, era },
+      currentSpin: { team, era: selectedCombo.era as EraToken },
+      playerIndex: 0,
       spinState: 'revealed',
     });
   },
@@ -144,41 +174,72 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   setSpinState: (state) => set({ spinState: state }),
 
-  currentPosition: () => DRAFT_POSITIONS[get().positionIndex],
+  currentPosition: () => {
+    const nextOpen = DRAFT_POSITIONS.find((position) => !get().roster[position]);
+    return nextOpen ?? DRAFT_POSITIONS[DRAFT_POSITIONS.length - 1];
+  },
+
+  openPositions: () => DRAFT_POSITIONS.filter((position) => !get().roster[position]),
+
+  currentCandidates: () => {
+    const currentSpin = get().currentSpin;
+    if (!currentSpin) return [];
+    return getAllPlayersForSpin(currentSpin, get().openPositions());
+  },
 
   currentPlayer: () => {
-    const pos = get().currentPosition();
-    const pool = PLAYERS[pos];
+    const pool = get().currentCandidates();
+    if (pool.length === 0) return null;
     return pool[get().playerIndex % pool.length];
   },
 
   maxPasses: () => MAX_PASSES_BY_MODE[get().mode],
 
   keepPlayer: () => {
-    const { positionIndex, roster, currentPosition, currentPlayer } = get();
-    const pos = currentPosition();
+    const position = get().currentPosition();
+    get().assignPlayerToPosition(position);
+  },
+
+  passPlayer: () => {
+    const poolSize = get().currentCandidates().length;
+    if (poolSize <= 1) return;
+    const nextIndex = (get().playerIndex + 1) % poolSize;
+    set({ playerIndex: nextIndex });
+  },
+
+  setPlayerIndex: (index) => {
+    const poolSize = get().currentCandidates().length;
+    if (poolSize <= 0) {
+      set({ playerIndex: 0 });
+      return;
+    }
+    const clampedIndex = Math.max(0, Math.min(index, poolSize - 1));
+    set({ playerIndex: clampedIndex });
+  },
+
+  assignPlayerToPosition: (position) => {
+    const { roster, currentPlayer, openPositions } = get();
+
+    if (!openPositions().includes(position)) return;
+
     const player = currentPlayer();
-    const newRoster = { ...roster, [pos]: player };
-    const isComplete = positionIndex + 1 >= DRAFT_POSITIONS.length;
+    if (!player) return;
+
+    const eligiblePositions = player.eligiblePositions ?? [];
+    if (!eligiblePositions.includes(position)) return;
+
+    const nextRoster = { ...roster, [position]: { ...player, position } };
+    const draftedCount = DRAFT_POSITIONS.filter((slot) => nextRoster[slot]).length;
+    const isComplete = draftedCount >= DRAFT_POSITIONS.length;
+
     set({
-      roster: newRoster,
-      positionIndex: isComplete ? positionIndex : positionIndex + 1,
+      roster: nextRoster,
+      positionIndex: Math.min(draftedCount, DRAFT_POSITIONS.length - 1),
       playerIndex: 0,
       passesUsed: {},
       currentSpin: null,
       spinState: isComplete ? 'picked' : 'pre',
       isComplete,
-    });
-  },
-
-  passPlayer: () => {
-    const { playerIndex, passesUsed, currentPosition, maxPasses } = get();
-    const pos = currentPosition();
-    const used = passesUsed[pos] ?? 0;
-    if (used >= maxPasses()) return;
-    set({
-      playerIndex: playerIndex + 1,
-      passesUsed: { ...passesUsed, [pos]: used + 1 },
     });
   },
 

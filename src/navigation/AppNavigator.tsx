@@ -7,6 +7,7 @@ import { GameScreen } from '../screens/GameScreen';
 import { ResultScreen } from '../screens/ResultScreen';
 import { LeaderboardScreen } from '../screens/LeaderboardScreen';
 import type { RootStackParamList } from './types';
+import { Colors } from '../theme/colors';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -18,7 +19,7 @@ export function AppNavigator() {
         screenOptions={{
           headerShown: false,
           animation: 'slide_from_right',
-          contentStyle: { backgroundColor: '#0F172A' },
+          contentStyle: { backgroundColor: Colors.bgPrimary },
         }}
       >
         <Stack.Screen name="Home" component={HomeScreen} />

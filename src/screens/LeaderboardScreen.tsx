@@ -25,7 +25,7 @@ export function LeaderboardScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.toolbarTitle}>🏆 Today's Leaderboard</Text>
+        <Text style={styles.toolbarTitle}>All-Time Gridiron Board</Text>
       </View>
 
       {/* Tabs */}
@@ -93,26 +93,26 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 4 },
   backText: { fontSize: Typography.xl, color: Colors.textMuted },
-  toolbarTitle: { fontSize: Typography.lg, fontWeight: '800', color: Colors.textPrimary },
+  toolbarTitle: { fontSize: Typography.lg, fontWeight: '900', color: Colors.textPrimary, letterSpacing: 0.5 },
 
   tabs: { flexDirection: 'row', gap: 4, paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
   tab: {
     flex: 1, textAlign: 'center', paddingVertical: 7,
     backgroundColor: Colors.bgCard, borderRadius: Radius.sm,
-    borderWidth: 1, borderColor: 'transparent', alignItems: 'center',
+    borderWidth: 1, borderColor: Colors.border, alignItems: 'center',
   },
-  tabActive: { backgroundColor: Colors.bgNavy, borderColor: Colors.greenMuted },
+  tabActive: { backgroundColor: Colors.bgNavy, borderColor: Colors.goldMuted },
   tabText: { fontSize: Typography.sm, fontWeight: '700', color: Colors.textDim },
-  tabTextActive: { color: Colors.green },
+  tabTextActive: { color: Colors.gold },
 
   list: { paddingHorizontal: Spacing.lg, paddingBottom: 32 },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     padding: 12, marginBottom: 6,
     backgroundColor: Colors.bgCard, borderRadius: Radius.md,
-    borderWidth: 1, borderColor: 'transparent',
+    borderWidth: 1, borderColor: Colors.border,
   },
-  rowMe: { backgroundColor: Colors.bgNavy, borderColor: Colors.greenMuted },
+  rowMe: { backgroundColor: Colors.bgNavy, borderColor: Colors.goldMuted },
 
   rankCircle: {
     width: 26, height: 26, borderRadius: 13,
@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
 
   userWrap: { flex: 1 },
   username: { fontSize: Typography.base, fontWeight: '600', color: Colors.textPrimary },
-  usernameMe: { fontWeight: '800', color: Colors.green },
+  usernameMe: { fontWeight: '800', color: Colors.gold },
 
   recordWrap: { alignItems: 'flex-end' },
   record: { fontSize: Typography.md, fontWeight: '800', color: Colors.textPrimary },

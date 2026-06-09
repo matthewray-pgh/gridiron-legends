@@ -6,94 +6,302 @@ export interface Player {
   team: string;
   years: string;
   stats: string;
+  statValues?: Record<string, number>;
   rating: number;
   tier: Tier;
   position: Position;
+  eligiblePositions?: Position[];
 }
 
-export type Position = 'QB' | 'RB' | 'WR' | 'TE' | 'FLEX' | 'EDGE' | 'DT' | 'LB' | 'CB' | 'S' | 'D-FLEX';
+export type Position = 'QB' | 'RB' | 'WR' | 'TE' | 'FLEX' | 'FLEX2' | 'EDGE' | 'DT' | 'LB' | 'CB' | 'S' | 'D-FLEX';
 
-export const DRAFT_POSITIONS: Position[] = [
-  'QB', 'RB', 'WR', 'TE', 'FLEX', 'EDGE', 'DT', 'LB', 'CB', 'S', 'D-FLEX',
-];
+type GeneratedPosition =
+  | 'QB'
+  | 'RB'
+  | 'WR'
+  | 'TE'
+  | 'EDGE'
+  | 'DL'
+  | 'DT'
+  | 'LB'
+  | 'CB'
+  | 'S'
+  | 'DB';
 
-export const PLAYERS: Record<Position, Player[]> = {
-  QB: [
-    { id: 'tb12', name: 'Tom Brady', team: 'NE/TB', years: '2000–2022', stats: '89,214 yds • 649 TD', rating: 99, tier: 'GOAT', position: 'QB' },
-    { id: 'jm16', name: 'Joe Montana', team: 'SF/KC', years: '1979–1994', stats: '40,551 yds • 273 TD', rating: 97, tier: 'Legend', position: 'QB' },
-    { id: 'pm18', name: 'Peyton Manning', team: 'IND/DEN', years: '1998–2015', stats: '71,940 yds • 539 TD', rating: 96, tier: 'Legend', position: 'QB' },
-    { id: 'ar12', name: 'Aaron Rodgers', team: 'GB/NYJ', years: '2005–pres', stats: '59,055 yds • 475 TD', rating: 94, tier: 'Elite', position: 'QB' },
-    { id: 'jb9', name: 'John Elway', team: 'DEN', years: '1983–1998', stats: '51,475 yds • 300 TD', rating: 94, tier: 'Elite', position: 'QB' },
-    { id: 'ds4', name: 'Dan Marino', team: 'MIA', years: '1983–1999', stats: '61,361 yds • 420 TD', rating: 95, tier: 'Legend', position: 'QB' },
-  ],
-  RB: [
-    { id: 'bs20', name: 'Barry Sanders', team: 'DET', years: '1989–1998', stats: '15,269 yds • 99 TD', rating: 99, tier: 'GOAT', position: 'RB' },
-    { id: 'es22', name: 'Emmitt Smith', team: 'DAL/ARI', years: '1990–2004', stats: '18,355 yds • 164 TD', rating: 97, tier: 'Legend', position: 'RB' },
-    { id: 'lt21', name: 'LaDainian Tomlinson', team: 'SD/NYJ', years: '2001–2011', stats: '13,684 yds • 145 TD', rating: 95, tier: 'Legend', position: 'RB' },
-    { id: 'wp34', name: 'Walter Payton', team: 'CHI', years: '1975–1987', stats: '16,726 yds • 110 TD', rating: 98, tier: 'GOAT', position: 'RB' },
-    { id: 'eg33', name: 'Eric Dickerson', team: 'LAR/IND', years: '1983–1993', stats: '13,259 yds • 90 TD', rating: 95, tier: 'Legend', position: 'RB' },
-    { id: 'jb43', name: 'Jim Brown', team: 'CLE', years: '1957–1965', stats: '12,312 yds • 106 TD', rating: 99, tier: 'GOAT', position: 'RB' },
-  ],
-  WR: [
-    { id: 'jr80', name: 'Jerry Rice', team: 'SF/OAK', years: '1985–2004', stats: '22,895 yds • 197 TD', rating: 99, tier: 'GOAT', position: 'WR' },
-    { id: 'rm84', name: 'Randy Moss', team: 'MIN/NE', years: '1998–2012', stats: '15,292 yds • 156 TD', rating: 97, tier: 'Legend', position: 'WR' },
-    { id: 'cj81', name: 'Calvin Johnson', team: 'DET', years: '2007–2015', stats: '11,619 yds • 83 TD', rating: 94, tier: 'Elite', position: 'WR' },
-    { id: 'to81', name: 'Terrell Owens', team: 'SF/PHI/DAL', years: '1996–2010', stats: '15,934 yds • 153 TD', rating: 95, tier: 'Legend', position: 'WR' },
-    { id: 'ls17', name: 'Lynn Swann', team: 'PIT', years: '1974–1982', stats: '5,462 yds • 51 TD', rating: 90, tier: 'Elite', position: 'WR' },
-    { id: 'mc13', name: 'Marvin Harrison', team: 'IND', years: '1996–2008', stats: '14,580 yds • 128 TD', rating: 95, tier: 'Legend', position: 'WR' },
-  ],
-  TE: [
-    { id: 'rg87', name: 'Rob Gronkowski', team: 'NE/TB', years: '2010–2021', stats: '9,286 yds • 92 TD', rating: 98, tier: 'GOAT', position: 'TE' },
-    { id: 'tg88', name: 'Tony Gonzalez', team: 'KC/ATL', years: '1997–2013', stats: '15,127 yds • 111 TD', rating: 97, tier: 'Legend', position: 'TE' },
-    { id: 'tk87', name: 'Travis Kelce', team: 'KC', years: '2013–pres', stats: '12,105 yds • 76 TD', rating: 96, tier: 'Legend', position: 'TE' },
-    { id: 'jw82', name: 'Jason Witten', team: 'DAL/LV', years: '2003–2020', stats: '13,046 yds • 74 TD', rating: 92, tier: 'Elite', position: 'TE' },
-  ],
-  FLEX: [
-    { id: 'sp29', name: 'Sterling Sharpe', team: 'GB', years: '1988–1994', stats: '8,134 yds • 65 TD', rating: 93, tier: 'Elite', position: 'FLEX' },
-    { id: 'ci85', name: 'Cris Carter', team: 'PHI/MIN', years: '1987–2002', stats: '13,899 yds • 130 TD', rating: 94, tier: 'Elite', position: 'FLEX' },
-    { id: 'ah83', name: 'Antonio Brown', team: 'PIT/OAK', years: '2010–2021', stats: '12,291 yds • 83 TD', rating: 93, tier: 'Elite', position: 'FLEX' },
-    { id: 'dm88', name: 'Darren Sproles', team: 'SD/NO/PHI', years: '2005–2019', stats: '7,136 rush+rec yds', rating: 88, tier: 'Elite', position: 'FLEX' },
-  ],
-  EDGE: [
-    { id: 'lt56', name: 'Lawrence Taylor', team: 'NYG', years: '1981–1993', stats: '132.5 sacks • 2× DPOY', rating: 99, tier: 'GOAT', position: 'EDGE' },
-    { id: 'rw92', name: 'Reggie White', team: 'PHI/GB', years: '1985–2000', stats: '198 sacks • 2× DPOY', rating: 99, tier: 'GOAT', position: 'EDGE' },
-    { id: 'dj75', name: 'Deacon Jones', team: 'LAR/SD', years: '1961–1974', stats: 'Coined the sack • HOF', rating: 97, tier: 'Legend', position: 'EDGE' },
-    { id: 'bm55', name: 'Bruce Smith', team: 'BUF/WAS', years: '1985–2003', stats: '200 sacks • HOF', rating: 97, tier: 'Legend', position: 'EDGE' },
-  ],
-  DT: [
-    { id: 'ma99', name: 'Merlin Olsen', team: 'LAR', years: '1962–1976', stats: '14× Pro Bowl • HOF', rating: 97, tier: 'Legend', position: 'DT' },
-    { id: 'ba99', name: 'Bob Lilly', team: 'DAL', years: '1961–1974', stats: '11× Pro Bowl • HOF', rating: 96, tier: 'Legend', position: 'DT' },
-    { id: 'wa99', name: 'Warren Sapp', team: 'TB/OAK', years: '1995–2007', stats: '96.5 sacks • 1× DPOY', rating: 95, tier: 'Legend', position: 'DT' },
-    { id: 'ao91', name: 'Aaron Donald', team: 'LAR', years: '2014–2022', stats: '111 sacks • 3× DPOY', rating: 99, tier: 'GOAT', position: 'DT' },
-  ],
-  LB: [
-    { id: 'rl52', name: 'Ray Lewis', team: 'BAL', years: '1996–2012', stats: '2,061 tackles • 2× DPOY', rating: 99, tier: 'GOAT', position: 'LB' },
-    { id: 'db51', name: 'Dick Butkus', team: 'CHI', years: '1965–1973', stats: '8× Pro Bowl • HOF', rating: 98, tier: 'GOAT', position: 'LB' },
-    { id: 'js55', name: 'Junior Seau', team: 'SD/MIA/NE', years: '1990–2009', stats: '12× Pro Bowl • HOF', rating: 96, tier: 'Legend', position: 'LB' },
-    { id: 'jl59', name: 'Jack Lambert', team: 'PIT', years: '1974–1984', stats: '9× Pro Bowl • HOF', rating: 96, tier: 'Legend', position: 'LB' },
-  ],
-  CB: [
-    { id: 'ds21', name: 'Deion Sanders', team: 'ATL/SF/DAL', years: '1989–2005', stats: '53 INT • 2× SB Champ', rating: 99, tier: 'GOAT', position: 'CB' },
-    { id: 'rw26', name: 'Rod Woodson', team: 'PIT/SF/BAL', years: '1987–2003', stats: '71 INT • 1× DPOY', rating: 98, tier: 'GOAT', position: 'CB' },
-    { id: 'dr24', name: 'Darrelle Revis', team: 'NYJ/TB/KC', years: '2007–2017', stats: '29 INT • 7× Pro Bowl', rating: 95, tier: 'Legend', position: 'CB' },
-    { id: 'mc26', name: 'Mike Haynes', team: 'NE/LAR', years: '1976–1989', stats: '46 INT • HOF', rating: 93, tier: 'Elite', position: 'CB' },
-  ],
-  S: [
-    { id: 'rl42', name: 'Ronnie Lott', team: 'SF/LAR/NYJ', years: '1981–1994', stats: '63 INT • 4× SB Champ', rating: 99, tier: 'GOAT', position: 'S' },
-    { id: 'er20', name: 'Ed Reed', team: 'BAL/HOU/NYJ', years: '2002–2013', stats: '64 INT • 1× DPOY', rating: 98, tier: 'GOAT', position: 'S' },
-    { id: 'tp43', name: 'Troy Polamalu', team: 'PIT', years: '2003–2014', stats: '32 INT • 1× DPOY', rating: 96, tier: 'Legend', position: 'S' },
-    { id: 'km21', name: 'Ken Houston', team: 'HOU/WAS', years: '1967–1980', stats: '49 INT • HOF', rating: 95, tier: 'Legend', position: 'S' },
-  ],
-  'D-FLEX': [
-    { id: 'ms55', name: 'Mike Singletary', team: 'CHI', years: '1981–1992', stats: '10× Pro Bowl • HOF', rating: 96, tier: 'Legend', position: 'D-FLEX' },
-    { id: 'na56', name: 'Nnamdi Asomugha', team: 'OAK/PHI', years: '2003–2013', stats: '19 INT • 3× All-Pro', rating: 90, tier: 'Elite', position: 'D-FLEX' },
-    { id: 'cl26', name: 'Cliff Harris', team: 'DAL', years: '1970–1979', stats: '29 INT • 6× Pro Bowl', rating: 91, tier: 'Elite', position: 'D-FLEX' },
-    { id: 'ch99', name: 'Charles Haley', team: 'SF/DAL', years: '1986–1999', stats: '100.5 sacks • 5× SB', rating: 93, tier: 'Elite', position: 'D-FLEX' },
-  ],
+interface GeneratedStats {
+  passingYards: number;
+  passingTD: number;
+  interceptions: number;
+  rushingYards: number;
+  rushingTD: number;
+  receptions: number;
+  receivingYards: number;
+  receivingTD: number;
+  sacks: number;
+  tfl: number;
+  qbHits: number;
+  forcedFumbles: number;
+  passesDefended: number;
+  defTD: number;
+}
+
+interface GeneratedPlayerRecord {
+  id: string;
+  playerId: string;
+  name: string | null;
+  team: string;
+  era: GeneratedEra;
+  position: GeneratedPosition | string;
+  bestSeason: number;
+  stats: GeneratedStats;
+  ratings?: {
+    overall?: number;
+  };
+}
+
+const generatedData = require('../../data_generator/outputs/nfl_era_players.json') as {
+  records?: GeneratedPlayerRecord[];
 };
 
+export const GENERATED_ERA_OPTIONS = [
+  '2000-2005',
+  '2006-2010',
+  '2011-2015',
+  '2016-2020',
+  '2021-2025',
+] as const;
+
+export type GeneratedEra = (typeof GENERATED_ERA_OPTIONS)[number];
+
+export const DRAFT_POSITIONS: Position[] = [
+  'QB', 'RB', 'WR', 'TE', 'FLEX', 'FLEX2', 'EDGE', 'DT', 'LB', 'CB', 'S', 'D-FLEX',
+];
+
+const GENERATED_POSITION_MAP: Record<Position, GeneratedPosition[]> = {
+  QB: ['QB'],
+  RB: ['RB'],
+  WR: ['WR'],
+  TE: ['TE'],
+  FLEX: ['RB', 'WR', 'TE'],
+  FLEX2: ['RB', 'WR', 'TE'],
+  EDGE: ['EDGE'],
+  DT: ['DL', 'DT'],
+  LB: ['LB'],
+  CB: ['CB', 'DB'],
+  S: ['S', 'DB'],
+  'D-FLEX': ['EDGE', 'DL', 'DT', 'LB', 'CB', 'S', 'DB'],
+};
+
+const GENERATED_RECORDS = (generatedData.records ?? []).filter((record): record is GeneratedPlayerRecord => {
+  return Boolean(
+    record?.id
+      && record.team
+      && record.era
+      && record.position
+      && typeof record.bestSeason === 'number'
+      && typeof record.name === 'string'
+      && record.name.trim().length > 0,
+  );
+});
+
+function normalizeRating(rawRating: number): number {
+  return Math.max(40, Math.min(99, Math.round(rawRating)));
+}
+
+function ratingToTier(rating: number): Tier {
+  if (rating >= 95) return 'GOAT';
+  if (rating >= 85) return 'Legend';
+  return 'Elite';
+}
+
+function formatStatValue(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return '0';
+  if (value >= 1000) return Math.round(value).toLocaleString('en-US');
+  if (value >= 100) return Math.round(value).toString();
+  if (Number.isInteger(value)) return value.toString();
+  return value.toFixed(1);
+}
+
+function joinStatParts(parts: Array<string | null>): string {
+  const visibleParts = parts.filter((part): part is string => Boolean(part));
+  return visibleParts.length > 0 ? visibleParts.join(' • ') : 'Season snapshot unavailable';
+}
+
+function formatStats(record: GeneratedPlayerRecord, draftPosition: Position): string {
+  const { stats } = record;
+
+  switch (draftPosition) {
+    case 'QB':
+      return joinStatParts([
+        stats.passingYards > 0 ? `${formatStatValue(stats.passingYards)} pass yds` : null,
+        stats.passingTD > 0 ? `${formatStatValue(stats.passingTD)} pass TD` : null,
+        stats.rushingYards > 0 ? `${formatStatValue(stats.rushingYards)} rush yds` : null,
+      ]);
+    case 'RB':
+      return joinStatParts([
+        stats.rushingYards > 0 ? `${formatStatValue(stats.rushingYards)} rush yds` : null,
+        stats.rushingTD > 0 ? `${formatStatValue(stats.rushingTD)} rush TD` : null,
+        stats.receptions > 0 ? `${formatStatValue(stats.receptions)} rec` : null,
+      ]);
+    case 'WR':
+    case 'TE':
+    case 'FLEX':
+    case 'FLEX2':
+      return joinStatParts([
+        stats.receptions > 0 ? `${formatStatValue(stats.receptions)} rec` : null,
+        stats.receivingYards > 0 ? `${formatStatValue(stats.receivingYards)} rec yds` : null,
+        stats.receivingTD > 0 ? `${formatStatValue(stats.receivingTD)} rec TD` : null,
+        stats.rushingYards > 0 ? `${formatStatValue(stats.rushingYards)} rush yds` : null,
+      ]);
+    case 'EDGE':
+    case 'DT':
+      return joinStatParts([
+        stats.sacks > 0 ? `${formatStatValue(stats.sacks)} sacks` : null,
+        stats.tfl > 0 ? `${formatStatValue(stats.tfl)} TFL` : null,
+        stats.qbHits > 0 ? `${formatStatValue(stats.qbHits)} QB hits` : null,
+      ]);
+    case 'LB':
+      return joinStatParts([
+        stats.tfl > 0 ? `${formatStatValue(stats.tfl)} TFL` : null,
+        stats.sacks > 0 ? `${formatStatValue(stats.sacks)} sacks` : null,
+        stats.interceptions > 0 ? `${formatStatValue(stats.interceptions)} INT` : null,
+      ]);
+    case 'CB':
+    case 'S':
+    case 'D-FLEX':
+      return joinStatParts([
+        stats.interceptions > 0 ? `${formatStatValue(stats.interceptions)} INT` : null,
+        stats.passesDefended > 0 ? `${formatStatValue(stats.passesDefended)} PD` : null,
+        stats.forcedFumbles > 0 ? `${formatStatValue(stats.forcedFumbles)} FF` : null,
+        stats.defTD > 0 ? `${formatStatValue(stats.defTD)} DEF TD` : null,
+        stats.sacks > 0 ? `${formatStatValue(stats.sacks)} sacks` : null,
+      ]);
+    default:
+      return 'Season snapshot unavailable';
+  }
+}
+
+function formatName(record: GeneratedPlayerRecord): string {
+  return (record.name ?? '').trim();
+}
+
+function toPlayer(record: GeneratedPlayerRecord, draftPosition: Position): Player {
+  const rating = normalizeRating(record.ratings?.overall ?? 40);
+
+  return {
+    id: record.id,
+    name: formatName(record),
+    team: record.team,
+    years: `Best season ${record.bestSeason} • ${record.era}`,
+    stats: formatStats(record, draftPosition),
+    statValues: { ...record.stats },
+    rating,
+    tier: ratingToTier(rating),
+    position: draftPosition,
+  };
+}
+
+function toPlayerWithEligiblePositions(
+  record: GeneratedPlayerRecord,
+  openPositions: Position[],
+): Player | null {
+  const eligiblePositions = openPositions.filter((draftPosition) => {
+    const mappedPositions = GENERATED_POSITION_MAP[draftPosition];
+    return mappedPositions.includes(record.position as GeneratedPosition);
+  });
+
+  if (eligiblePositions.length === 0) return null;
+
+  const player = toPlayer(record, eligiblePositions[0]);
+  if (!player.name) return null;
+
+  return {
+    ...player,
+    eligiblePositions,
+  };
+}
+
+function sortRecords(a: GeneratedPlayerRecord, b: GeneratedPlayerRecord): number {
+  const ratingDiff = (b.ratings?.overall ?? 40) - (a.ratings?.overall ?? 40);
+  if (ratingDiff !== 0) return ratingDiff;
+
+  const namedDiff = Number(Boolean(b.name)) - Number(Boolean(a.name));
+  if (namedDiff !== 0) return namedDiff;
+
+  return b.bestSeason - a.bestSeason;
+}
+
+export function getPlayersForSpin(
+  draftPosition: Position,
+  spin: { team: { abbr: string }; era: string } | null,
+): Player[] {
+  const generatedPositions = GENERATED_POSITION_MAP[draftPosition];
+  const matchingRecords = GENERATED_RECORDS
+    .filter((record) => {
+      const recordPosition = record.position as GeneratedPosition;
+      if (!generatedPositions.includes(recordPosition)) return false;
+      if (!spin) return true;
+      return record.team === spin.team.abbr && record.era === spin.era;
+    })
+    .sort(sortRecords);
+
+  return matchingRecords
+    .map((record) => toPlayer(record, draftPosition))
+    .filter((player) => player.name.length > 0);
+}
+
+export function getAllPlayersForSpin(
+  spin: { team: { abbr: string }; era: string } | null,
+  openPositions: Position[],
+): Player[] {
+  if (!spin || openPositions.length === 0) return [];
+
+  const matchingRecords = GENERATED_RECORDS
+    .filter((record) => record.team === spin.team.abbr && record.era === spin.era)
+    .sort(sortRecords);
+
+  return matchingRecords
+    .map((record) => toPlayerWithEligiblePositions(record, openPositions))
+    .filter((player): player is Player => Boolean(player));
+}
+
+export function hasPlayersForSpin(draftPosition: Position, teamAbbr: string, era: string): boolean {
+  const generatedPositions = GENERATED_POSITION_MAP[draftPosition];
+  return GENERATED_RECORDS.some((record) => {
+    return record.team === teamAbbr
+      && record.era === era
+      && generatedPositions.includes(record.position as GeneratedPosition);
+  });
+}
+
+export function getPlayableSpinCombos(draftPosition: Position, teamAbbrs: string[], eras: string[]) {
+  return teamAbbrs.flatMap((teamAbbr) => eras
+    .filter((era) => hasPlayersForSpin(draftPosition, teamAbbr, era))
+    .map((era) => ({ teamAbbr, era })));
+}
+
+export function hasAnyPlayersForSpin(openPositions: Position[], teamAbbr: string, era: string): boolean {
+  return openPositions.some((draftPosition) => hasPlayersForSpin(draftPosition, teamAbbr, era));
+}
+
+export function getPlayableSpinCombosForOpenPositions(
+  openPositions: Position[],
+  teamAbbrs: string[],
+  eras: string[],
+) {
+  return teamAbbrs.flatMap((teamAbbr) => eras
+    .filter((era) => hasAnyPlayersForSpin(openPositions, teamAbbr, era))
+    .map((era) => ({ teamAbbr, era })));
+}
+
+export function getViableTeamAbbrs(teamAbbrs: string[], eras: string[]): string[] {
+  return teamAbbrs.filter((teamAbbr) => DRAFT_POSITIONS.every((draftPosition) => {
+    return eras.some((era) => hasPlayersForSpin(draftPosition, teamAbbr, era));
+  }));
+}
+
 export const TIER_COLORS: Record<Tier, { bg: string; text: string; border: string }> = {
-  GOAT: { bg: '#FEF3C7', text: '#92400E', border: '#F59E0B' },
-  Legend: { bg: '#EDE9FE', text: '#4C1D95', border: '#7C3AED' },
-  Elite: { bg: '#DBEAFE', text: '#1E3A8A', border: '#3B82F6' },
+  GOAT: { bg: '#2A2110', text: '#F4C74D', border: '#D4A017' },
+  Legend: { bg: '#1A2028', text: '#D2D9E1', border: '#A7B1BC' },
+  Elite: { bg: '#11253A', text: '#7CB2E0', border: '#2F6A9D' },
 };
