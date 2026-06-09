@@ -18,7 +18,7 @@ export function GameScreen() {
   const {
     positionIndex, passesUsed, roster, isComplete,
     keepPlayer, passPlayer, resetGame,
-    currentPosition, currentPlayer, maxPasses, mode,
+    currentPosition, currentPlayer, maxPasses, mode, currentSpin, rerollsRemaining,
   } = useGameStore();
 
   const [spinning, setSpinning] = useState(false);
@@ -37,6 +37,12 @@ export function GameScreen() {
     }
   }, [isComplete]);
 
+  useEffect(() => {
+    if (!currentSpin && !isComplete) {
+      navigation.replace('Spin');
+    }
+  }, [currentSpin, isComplete]);
+
   function animateCard(callback: () => void) {
     Animated.sequence([
       Animated.timing(cardOpacity, { toValue: 0.3, duration: 180, useNativeDriver: true }),
@@ -47,9 +53,8 @@ export function GameScreen() {
   function handleKeep() {
     animateCard(() => {
       if (positionIndex + 1 < DRAFT_POSITIONS.length) {
-        setSpinning(true);
         keepPlayer();
-        setTimeout(() => setSpinning(false), 600);
+        navigation.replace('Spin');
       } else {
         keepPlayer();
       }
@@ -73,6 +78,19 @@ export function GameScreen() {
             <Text style={styles.progressLabel}>DRAFTING ROSTER</Text>
             <Text style={styles.progressCounter}>{positionIndex + 1}/{DRAFT_POSITIONS.length}</Text>
           </View>
+          {!!currentSpin && (
+            <View style={styles.badgesRow}>
+              <View style={[styles.badge, styles.teamBadge]}>
+                <Text style={styles.badgeText}>{currentSpin.team.abbr}</Text>
+              </View>
+              <View style={[styles.badge, styles.eraBadge]}>
+                <Text style={styles.badgeText}>{currentSpin.era}</Text>
+              </View>
+              <View style={styles.rerollPill}>
+                <Text style={styles.rerollText}>Reroll ({rerollsRemaining})</Text>
+              </View>
+            </View>
+          )}
           <View style={styles.progressTrack}>
             <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
           </View>
@@ -163,6 +181,27 @@ const styles = StyleSheet.create({
   progressMeta: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   progressLabel: { fontSize: Typography.sm, color: Colors.textMuted, fontWeight: '700' },
   progressCounter: { fontSize: Typography.sm, color: Colors.textSecondary },
+  badgesRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' },
+  badge: {
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: Colors.bgCard,
+  },
+  teamBadge: { borderColor: '#F97316' },
+  eraBadge: { borderColor: '#A855F7' },
+  badgeText: { color: Colors.textPrimary, fontSize: Typography.xs, fontWeight: '700' },
+  rerollPill: {
+    marginLeft: 'auto',
+    backgroundColor: Colors.bgCard,
+    borderColor: Colors.borderMid,
+    borderWidth: 1,
+    borderRadius: Radius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  rerollText: { color: Colors.textMuted, fontSize: Typography.xs, fontWeight: '600' },
   progressTrack: {
     height: 4, backgroundColor: Colors.bgCard, borderRadius: 2, overflow: 'hidden',
   },
