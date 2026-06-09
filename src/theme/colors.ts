@@ -1,44 +1,48 @@
-// Color tokens matching the mockup's dark navy + green scheme
+// Undefeated brand tokens: midnight black, steel silver, championship gold, and gridiron blue.
 export const Colors = {
   // Backgrounds
-  bgPrimary: '#0F172A',
-  bgCard: '#1E293B',
-  bgCardDeep: '#0F2744',
-  bgNavy: '#1E3A5F',
-  bgDark: '#0F172A',
+  bgPrimary: '#0B0F14',
+  bgCard: '#121A23',
+  bgCardDeep: '#0D141C',
+  bgNavy: '#123B5D',
+  bgDark: '#070A0E',
 
   // Accent
-  green: '#22C55E',
-  greenDark: '#052e16',
-  greenMuted: '#22C55E33',
+  green: '#48B56B',
+  greenDark: '#0B2A18',
+  greenMuted: '#48B56B33',
+  gold: '#D4A017',
+  goldMuted: '#D4A01733',
+  steel: '#A7B1BC',
+  steelDark: '#7A8B9C',
+  gridironBlue: '#123B5D',
 
   // Text
-  textPrimary: '#F8FAFC',
-  textSecondary: '#94A3B8',
-  textMuted: '#64748B',
-  textDim: '#475569',
+  textPrimary: '#F5F7FA',
+  textSecondary: '#A7B1BC',
+  textMuted: '#7A8B9C',
+  textDim: '#5E6C79',
 
   // Borders
-  border: '#1E293B',
-  borderMid: '#334155',
+  border: '#213244',
+  borderMid: '#314759',
 
   // Semantic
   win: '#22C55E',
   loss: '#EF4444',
-  gold: '#F59E0B',
   silver: '#94A3B8',
   bronze: '#B45309',
 
   // Tier
-  goatBg: '#FEF3C7',
-  goatText: '#92400E',
-  goatBorder: '#F59E0B',
-  legendBg: '#EDE9FE',
-  legendText: '#4C1D95',
-  legendBorder: '#7C3AED',
-  eliteBg: '#DBEAFE',
-  eliteText: '#1E3A8A',
-  eliteBorder: '#3B82F6',
+  goatBg: '#2A2110',
+  goatText: '#F4C74D',
+  goatBorder: '#D4A017',
+  legendBg: '#1A2028',
+  legendText: '#D2D9E1',
+  legendBorder: '#A7B1BC',
+  eliteBg: '#11253A',
+  eliteText: '#7CB2E0',
+  eliteBorder: '#2F6A9D',
 };
 
 export const Typography = {

@@ -1,5 +1,8 @@
 import nfl_data_py as nfl
+import pandas as pd
 import json
+from bisect import bisect_left, bisect_right
+from collections import defaultdict
 
 from config import ERAS, POSITION_MAP
 from utils import get_era, safe_float
@@ -120,8 +123,18 @@ def compute_score(position, row):
 # =========================================================
 
 def load_data():
-    years = list(range(1999, 2026))
-    return nfl.import_seasonal_data(years)
+    frames = []
+    url = "https://github.com/nflverse/nflverse-data/releases/download/player_stats/player_stats_{}.parquet"
+    for year in range(1999, 2026):
+        try:
+            df = pd.read_parquet(url.format(year), engine="auto")
+            frames.append(df)
+            print(f"  ✓ {year} ({len(df)} rows)")
+        except Exception as e:
+            print(f"  ✗ {year} skipped: {e}")
+    if not frames:
+        raise RuntimeError("No data loaded — check network/URL availability.")
+    return pd.concat(frames, ignore_index=True)
 
 
 # =========================================================
@@ -167,6 +180,7 @@ def build_records(df):
             "era": era,
             "position": position,
             "bestSeason": int(season),
+            "_rawScore": score,
 
             "stats": {
                 # OFFENSE
@@ -189,17 +203,50 @@ def build_records(df):
             },
 
             "ratings": {
-                "overall": round(min(99, max(40, score)), 1)
+                "overall": 0
             },
 
             "awards": []
         }
 
         # KEEP BEST SEASON PER PLAYER/TEAM/ERA
-        if key not in records or score > records[key]["ratings"]["overall"]:
+        if key not in records or score > records[key]["_rawScore"]:
             records[key] = record
 
-    return list(records.values())
+    unique_records = list(records.values())
+    return apply_percentile_overalls(unique_records)
+
+
+def apply_percentile_overalls(records):
+    scores_by_position = defaultdict(list)
+
+    for record in records:
+        scores_by_position[record["position"]].append(record["_rawScore"])
+
+    sorted_scores_by_position = {
+        position: sorted(scores)
+        for position, scores in scores_by_position.items()
+    }
+
+    for record in records:
+        position = record["position"]
+        raw_score = record["_rawScore"]
+        sorted_scores = sorted_scores_by_position[position]
+        total = len(sorted_scores)
+
+        if total <= 1:
+            percentile = 1.0
+        else:
+            left = bisect_left(sorted_scores, raw_score)
+            right = bisect_right(sorted_scores, raw_score)
+            mid_rank = (left + right - 1) / 2
+            percentile = mid_rank / (total - 1)
+
+        overall = 40 + (percentile * 59)
+        record["ratings"]["overall"] = round(min(99, max(40, overall)), 1)
+        del record["_rawScore"]
+
+    return records
 
 
 # =========================================================

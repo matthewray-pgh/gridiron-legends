@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   toolbarTitle: { fontSize: Typography.md, fontWeight: '700', color: Colors.textSecondary },
 
   recordWrap: { alignItems: 'center', paddingVertical: Spacing.xl },
-  recordLabel: { fontSize: Typography.sm, color: Colors.textMuted, fontWeight: '700', letterSpacing: 1, marginBottom: 8 },
+  recordLabel: { fontSize: Typography.sm, color: Colors.gold, fontWeight: '800', letterSpacing: 1.2, marginBottom: 8 },
   record: { fontSize: 64, fontWeight: '900', letterSpacing: -2, lineHeight: 68 },
   verdict: { fontSize: Typography.md, fontWeight: '600', marginTop: 6 },
 
@@ -211,10 +211,12 @@ const styles = StyleSheet.create({
   rosterCard: {
     marginHorizontal: Spacing.lg, backgroundColor: Colors.bgCard,
     borderRadius: Radius.lg, padding: 14, marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   rosterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   rosterLabel: { fontSize: Typography.sm, color: Colors.textMuted, fontWeight: '700', letterSpacing: 1 },
-  ovrText: { fontSize: Typography.base, fontWeight: '700', color: Colors.green },
+  ovrText: { fontSize: Typography.base, fontWeight: '800', color: Colors.gold },
   rosterRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: Colors.bgPrimary,
@@ -232,8 +234,8 @@ const styles = StyleSheet.create({
   },
   shareBtnText: { fontSize: Typography.base, fontWeight: '700', color: Colors.textSecondary },
   againBtn: {
-    flex: 1, backgroundColor: Colors.green,
+    flex: 1, backgroundColor: Colors.gold,
     borderRadius: Radius.lg, paddingVertical: 14, alignItems: 'center',
   },
-  againBtnText: { fontSize: Typography.base, fontWeight: '700', color: Colors.greenDark },
+  againBtnText: { fontSize: Typography.base, fontWeight: '900', color: Colors.bgDark },
 });

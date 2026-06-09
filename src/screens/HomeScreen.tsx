@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, Pressable } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { getViableTeamAbbrs } from '../data/players';
 import { Colors, Radius, Spacing, Typography } from '../theme/colors';
 import { useStatsStore } from '../store/statsStore';
 import { ERA_OPTIONS, EraToken, TeamScope, useGameStore } from '../store/gameStore';
@@ -15,11 +16,19 @@ export function HomeScreen() {
   const streak = useStatsStore((s) => s.streak);
   const setMode = useGameStore((s) => s.setMode);
   const beginDraftSession = useGameStore((s) => s.beginDraftSession);
+  const homeHeaderImage = require('../../assets/undefeated-gridiron-legends-header.png');
+  const fallbackHeaderImage = require('../../assets/icon.png');
 
   const [setupVisible, setSetupVisible] = useState(false);
+  const [useFallbackHeader, setUseFallbackHeader] = useState(false);
   const [pendingMode, setPendingMode] = useState<'daily' | 'classic' | 'iq'>('classic');
   const [teamScope, setTeamScope] = useState<TeamScope>('all');
   const [selectedEras, setSelectedEras] = useState<EraToken[]>(ERA_OPTIONS);
+  const viableSingleTeamCount = getViableTeamAbbrs(
+    ['PIT', 'DAL', 'NE', 'SF', 'GB', 'BAL', 'MIA', 'KC', 'BUF', 'DEN', 'CHI', 'NYG'],
+    selectedEras,
+  ).length;
+  const canStart = selectedEras.length > 0 && (teamScope === 'all' || viableSingleTeamCount > 0);
 
   function startGame(mode: 'daily' | 'classic' | 'iq') {
     setPendingMode(mode);
@@ -35,7 +44,7 @@ export function HomeScreen() {
   }
 
   function handleStartFromSetup() {
-    if (selectedEras.length === 0) return;
+    if (!canStart) return;
     setMode(pendingMode);
     beginDraftSession({ teamScope, selectedEras });
     setSetupVisible(false);
@@ -51,9 +60,15 @@ export function HomeScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>🏈 Gridiron Legends</Text>
-            <Text style={styles.subtitle}>Can you go 20-0?</Text>
+          <View style={styles.headerBrandWrap}>
+            <Image
+              source={useFallbackHeader ? fallbackHeaderImage : homeHeaderImage}
+              style={styles.headerBrandImage}
+              resizeMode="contain"
+              accessibilityRole="image"
+              accessibilityLabel="Undefeated Gridiron Legends"
+              onError={() => setUseFallbackHeader(true)}
+            />
           </View>
           <TouchableOpacity style={styles.settingsBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Text style={styles.settingsIcon}>⚙️</Text>
@@ -79,7 +94,7 @@ export function HomeScreen() {
               <Text style={styles.statLabel}>PLAYING TODAY</Text>
             </View>
             <View style={styles.statPill}>
-              <Text style={[styles.statNum, { color: Colors.green }]}>14h 22m</Text>
+              <Text style={[styles.statNum, { color: Colors.gold }]}>14h 22m</Text>
               <Text style={styles.statLabel}>RESETS IN</Text>
             </View>
             <View style={styles.statPill}>
@@ -114,7 +129,7 @@ export function HomeScreen() {
             </View>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.modeCard, styles.modeCardIQ]}
+            style={styles.modeCard}
             onPress={() => startGame('iq')}
             activeOpacity={0.8}
             hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
@@ -168,7 +183,11 @@ export function HomeScreen() {
                 </TouchableOpacity>
               </View>
               {teamScope === 'single' && (
-                <Text style={styles.noteText}>A franchise will be randomly assigned on Round 1 spin.</Text>
+                <Text style={styles.noteText}>
+                  {viableSingleTeamCount > 0
+                    ? 'A viable franchise will be randomly assigned on Round 1 spin.'
+                    : 'No supported franchise can cover every draft slot for this era mix.'}
+                </Text>
               )}
             </View>
 
@@ -193,8 +212,12 @@ export function HomeScreen() {
                   );
                 })}
               </View>
-              {selectedEras.length === 0 && (
-                <Text style={styles.warningText}>Select at least one era to continue</Text>
+              {!canStart && (
+                <Text style={styles.warningText}>
+                  {selectedEras.length === 0
+                    ? 'Select at least one era to continue'
+                    : 'Switch to all teams or add more eras to start a one-team run'}
+                </Text>
               )}
             </View>
 
@@ -203,9 +226,9 @@ export function HomeScreen() {
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.startBtn, selectedEras.length === 0 && styles.startBtnDisabled]}
+                style={[styles.startBtn, !canStart && styles.startBtnDisabled]}
                 onPress={handleStartFromSetup}
-                disabled={selectedEras.length === 0}
+                disabled={!canStart}
               >
                 <Text style={styles.startBtnText}>Start game →</Text>
               </TouchableOpacity>
@@ -228,45 +251,57 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.md,
+    gap: 12,
   },
-  title: { fontSize: Typography.xl, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.5 },
-  subtitle: { fontSize: Typography.sm, color: Colors.textMuted, marginTop: 2 },
+  headerBrandWrap: {
+    flex: 1,
+  },
+  headerBrandImage: {
+    width: '100%',
+    maxWidth: 360,
+    aspectRatio: 634 / 258,
+    minHeight: 56,
+  },
   settingsBtn: {
     width: 48, height: 48, borderRadius: 24,
     backgroundColor: Colors.bgCard,
+    borderWidth: 1,
+    borderColor: Colors.border,
     alignItems: 'center', justifyContent: 'center',
   },
   settingsIcon: { fontSize: 16 },
 
   dailyCard: {
     marginHorizontal: Spacing.lg,
-    backgroundColor: Colors.bgNavy,
+    backgroundColor: Colors.bgCard,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: Colors.greenMuted,
+    borderColor: Colors.goldMuted,
     marginBottom: Spacing.xl,
   },
   dailyTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },
-  dailyLabel: { fontSize: Typography.sm, color: Colors.green, fontWeight: '700', letterSpacing: 1, marginBottom: 4 },
+  dailyLabel: { fontSize: Typography.sm, color: Colors.gold, fontWeight: '800', letterSpacing: 1.2, marginBottom: 4 },
   dailyTitle: { fontSize: Typography.xl, fontWeight: '700', color: Colors.textPrimary },
   dailyMeta: { fontSize: Typography.md, color: Colors.textSecondary, marginTop: 2 },
-  newBadge: { backgroundColor: Colors.green, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  newBadgeText: { fontSize: Typography.sm, fontWeight: '700', color: Colors.greenDark },
+  newBadge: { backgroundColor: Colors.gold, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
+  newBadgeText: { fontSize: Typography.sm, fontWeight: '800', color: Colors.bgDark },
 
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   statPill: {
     flex: 1, backgroundColor: Colors.bgCardDeep,
     borderRadius: Radius.sm, paddingVertical: 20, paddingHorizontal: 8, alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   statNum: { fontSize: Typography.lg, fontWeight: '700', color: Colors.textPrimary },
   statLabel: { fontSize: Typography.sm, color: Colors.textMuted, marginTop: 1, textAlign: 'center' },
 
   playBtn: {
-    backgroundColor: Colors.green, borderRadius: Radius.md,
+    backgroundColor: Colors.gold, borderRadius: Radius.md,
     minHeight: 58, paddingVertical: 14, alignItems: 'center', justifyContent: 'center',
   },
-  playBtnText: { fontSize: Typography.md, fontWeight: '800', color: Colors.greenDark },
+  playBtnText: { fontSize: Typography.md, fontWeight: '900', color: Colors.bgDark, letterSpacing: 0.4 },
 
   sectionLabel: {
     fontSize: Typography.sm, color: Colors.textMuted, fontWeight: '700',
@@ -278,12 +313,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.bgCard,
+    borderWidth: 1,
+    borderColor: Colors.border,
     borderRadius: Radius.lg,
     minHeight: 80,
     paddingVertical: 12,
     paddingHorizontal: 15,
   },
-  modeCardIQ: { backgroundColor: '#2D1B69' },
   modeEmoji: { fontSize: 22, width: 32, textAlign: 'center', marginRight: 12 },
   modeTextWrap: { flex: 1 },
   modeName: { fontSize: Typography.lg, fontWeight: '700', color: Colors.textPrimary },
@@ -314,7 +350,7 @@ const styles = StyleSheet.create({
   sheetSection: { marginTop: 16 },
   sheetSectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   sheetLabel: { color: Colors.textSecondary, fontSize: Typography.sm, fontWeight: '700', letterSpacing: 1 },
-  clearText: { color: Colors.green, fontSize: Typography.sm, fontWeight: '700' },
+  clearText: { color: Colors.gold, fontSize: Typography.sm, fontWeight: '700' },
   segmentWrap: {
     flexDirection: 'row',
     backgroundColor: Colors.bgCard,
@@ -331,7 +367,7 @@ const styles = StyleSheet.create({
   },
   segmentBtnActive: { backgroundColor: Colors.bgNavy },
   segmentText: { color: Colors.textMuted, fontSize: Typography.base, fontWeight: '600' },
-  segmentTextActive: { color: Colors.green, fontWeight: '700' },
+  segmentTextActive: { color: Colors.gold, fontWeight: '700' },
   noteText: { color: Colors.textMuted, fontSize: Typography.sm, marginTop: 8 },
   chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   eraChip: {
@@ -342,10 +378,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     backgroundColor: Colors.bgCard,
   },
-  eraChipActive: { borderColor: Colors.green, backgroundColor: Colors.bgNavy },
+  eraChipActive: { borderColor: Colors.gold, backgroundColor: Colors.bgNavy },
   eraChipText: { color: Colors.textSecondary, fontSize: Typography.sm, fontWeight: '600' },
-  eraChipTextActive: { color: Colors.green, fontWeight: '700' },
-  warningText: { color: '#F97316', fontSize: Typography.sm, marginTop: 8 },
+  eraChipTextActive: { color: Colors.gold, fontWeight: '700' },
+  warningText: { color: Colors.gold, fontSize: Typography.sm, marginTop: 8 },
   sheetActions: {
     marginTop: 20,
     flexDirection: 'row',
@@ -355,12 +391,12 @@ const styles = StyleSheet.create({
   cancelText: { color: Colors.textSecondary, fontSize: Typography.base, fontWeight: '700' },
   startBtn: {
     minHeight: 48,
-    backgroundColor: '#F97316',
+    backgroundColor: Colors.gold,
     borderRadius: Radius.md,
     paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   startBtnDisabled: { opacity: 0.45 },
-  startBtnText: { color: '#fff', fontSize: Typography.base, fontWeight: '800' },
+  startBtnText: { color: Colors.bgDark, fontSize: Typography.base, fontWeight: '900' },
 });

@@ -128,30 +128,30 @@ export function SpinScreen() {
         <Text style={styles.roundLabel}>{roundLabel}</Text>
 
         <View style={styles.cardsFrame}>
-          <View style={styles.cardsRow}>
-          <View style={[styles.spinCard, styles.teamCard]}>
-            <Text style={[styles.cardTag, { color: '#F97316' }]}>TEAM</Text>
-            <View style={styles.reelWindow}>
-              <Animated.Text style={[styles.cardValue, { transform: [{ translateY: teamTranslateY }] }]}>
-                {teamDisplay}
-              </Animated.Text>
+          <View style={styles.cardsColumn}>
+            <View style={[styles.spinCard, styles.teamCard]}>
+              <Text style={[styles.cardTag, { color: Colors.gold }]}>TEAM</Text>
+              <View style={styles.reelWindow}>
+                <Animated.Text style={[styles.cardValue, { transform: [{ translateY: teamTranslateY }] }]}> 
+                  {teamDisplay}
+                </Animated.Text>
+              </View>
+            </View>
+            <View style={[styles.spinCard, styles.eraCard]}>
+              <Text style={[styles.cardTag, { color: Colors.steel }]}>ERA</Text>
+              <View style={styles.reelWindow}>
+                <Animated.Text style={[styles.cardValue, { transform: [{ translateY: eraTranslateY }] }]}> 
+                  {eraDisplay}
+                </Animated.Text>
+              </View>
             </View>
           </View>
-          <View style={[styles.spinCard, styles.eraCard]}>
-            <Text style={[styles.cardTag, { color: '#A855F7' }]}>ERA</Text>
-            <View style={styles.reelWindow}>
-              <Animated.Text style={[styles.cardValue, { transform: [{ translateY: eraTranslateY }] }]}>
-                {eraDisplay}
-              </Animated.Text>
-            </View>
-          </View>
-        </View>
         </View>
 
         {spinState !== 'revealed' ? (
           <>
             <TouchableOpacity style={styles.spinBtn} onPress={triggerSpin} activeOpacity={0.85}>
-              <Text style={styles.spinText}>🎰 SPIN</Text>
+              <Text style={styles.spinText}>SPIN</Text>
             </TouchableOpacity>
             <Text style={styles.helper}>Tap anywhere to spin</Text>
           </>
@@ -181,7 +181,7 @@ export function SpinScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#080D1A' },
+  safe: { flex: 1, backgroundColor: Colors.bgPrimary },
   container: { flex: 1, paddingHorizontal: Spacing.lg, paddingTop: 20, overflow: 'hidden' },
   bgOrbTop: {
     position: 'absolute',
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     width: 280,
     height: 280,
     borderRadius: 140,
-    backgroundColor: '#22D3EE22',
+    backgroundColor: Colors.gridironBlue + '33',
   },
   bgOrbBottom: {
     position: 'absolute',
@@ -199,11 +199,11 @@ const styles = StyleSheet.create({
     width: 320,
     height: 320,
     borderRadius: 160,
-    backgroundColor: '#F9731622',
+    backgroundColor: Colors.goldMuted,
   },
   roundLabel: {
     textAlign: 'center',
-    color: '#C7D2FE',
+    color: Colors.steel,
     fontSize: Typography.sm,
     fontWeight: '700',
     letterSpacing: 1.2,
@@ -212,22 +212,22 @@ const styles = StyleSheet.create({
   cardsFrame: {
     borderRadius: Radius.xl,
     borderWidth: 1,
-    borderColor: '#334155',
-    backgroundColor: '#0F172A99',
-    padding: 10,
+    borderColor: Colors.borderMid,
+    backgroundColor: '#0B0F14CC',
+    padding: 12,
+    marginTop: 4,
   },
-  cardsRow: { flexDirection: 'row', gap: 12 },
+  cardsColumn: { gap: 12 },
   spinCard: {
-    flex: 1,
-    minHeight: 180,
+    minHeight: 210,
     borderRadius: Radius.xl,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: Colors.bgCard,
   },
-  teamCard: { borderColor: '#F97316' },
-  eraCard: { borderColor: '#A855F7' },
+  teamCard: { borderColor: Colors.gold },
+  eraCard: { borderColor: Colors.gridironBlue },
   cardTag: {
     fontSize: Typography.sm,
     fontWeight: '700',
@@ -235,27 +235,27 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   reelWindow: {
-    height: 54,
+    height: 64,
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  cardValue: { fontSize: 38, color: '#F8FAFC', fontWeight: '900', textAlign: 'center', letterSpacing: -0.8 },
+  cardValue: { fontSize: 44, color: Colors.textPrimary, fontWeight: '900', textAlign: 'center', letterSpacing: -0.8 },
   spinBtn: {
     marginTop: 28,
-    backgroundColor: '#F97316',
+    backgroundColor: Colors.gold,
     borderRadius: Radius.lg,
     borderWidth: 1,
-    borderColor: '#FDBA74',
+    borderColor: '#F4CA61',
     minHeight: 56,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  spinText: { color: '#fff', fontSize: Typography.lg, fontWeight: '800' },
-  helper: { marginTop: 10, color: '#94A3B8', textAlign: 'center', fontSize: Typography.sm },
+  spinText: { color: Colors.bgDark, fontSize: Typography.lg, fontWeight: '900', letterSpacing: 0.4 },
+  helper: { marginTop: 10, color: Colors.textMuted, textAlign: 'center', fontSize: Typography.sm },
   teamName: {
     marginTop: 22,
-    color: '#C7D2FE',
+    color: Colors.steel,
     textAlign: 'center',
     fontSize: Typography.base,
     fontWeight: '600',
@@ -266,12 +266,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 10,
   },
-  goText: { color: '#FB923C', fontSize: Typography.lg, fontWeight: '800' },
+  goText: { color: Colors.gold, fontSize: Typography.lg, fontWeight: '800' },
   bottomRow: { marginTop: 18, alignItems: 'center', gap: 8 },
   rerollBtn: {
     borderWidth: 1,
-    borderColor: '#334155',
-    backgroundColor: '#111827',
+    borderColor: Colors.borderMid,
+    backgroundColor: Colors.bgCard,
     borderRadius: Radius.md,
     paddingHorizontal: 14,
     paddingVertical: 10,
