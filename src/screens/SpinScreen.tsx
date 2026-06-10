@@ -127,6 +127,12 @@ export function SpinScreen() {
 
         <Text style={styles.roundLabel}>{roundLabel}</Text>
 
+        <View style={styles.pillContainer}>
+          {DRAFT_POSITIONS.map((_, idx) => (
+             <View key={idx} style={idx <= positionIndex ? styles.roundPillGold : styles.roundPillBlue} />
+          ))}
+        </View>
+
         <View style={styles.cardsFrame}>
           <View style={styles.cardsColumn}>
             <View style={[styles.spinCard, styles.teamCard]}>
@@ -207,7 +213,25 @@ const styles = StyleSheet.create({
     fontSize: Typography.sm,
     fontWeight: '700',
     letterSpacing: 1.2,
-    marginBottom: 24,
+    marginBottom: 10,
+  },
+  pillContainer: { 
+    height: 14, 
+    flexDirection: 'row', 
+    justifyContent: 'center', 
+    gap: 5, 
+  },
+  roundPillGold: {
+    width: 24,
+    height: 6,
+    borderRadius: 8,
+    backgroundColor: Colors.gold,
+  },
+  roundPillBlue: {
+    width: 24,
+    height: 6,
+    borderRadius: 8,
+    backgroundColor: Colors.gridironBlue,
   },
   cardsFrame: {
     borderRadius: Radius.xl,
@@ -219,7 +243,7 @@ const styles = StyleSheet.create({
   },
   cardsColumn: { gap: 12 },
   spinCard: {
-    minHeight: 210,
+    minHeight: 200,
     borderRadius: Radius.xl,
     borderWidth: 2,
     alignItems: 'center',
