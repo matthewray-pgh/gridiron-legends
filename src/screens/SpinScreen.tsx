@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Pressable, Animated, Easing }
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Colors, Radius, Spacing, Typography } from '../theme/colors';
+import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { ERA_OPTIONS, FRANCHISES, useGameStore } from '../store/gameStore';
 import { DRAFT_POSITIONS } from '../data/players';
 import type { RootStackParamList } from '../navigation/types';
@@ -28,8 +28,10 @@ export function SpinScreen() {
   const teamReel = useRef(new Animated.Value(0)).current;
   const eraReel = useRef(new Animated.Value(0)).current;
 
-  const side = positionIndex < Math.ceil(DRAFT_POSITIONS.length / 2) ? 'OFFENSE' : 'DEFENSE';
-  const roundLabel = `ROUND ${positionIndex + 1}/${DRAFT_POSITIONS.length} · ${side}`;
+  const roundLabel = `ROUND ${positionIndex + 1}/${DRAFT_POSITIONS.length}`;
+  const roundPositionType = useMemo(() => {
+    return positionIndex <= 5 ? 'OFFENSE' : 'DEFENSE';
+  }, [positionIndex]);
 
   const canAdvance = spinState === 'revealed' && currentSpin;
   const teamDisplay = useMemo(() => {
@@ -127,6 +129,8 @@ export function SpinScreen() {
 
         <Text style={styles.roundLabel}>{roundLabel}</Text>
 
+        <Text style={styles.roundPositionLabel}>{roundPositionType}</Text>
+
         <View style={styles.pillContainer}>
           {DRAFT_POSITIONS.map((_, idx) => (
              <View key={idx} style={idx <= positionIndex ? styles.roundPillGold : styles.roundPillBlue} />
@@ -135,16 +139,16 @@ export function SpinScreen() {
 
         <View style={styles.cardsFrame}>
           <View style={styles.cardsColumn}>
-            <View style={[styles.spinCard, styles.teamCard]}>
-              <Text style={[styles.cardTag, { color: Colors.gold }]}>TEAM</Text>
+            <View style={styles.spinCard}>
+              <Text style={styles.cardTag}>TEAM</Text>
               <View style={styles.reelWindow}>
                 <Animated.Text style={[styles.cardValue, { transform: [{ translateY: teamTranslateY }] }]}> 
                   {teamDisplay}
                 </Animated.Text>
               </View>
             </View>
-            <View style={[styles.spinCard, styles.eraCard]}>
-              <Text style={[styles.cardTag, { color: Colors.steel }]}>ERA</Text>
+            <View style={styles.spinCard}>
+              <Text style={styles.cardTag}>ERA</Text>
               <View style={styles.reelWindow}>
                 <Animated.Text style={[styles.cardValue, { transform: [{ translateY: eraTranslateY }] }]}> 
                   {eraDisplay}
@@ -163,7 +167,6 @@ export function SpinScreen() {
           </>
         ) : (
           <>
-            <Text style={styles.teamName}>{currentSpin?.team.name}</Text>
             <TouchableOpacity style={styles.goBtn} onPress={handleAdvance} activeOpacity={0.85}>
               <Text style={styles.goText}>LET&apos;S GO</Text>
             </TouchableOpacity>
@@ -209,11 +212,19 @@ const styles = StyleSheet.create({
   },
   roundLabel: {
     textAlign: 'center',
-    color: Colors.steel,
-    fontSize: Typography.sm,
-    fontWeight: '700',
+    color: Colors.gold,
+    fontFamily: Font.primarySemiBold,
+    fontSize: Typography.md,
     letterSpacing: 1.2,
     marginBottom: 10,
+  },
+  roundPositionLabel: {
+    textAlign: 'center',
+    color: Colors.textPrimary,
+    fontFamily: Font.primarySemiBold,
+    fontSize: Typography['2xl'],
+    letterSpacing: 1.5,
+    marginBottom: 12,
   },
   pillContainer: { 
     height: 14, 
@@ -246,17 +257,17 @@ const styles = StyleSheet.create({
     minHeight: 200,
     borderRadius: Radius.xl,
     borderWidth: 2,
+    borderColor: Colors.steel,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.bgCard,
   },
-  teamCard: { borderColor: Colors.gold },
-  eraCard: { borderColor: Colors.gridironBlue },
   cardTag: {
-    fontSize: Typography.sm,
-    fontWeight: '700',
+    fontFamily: Font.primarySemiBold,
+    fontSize: Typography.xl,
     marginBottom: 12,
     letterSpacing: 1,
+    color: Colors.steel,
   },
   reelWindow: {
     height: 64,
@@ -264,7 +275,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  cardValue: { fontSize: 44, color: Colors.textPrimary, fontWeight: '900', textAlign: 'center', letterSpacing: -0.8 },
+  cardValue: { 
+    fontSize: 44, 
+    color: Colors.gold, 
+    fontWeight: '900', 
+    fontFamily: Font.primaryBold,
+    textAlign: 'center', 
+    letterSpacing: -0.8 
+  },
   spinBtn: {
     marginTop: 28,
     backgroundColor: Colors.gold,
@@ -275,14 +293,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  spinText: { color: Colors.bgDark, fontSize: Typography.lg, fontWeight: '900', letterSpacing: 0.4 },
-  helper: { marginTop: 10, color: Colors.textMuted, textAlign: 'center', fontSize: Typography.sm },
-  teamName: {
-    marginTop: 22,
-    color: Colors.steel,
-    textAlign: 'center',
-    fontSize: Typography.base,
-    fontWeight: '600',
+  spinText: { 
+    color: Colors.bgDark, 
+    fontSize: Typography.xl, 
+    fontFamily: Font.primaryBold, 
+    letterSpacing: 1 
+  },
+  helper: { 
+    marginTop: 10, 
+    color: Colors.textMuted, 
+    textAlign: 'center', 
+    fontSize: Typography.sm,
+    fontFamily: Font.secondaryRegular,
   },
   goBtn: {
     marginTop: 18,
@@ -290,7 +312,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 10,
   },
-  goText: { color: Colors.gold, fontSize: Typography.lg, fontWeight: '800' },
+  goText: { 
+    color: Colors.gold, 
+    fontSize: Typography.xl, 
+    fontFamily: Font.primaryBold 
+  },
   bottomRow: { marginTop: 18, alignItems: 'center', gap: 8 },
   rerollBtn: {
     borderWidth: 1,
@@ -301,6 +327,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   rerollBtnDisabled: { opacity: 0.45 },
-  rerollText: { color: Colors.textSecondary, fontSize: Typography.base, fontWeight: '700' },
+  rerollText: { 
+    color: Colors.textSecondary, 
+    fontSize: Typography.md, 
+    fontFamily: Font.primaryBold 
+  },
   rerollTextDisabled: { color: Colors.textDim },
 });

@@ -4,23 +4,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { getViableTeamAbbrs } from '../data/players';
-import { Colors, Radius, Spacing, Typography } from '../theme/colors';
+import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { useStatsStore } from '../store/statsStore';
 import { ERA_OPTIONS, EraToken, TeamScope, useGameStore } from '../store/gameStore';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-
-const Font = {
-  primaryRegular: 'BebasNeue_400Regular',
-  primaryMedium: 'BebasNeue_400Regular',
-  primarySemiBold: 'BebasNeue_400Regular',
-  primaryBold: 'BebasNeue_400Regular',
-  secondaryRegular: 'Inter_400Regular',
-  secondaryMedium: 'Inter_500Medium',
-  secondarySemiBold: 'Inter_600SemiBold',
-  secondaryBold: 'Inter_700Bold',
-};
 
 export function HomeScreen() {
   const navigation = useNavigation<Nav>();
@@ -64,7 +53,7 @@ export function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <Image source={require('../../assets/splash-icon.png')} style={styles.bgTexture} resizeMode="cover" />
+      {/* <Image source={require('../../assets/splash-icon.png')} style={styles.bgTexture} resizeMode="cover" /> */}
       <View style={styles.bgVignetteTop} pointerEvents="none" />
       <View style={styles.bgVignetteBottom} pointerEvents="none" />
 
@@ -78,16 +67,12 @@ export function HomeScreen() {
           <View style={styles.headerBrandWrap}>
             <Image
               source={useFallbackHeader ? fallbackHeaderImage : homeHeaderImage}
-              style={styles.headerBrandImage}
-              resizeMode="contain"
+              style={styles.headerBrandImage}  
               accessibilityRole="image"
               accessibilityLabel="Undefeated Gridiron Legends"
               onError={() => setUseFallbackHeader(true)}
             />
           </View>
-          <TouchableOpacity style={styles.settingsBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={styles.settingsIcon}>⚙️</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Daily Challenge */}
@@ -105,16 +90,16 @@ export function HomeScreen() {
 
           <View style={styles.statsRow}>
             <View style={styles.statPill}>
-              <Text style={styles.statNum}>1,247</Text>
-              <Text style={styles.statLabel}>PLAYING TODAY</Text>
+              <Text style={styles.statNum}>--</Text>
+              <Text style={styles.statLabel}>PLAYERS</Text>
             </View>
             <View style={styles.statPill}>
-              <Text style={[styles.statNum, { color: Colors.gold }]}>14h 22m</Text>
+              <Text style={[styles.statNum, { color: Colors.gold }]}>--h --m</Text>
               <Text style={styles.statLabel}>RESETS IN</Text>
             </View>
             <View style={styles.statPill}>
               <Text style={styles.statNum}>🔥 {streak}</Text>
-              <Text style={styles.statLabel}>DAY STREAK</Text>
+              <Text style={styles.statLabel}>STREAK</Text>
             </View>
           </View>
 
@@ -124,7 +109,7 @@ export function HomeScreen() {
             activeOpacity={0.85}
             hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           >
-            <Text style={styles.playBtnText}>PLAY TODAY&apos;S CHALLENGE  →</Text>
+            <Text style={styles.playBtnText}>PLAY TODAY&apos;S CHALLENGE</Text>
           </TouchableOpacity>
         </View>
 
@@ -297,21 +282,20 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: Spacing['2xl'] },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.md,
-    gap: 12,
+    gap: 6,
   },
   headerBrandWrap: {
     flex: 1,
   },
   headerBrandImage: {
     width: '100%',
-    maxWidth: 360,
-    aspectRatio: 634 / 258,
+    maxWidth: 460,
+    aspectRatio: 800 / 250,
     minHeight: 72,
   },
   settingsBtn: {
@@ -354,7 +338,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1.1,
     lineHeight: 36,
   },
-  dailyMeta: { fontSize: Typography.md, color: Colors.textSecondary, marginTop: 4, fontFamily: Font.secondaryMedium },
+  dailyMeta: { 
+    fontSize: Typography.sm, 
+    color: Colors.textSecondary, 
+    marginTop: 4, 
+    fontFamily: Font.secondaryRegular, 
+  },
   newBadge: {
     backgroundColor: Colors.gold,
     borderRadius: Radius.md,
@@ -363,14 +352,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E9C35A',
   },
-  newBadgeText: { fontSize: Typography.sm, color: Colors.bgDark, fontFamily: Font.primarySemiBold },
+  newBadgeText: { fontSize: Typography.md, color: Colors.bgDark, fontFamily: Font.primarySemiBold },
 
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   statPill: {
     flex: 1,
     backgroundColor: '#0B1119EE',
     borderRadius: Radius.sm,
-    paddingVertical: 20,
+    paddingVertical: 10,
     paddingHorizontal: 8,
     alignItems: 'center',
     borderWidth: 1,
@@ -378,7 +367,7 @@ const styles = StyleSheet.create({
   },
   statNum: { fontSize: Typography['2xl'], color: Colors.textPrimary, fontFamily: Font.primaryBold },
   statLabel: {
-    fontSize: Typography.md,
+    fontSize: Typography.sm,
     color: Colors.textMuted,
     marginTop: 3,
     textAlign: 'center',
@@ -396,7 +385,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  playBtnText: { fontSize: Typography.md, color: Colors.bgDark, letterSpacing: 0.9, fontFamily: Font.primaryBold },
+  playBtnText: { 
+    fontSize: Typography.xl, 
+    color: Colors.bgDark, 
+    fontFamily: Font.primaryBold 
+  },
 
   sectionLabel: {
     fontSize: Typography.md,
@@ -406,7 +399,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     marginBottom: 10,
   },
-  modeRow: { flexDirection: 'column', gap: 15, paddingHorizontal: Spacing.lg, marginBottom: Spacing.xl },
+  modeRow: { 
+    flexDirection: 'column', 
+    gap: 15, 
+    paddingHorizontal: Spacing.lg, 
+    marginBottom: Spacing.xl 
+  },
   modeCard: {
     width: '100%',
     flexDirection: 'row',
@@ -415,8 +413,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2C3A49',
     borderRadius: Radius.lg,
-    minHeight: 96,
-    paddingVertical: 14,
+    minHeight: 90,
+    paddingVertical: 10,
     paddingHorizontal: 16,
   },
   modeEmoji: {
@@ -428,13 +426,23 @@ const styles = StyleSheet.create({
     fontFamily: Font.primaryBold,
   },
   modeTextWrap: { flex: 1 },
-  modeName: { fontSize: 28, color: Colors.textPrimary, letterSpacing: 1, lineHeight: 29, fontFamily: Font.primaryBold },
-  modeDesc: { fontSize: Typography.md, color: Colors.textMuted, marginTop: 2, fontFamily: Font.secondaryMedium },
+  modeName: { 
+    fontSize: 28, 
+    color: Colors.textPrimary, 
+    fontFamily: Font.primaryBold 
+  },
+  modeDesc: { 
+    fontSize: Typography.sm, 
+    color: Colors.textMuted, 
+    fontFamily: Font.secondaryMedium 
+  },
   modeChevron: {
+    position: 'absolute',
+    right: 20,
+    top: 10,
     color: Colors.gold,
-    fontSize: 30,
-    lineHeight: 30,
-    marginLeft: 10,
+    fontSize: 80,
+    lineHeight: 80,
     fontFamily: Font.primarySemiBold,
   },
 
@@ -442,7 +450,6 @@ const styles = StyleSheet.create({
     fontSize: Typography.md,
     color: Colors.textDim,
     textAlign: 'center',
-    letterSpacing: 1.2,
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.xl,
@@ -499,9 +506,24 @@ const styles = StyleSheet.create({
     borderTopColor: '#1F2D3B',
     paddingTop: 12,
   },
-  sheetSectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  sheetLabel: { color: Colors.gold, fontSize: Typography.sm, letterSpacing: 1.4, fontFamily: Font.primaryMedium },
-  clearText: { color: Colors.gold, fontSize: Typography.sm, fontFamily: Font.primarySemiBold, letterSpacing: 1 },
+  sheetSectionHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginBottom: 8 
+  },
+  sheetLabel: { 
+    color: Colors.gold, 
+    fontSize: Typography.md, 
+    letterSpacing: 1.4, 
+    fontFamily: Font.primaryMedium 
+  },
+  clearText: { 
+    color: Colors.gold, 
+    fontSize: Typography.md, 
+    fontFamily: Font.primarySemiBold, 
+    letterSpacing: 1 
+  },
   segmentWrap: {
     flexDirection: 'row',
     backgroundColor: '#09111B',
@@ -528,10 +550,28 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 0 },
   },
-  segmentText: { color: Colors.textSecondary, fontSize: Typography.base, fontFamily: Font.primaryMedium, letterSpacing: 0.8 },
-  segmentTextActive: { color: Colors.gold, fontFamily: Font.primaryBold },
-  noteText: { color: Colors.textMuted, fontSize: Typography.sm, marginTop: 8, fontFamily: Font.secondaryRegular },
-  chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' },
+  segmentText: { 
+    color: Colors.textSecondary, 
+    fontSize: Typography.md, 
+    fontFamily: Font.primaryMedium, 
+    letterSpacing: 0.8 
+  },
+  segmentTextActive: { 
+    color: Colors.gold, 
+    fontFamily: Font.primaryBold 
+  },
+  noteText: { 
+    color: Colors.textMuted, 
+    fontSize: Typography.sm, 
+    marginTop: 8, 
+    fontFamily: Font.secondaryRegular 
+  },
+  chipsWrap: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    gap: 10, 
+    justifyContent: 'space-between' 
+  },
   eraChip: {
     borderWidth: 1,
     borderColor: '#324252',
@@ -584,7 +624,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cancelText: { color: Colors.textSecondary, fontSize: Typography.md, fontFamily: Font.primarySemiBold, letterSpacing: 0.9 },
+  cancelText: { 
+    color: Colors.textSecondary, 
+    fontSize: Typography.lg, 
+    fontFamily: Font.primarySemiBold, 
+    letterSpacing: 0.9 
+  },
   startBtn: {
     flex: 1.5,
     minHeight: 52,
@@ -597,5 +642,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   startBtnDisabled: { opacity: 0.45 },
-  startBtnText: { color: Colors.bgDark, fontSize: Typography.md, fontFamily: Font.primaryBold, letterSpacing: 1 },
+  startBtnText: { 
+    color: Colors.bgDark, 
+    fontSize: Typography.lg, 
+    fontFamily: Font.primaryBold, 
+    letterSpacing: 1 
+  },
 });

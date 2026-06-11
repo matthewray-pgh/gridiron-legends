@@ -74,3 +74,14 @@ export const Radius = {
   xl: 20,
   full: 999,
 };
+
+export const Font = {
+  primaryRegular: 'BebasNeue_400Regular',
+  primaryMedium: 'BebasNeue_400Regular',
+  primarySemiBold: 'BebasNeue_400Regular',
+  primaryBold: 'BebasNeue_400Regular',
+  secondaryRegular: 'Inter_400Regular',
+  secondaryMedium: 'Inter_500Medium',
+  secondarySemiBold: 'Inter_600SemiBold',
+  secondaryBold: 'Inter_700Bold',
+};
