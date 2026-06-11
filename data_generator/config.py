@@ -39,3 +39,12 @@ POSITION_MAP = {
     "K": "K",
     "P": "P"
 }
+
+TEAM_CODE_MAP = {
+    # Legacy/alternate abbreviations -> modern codes used by the app.
+    "JAC": "JAX",
+    "OAK": "LV",
+    "SD": "LAC",
+    "STL": "LA",
+    "WSH": "WAS",
+}

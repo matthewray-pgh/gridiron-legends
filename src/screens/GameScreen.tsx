@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Colors, Radius, Spacing, Typography } from '../theme/colors';
+import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { DRAFT_POSITIONS, Position } from '../data/players';
 import { useGameStore } from '../store/gameStore';
 import type { RootStackParamList } from '../navigation/types';
@@ -20,22 +20,55 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const OFFENSE_POSITIONS: Position[] = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'FLEX2'];
 const DEFENSE_POSITIONS: Position[] = ['EDGE', 'DT', 'LB', 'CB', 'S', 'D-FLEX'];
-const STAT_DISPLAY_ORDER: Array<[string, string]> = [
+const QB_STAT_DISPLAY_ORDER: Array<[string, string]> = [
+  ['completions', 'COMP'],
+  ['attempts', 'ATT'],
   ['passingYards', 'PASSYDS'],
   ['passingTD', 'PASSTD'],
   ['interceptions', 'INT'],
+  // ['passingAirYards', 'PASSAIR'],
+  // ['passingYardsAfterCatch', 'PASSYAC'],
+  // ['passingFirstDowns', 'PASS1D'],
   ['rushingYards', 'RUYDS'],
   ['rushingTD', 'RUTD'],
+  // ['rushingFirstDowns', 'RU1D'],
+  // ['rushingFumbles', 'RFUM'],
+  // ['rushingFumblesLost', 'RFUML'],
+];
+
+const SKILL_STAT_DISPLAY_ORDER: Array<[string, string]> = [
+  ['rushingYards', 'RUYDS'],
+  ['rushingTD', 'RUTD'],
+  // ['rushingFirstDowns', 'RU1D'],
+  // ['rushingFumbles', 'RFUM'],
+  // ['rushingFumblesLost', 'RFUML'],
   ['receptions', 'REC'],
+  // ['targets', 'TGT'],
   ['receivingYards', 'RECYDS'],
   ['receivingTD', 'RECTD'],
+  // ['receivingAirYards', 'RECAIR'],
+  ['receivingYardsAfterCatch', 'RECYAC'],
+  // ['receivingFirstDowns', 'REC1D'],
+  // ['receivingFumbles', 'CFUM'],
+  // ['receivingFumblesLost', 'CFUML'],
+];
+
+const DEFENSE_STAT_DISPLAY_ORDER: Array<[string, string]> = [
+  ['tackles', 'TKL'],
   ['sacks', 'SACKS'],
   ['tfl', 'TFL'],
   ['qbHits', 'QBHITS'],
   ['forcedFumbles', 'FF'],
   ['passesDefended', 'PD'],
-  ['defTD', 'DEFTD'],
+  // ['defTD', 'DEFTD'],
 ];
+
+function getStatDisplayOrder(position: Position | undefined): Array<[string, string]> {
+  if (!position) return [];
+  if (position === 'QB') return QB_STAT_DISPLAY_ORDER;
+  if (OFFENSE_POSITIONS.includes(position)) return SKILL_STAT_DISPLAY_ORDER;
+  return DEFENSE_STAT_DISPLAY_ORDER;
+}
 
 function parseYear(playerYears: string): string {
   const match = playerYears.match(/(\d{4})/);
@@ -69,18 +102,31 @@ export function GameScreen() {
 
   const candidates = currentCandidates();
   const selectedPlayer = currentPlayer();
+  const selectedCandidateId = candidates[playerIndex]?.id;
   const openSlots = openPositions();
   const selectedEligibleSlots = selectedPlayer?.eligiblePositions ?? [];
   const quickAssignSlots = selectedEligibleSlots.filter((position) => !roster[position]);
   const progressLabel = `${positionIndex + 1}/${DRAFT_POSITIONS.length}`;
+  const positionTypeLabel = positionIndex <= 5 ? 'OFFENSE' : 'DEFENSE';
   const [statsModalVisible, setStatsModalVisible] = useState(false);
   const [slotFilter, setSlotFilter] = useState<'offense' | 'defense'>('offense');
-  const groupedCandidates = DRAFT_POSITIONS
+  const applicablePositions = positionIndex <= 5 ? OFFENSE_POSITIONS : DEFENSE_POSITIONS;
+  const groupedCandidates = applicablePositions
     .map((position) => ({
       position,
       entries: candidates
         .map((candidate, index) => ({ candidate, index }))
-        .filter(({ candidate }) => candidate.position === position),
+        .filter(({ candidate }) => candidate.position === position)
+        .sort(({ candidate: a }, { candidate: b }) => {
+          // First sort by era (year from the years string) in descending order
+          const yearA = parseYear(a.years);
+          const yearB = parseYear(b.years);
+          if (yearA !== yearB) {
+            return yearB.localeCompare(yearA);
+          }
+          // Then sort alphabetically by name
+          return a.name.localeCompare(b.name);
+        }),
     }))
     .filter((group) => group.entries.length > 0);
   const filteredSlotPositions = (slotFilter === 'offense' ? OFFENSE_POSITIONS : DEFENSE_POSITIONS);
@@ -89,7 +135,7 @@ export function GameScreen() {
 
   const statMetrics = useMemo(() => {
     if (!selectedPlayer) return [];
-    const fromRawStats = STAT_DISPLAY_ORDER
+    const fromRawStats = getStatDisplayOrder(selectedPlayer.position)
       .map(([key, label]) => {
         const value = selectedPlayer.statValues?.[key];
         if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return null;
@@ -133,29 +179,25 @@ export function GameScreen() {
   useFocusEffect(
     useCallback(() => {
       // Reset transient selection state each time Game screen is focused.
-      setPlayerIndex(0);
+      setPlayerIndex(-1);
       setStatsModalVisible(false);
     }, [setPlayerIndex])
   );
 
-  useEffect(() => {
-    setPlayerIndex(0);
-  }, [currentSpin, setPlayerIndex]);
+
 
   useEffect(() => {
     setStatsModalVisible(false);
   }, [currentSpin]);
 
   useEffect(() => {
-    if (openOffenseSlots.length === 0 && openDefenseSlots.length > 0) {
-      setSlotFilter('defense');
-      return;
-    }
-
-    if (openDefenseSlots.length === 0 && openOffenseSlots.length > 0) {
+    if (positionIndex <= 5) {
       setSlotFilter('offense');
+      return;
+    } else {
+      setSlotFilter('defense');
     }
-  }, [openOffenseSlots.length, openDefenseSlots.length]);
+  }, [positionIndex]);
 
   function handleAssign(position: Position) {
     if (!selectedPlayer) return;
@@ -206,18 +248,18 @@ export function GameScreen() {
             <Text style={styles.backText}>←</Text>
           </TouchableOpacity>
           <View style={styles.roundPill}>
-            <Text style={styles.roundPillText}>Round {progressLabel}</Text>
+            <Text style={styles.roundPillText}>Round {progressLabel}  ·  {positionTypeLabel}</Text>
           </View>
         </View>
 
         <View style={styles.metaRow}>
           {!!currentSpin && (
             <>
-                <View style={[styles.pillOutline, { borderColor: Colors.gold }]}>
+                <View style={styles.pillOutline}>
                 <Text style={styles.pillOutlineLabel}>TEAM</Text>
                 <Text style={styles.pillOutlineValue}>{currentSpin.team.abbr}</Text>
               </View>
-                <View style={[styles.pillOutline, { borderColor: Colors.gridironBlue }]}>
+                <View style={styles.pillOutline}>
                 <Text style={styles.pillOutlineLabel}>ERA</Text>
                 <Text style={styles.pillOutlineValue}>{currentSpin.era}</Text>
               </View>
@@ -235,7 +277,7 @@ export function GameScreen() {
 
       <Text style={styles.sectionTitle}>Available Players</Text>
 
-      <Text style={styles.inlineHint}>Tap a player row to inspect full stats.</Text>
+      {/* <Text style={styles.inlineHint}>Tap a player row to inspect full stats.</Text> */}
 
       {candidates.length === 0 ? (
         <View style={styles.emptyState}>
@@ -250,7 +292,7 @@ export function GameScreen() {
             <View key={group.position} style={styles.groupWrap}>
               <Text style={styles.groupHeader}>{group.position} · {group.entries.length}</Text>
               {group.entries.map(({ candidate, index }) => {
-                const selected = index === playerIndex;
+                const selected = candidate.id === selectedCandidateId;
                 return (
                   <TouchableOpacity
                     key={candidate.id}
@@ -281,8 +323,8 @@ export function GameScreen() {
 
       <View style={styles.assignWrap}>
         <View style={styles.assignHeaderRow}>
-          <Text style={styles.assignLabel}>Assign To Slot</Text>
-          <View style={styles.filterWrap}>
+          <Text style={styles.assignLabel}>Assign To Position</Text>
+          {/* <View style={styles.filterWrap}>
             <TouchableOpacity
               style={[styles.filterBtn, slotFilter === 'offense' && styles.filterBtnActive]}
               onPress={() => setSlotFilter('offense')}
@@ -297,7 +339,7 @@ export function GameScreen() {
             >
               <Text style={[styles.filterBtnText, slotFilter === 'defense' && styles.filterBtnTextActive]}>DEF</Text>
             </TouchableOpacity>
-          </View>
+          </View> */}
         </View>
         <View style={styles.slotGrid}>
           {filteredSlotPositions.map((position) => renderSlot(position))}
@@ -327,7 +369,7 @@ export function GameScreen() {
                 </View>
 
                 <View style={styles.selectedStatsBox}>
-                  <Text style={styles.selectedStatsLabel}>AVAILABLE STATS</Text>
+                  <Text style={styles.selectedStatsLabel}>STATISTICS</Text>
                   <View style={styles.statMetricGrid}>
                     {fallbackStatMetrics.map((metric) => (
                       <View key={metric.key} style={styles.statMetricItem}>
@@ -403,21 +445,32 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  roundPillText: { color: Colors.textSecondary, fontSize: Typography.sm, fontWeight: '700', textAlign: 'center' },
+  roundPillText: { 
+    color: Colors.textSecondary, 
+    fontFamily: Font.primarySemiBold,
+    fontSize: Typography.lg, 
+    textAlign: 'center' 
+  },
   pillOutline: {
     borderWidth: 2,
     borderRadius: Radius.md,
+    borderColor: Colors.steel,
     paddingHorizontal: 9,
     paddingVertical: 5,
     minWidth: 82,
   },
   pillOutlineLabel: {
     color: Colors.textMuted,
-    fontSize: 9,
-    fontWeight: '700',
+    fontSize: Typography.md,
+    fontFamily: Font.primarySemiBold,
     letterSpacing: 1,
   },
-  pillOutlineValue: { color: Colors.textPrimary, fontSize: Typography.lg, fontWeight: '800' },
+  pillOutlineValue: { 
+    color: Colors.textPrimary, 
+    fontSize: Typography['2xl'], 
+    fontFamily: Font.primaryBold,
+    fontWeight: '800' 
+  },
   rerollPill: {
     marginLeft: 'auto',
     borderWidth: 1,
@@ -426,11 +479,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
-  rerollText: { color: Colors.textSecondary, fontSize: Typography.base, fontWeight: '700' },
+  rerollText: { 
+    color: Colors.textSecondary, 
+    fontSize: Typography.md, 
+    fontFamily: Font.primarySemiBold,
+    paddingVertical: 10,
+    paddingHorizontal: 5,
+  },
   helper: {
     color: Colors.textDim,
     marginTop: 6,
-    fontSize: Typography.base,
+    fontFamily: Font.secondaryRegular,
+    fontSize: Typography.sm,
   },
   divider: {
     marginTop: 10,
@@ -441,7 +501,8 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: Colors.gold,
     fontWeight: '800',
-    fontSize: Typography.lg,
+    fontSize: Typography.xl,
+    fontFamily: Font.primaryBold,
   },
   inlineHint: {
     color: Colors.textMuted,
@@ -562,9 +623,9 @@ const styles = StyleSheet.create({
   groupWrap: { gap: 8 },
   groupHeader: {
     color: Colors.gold,
-    fontSize: Typography.base,
+    fontFamily: Font.primaryBold,
+    fontSize: Typography.lg,
     fontWeight: '800',
-    marginTop: 2,
   },
   rowCard: {
     backgroundColor: Colors.bgCardDeep,
@@ -578,8 +639,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   rowCardSelected: {
-    borderColor: Colors.green,
-    backgroundColor: Colors.bgNavy,
+    borderColor: Colors.gold,
   },
   rowLeft: {
     flexDirection: 'row',
@@ -594,12 +654,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  posBadgeText: { color: Colors.textSecondary, fontSize: Typography.sm, fontWeight: '700' },
-  playerName: { color: Colors.textPrimary, fontSize: Typography.xl, fontWeight: '700' },
-  playerMeta: { color: Colors.textDim, fontSize: Typography.lg, marginTop: 2 },
+  posBadgeText: { 
+    color: Colors.textSecondary, 
+    fontSize: Typography.xl, 
+    fontWeight: '700',
+    fontFamily: Font.primaryBold,
+  },
+  playerName: { 
+    color: Colors.textPrimary, 
+    fontSize: Typography['2xl'], 
+    fontFamily: Font.primaryBold,
+  },
+  playerMeta: { 
+    color: Colors.textDim, 
+    fontSize: Typography.lg, 
+    fontFamily: Font.primaryRegular,
+    marginTop: 2 
+  },
   rowRight: { alignItems: 'flex-end' },
-  metricValue: { color: Colors.textPrimary, fontSize: Typography.xl, fontWeight: '800' },
-  metricLabel: { color: Colors.textDim, fontSize: Typography.sm, fontWeight: '700' },
+  metricValue: { 
+    color: Colors.textPrimary, 
+    fontFamily: Font.primaryBold,
+    fontSize: Typography.xl, 
+    fontWeight: '800' 
+  },
+  metricLabel: { 
+    color: Colors.textDim, 
+    fontSize: Typography.md, 
+    fontWeight: '700',
+    fontFamily: Font.primaryBold,
+  },
   assignWrap: {
     marginTop: 6,
     marginBottom: 8,
@@ -611,7 +695,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  assignLabel: { color: Colors.textSecondary, fontSize: Typography.md, fontWeight: '700' },
+  assignLabel: { 
+    color: Colors.textSecondary, 
+    fontSize: Typography.xl, 
+    fontWeight: '700',
+    fontFamily: Font.primaryBold,
+  },
   filterWrap: {
     flexDirection: 'row',
     backgroundColor: Colors.bgDark,
@@ -659,7 +748,11 @@ const styles = StyleSheet.create({
   slotFilled: {
     borderColor: Colors.green,
   },
-  slotText: { color: Colors.textSecondary, fontSize: Typography.sm, fontWeight: '800' },
+  slotText: { 
+    color: Colors.textSecondary, 
+    fontSize: Typography.lg, 
+    fontFamily: Font.primaryBold,
+  },
   slotTextEligible: { color: Colors.gold },
   slotTextFilled: { color: Colors.green },
   assignHint: { color: Colors.textDim, fontSize: Typography.sm },

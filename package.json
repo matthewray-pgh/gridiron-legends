@@ -36,7 +36,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "generate:data": "cd data_generator && ../.venv/bin/python generator.py"
+    "generate:data": "cd data_generator && ../.venv/bin/python generator.py",
+    "generate:data:run": "./data_generator/run_generator.sh"
   },
   "private": true
 }

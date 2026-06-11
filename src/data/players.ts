@@ -29,14 +29,29 @@ type GeneratedPosition =
   | 'DB';
 
 interface GeneratedStats {
+  completions: number;
+  attempts: number;
   passingYards: number;
   passingTD: number;
   interceptions: number;
+  passingAirYards: number;
+  passingYardsAfterCatch: number;
+  passingFirstDowns: number;
   rushingYards: number;
   rushingTD: number;
+  rushingFirstDowns: number;
+  rushingFumbles: number;
+  rushingFumblesLost: number;
   receptions: number;
+  targets: number;
   receivingYards: number;
   receivingTD: number;
+  receivingAirYards: number;
+  receivingYardsAfterCatch: number;
+  receivingFirstDowns: number;
+  receivingFumbles: number;
+  receivingFumblesLost: number;
+  tackles: number;
   sacks: number;
   tfl: number;
   qbHits: number;
@@ -104,10 +119,6 @@ const GENERATED_RECORDS = (generatedData.records ?? []).filter((record): record 
   );
 });
 
-function normalizeRating(rawRating: number): number {
-  return Math.max(40, Math.min(99, Math.round(rawRating)));
-}
-
 function ratingToTier(rating: number): Tier {
   if (rating >= 95) return 'GOAT';
   if (rating >= 85) return 'Legend';
@@ -133,8 +144,11 @@ function formatStats(record: GeneratedPlayerRecord, draftPosition: Position): st
   switch (draftPosition) {
     case 'QB':
       return joinStatParts([
+        stats.completions > 0 ? `${formatStatValue(stats.completions)} comp` : null,
+        stats.attempts > 0 ? `${formatStatValue(stats.attempts)} att` : null,
         stats.passingYards > 0 ? `${formatStatValue(stats.passingYards)} pass yds` : null,
         stats.passingTD > 0 ? `${formatStatValue(stats.passingTD)} pass TD` : null,
+        stats.interceptions > 0 ? `${formatStatValue(stats.interceptions)} INT` : null,
         stats.rushingYards > 0 ? `${formatStatValue(stats.rushingYards)} rush yds` : null,
       ]);
     case 'RB':
@@ -142,6 +156,8 @@ function formatStats(record: GeneratedPlayerRecord, draftPosition: Position): st
         stats.rushingYards > 0 ? `${formatStatValue(stats.rushingYards)} rush yds` : null,
         stats.rushingTD > 0 ? `${formatStatValue(stats.rushingTD)} rush TD` : null,
         stats.receptions > 0 ? `${formatStatValue(stats.receptions)} rec` : null,
+        stats.targets > 0 ? `${formatStatValue(stats.targets)} tgt` : null,
+        stats.receivingYards > 0 ? `${formatStatValue(stats.receivingYards)} rec yds` : null,
       ]);
     case 'WR':
     case 'TE':
@@ -149,19 +165,24 @@ function formatStats(record: GeneratedPlayerRecord, draftPosition: Position): st
     case 'FLEX2':
       return joinStatParts([
         stats.receptions > 0 ? `${formatStatValue(stats.receptions)} rec` : null,
+        stats.targets > 0 ? `${formatStatValue(stats.targets)} tgt` : null,
         stats.receivingYards > 0 ? `${formatStatValue(stats.receivingYards)} rec yds` : null,
         stats.receivingTD > 0 ? `${formatStatValue(stats.receivingTD)} rec TD` : null,
+        stats.receivingAirYards > 0 ? `${formatStatValue(stats.receivingAirYards)} air yds` : null,
+        stats.receivingYardsAfterCatch > 0 ? `${formatStatValue(stats.receivingYardsAfterCatch)} YAC` : null,
         stats.rushingYards > 0 ? `${formatStatValue(stats.rushingYards)} rush yds` : null,
       ]);
     case 'EDGE':
     case 'DT':
       return joinStatParts([
+        stats.tackles > 0 ? `${formatStatValue(stats.tackles)} tackles` : null,
         stats.sacks > 0 ? `${formatStatValue(stats.sacks)} sacks` : null,
         stats.tfl > 0 ? `${formatStatValue(stats.tfl)} TFL` : null,
         stats.qbHits > 0 ? `${formatStatValue(stats.qbHits)} QB hits` : null,
       ]);
     case 'LB':
       return joinStatParts([
+        stats.tackles > 0 ? `${formatStatValue(stats.tackles)} tackles` : null,
         stats.tfl > 0 ? `${formatStatValue(stats.tfl)} TFL` : null,
         stats.sacks > 0 ? `${formatStatValue(stats.sacks)} sacks` : null,
         stats.interceptions > 0 ? `${formatStatValue(stats.interceptions)} INT` : null,
@@ -170,6 +191,7 @@ function formatStats(record: GeneratedPlayerRecord, draftPosition: Position): st
     case 'S':
     case 'D-FLEX':
       return joinStatParts([
+        stats.tackles > 0 ? `${formatStatValue(stats.tackles)} tackles` : null,
         stats.interceptions > 0 ? `${formatStatValue(stats.interceptions)} INT` : null,
         stats.passesDefended > 0 ? `${formatStatValue(stats.passesDefended)} PD` : null,
         stats.forcedFumbles > 0 ? `${formatStatValue(stats.forcedFumbles)} FF` : null,
@@ -186,7 +208,7 @@ function formatName(record: GeneratedPlayerRecord): string {
 }
 
 function toPlayer(record: GeneratedPlayerRecord, draftPosition: Position): Player {
-  const rating = normalizeRating(record.ratings?.overall ?? 40);
+  const rating = typeof record.ratings?.overall === 'number' ? record.ratings.overall : 40;
 
   return {
     id: record.id,
