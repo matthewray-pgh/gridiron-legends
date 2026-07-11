@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Gridiron Legends",
+    "name": "Undefeated: Gridiron Legends",
     "slug": "gridiron-legends",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,7 +8,11 @@
     "userInterfaceStyle": "dark",
     "description": "Build the ultimate all-time NFL roster and simulate a perfect 20-0 season. Not affiliated with or endorsed by the NFL, NFLPA, or any team.",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.lonebridgeapps.gridironlegends",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -24,6 +28,11 @@
     },
     "plugins": [
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "165ff334-ec63-4998-8062-d68d1affd568"
+      }
+    }
   }
 }
