@@ -9,7 +9,7 @@ import {
   getViableTeamAbbrs,
 } from '../data/players';
 
-export type GameMode = 'daily' | 'classic' | 'iq';
+export type GameMode = 'daily' | 'classic' | 'iq' | 'timer';
 export type TeamScope = 'all' | 'single';
 export type SpinState = 'pre' | 'spinning' | 'revealed' | 'picked';
 
@@ -83,6 +83,7 @@ const MAX_PASSES_BY_MODE: Record<GameMode, number> = {
   daily: 1,
   classic: 2,
   iq: 0,
+  timer: 3,
 };
 
 export const useGameStore = create<GameState>((set, get) => ({

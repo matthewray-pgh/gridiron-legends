@@ -1,8 +1,20 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, Pressable, Image } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  Modal,
+  Pressable,
+  Image,
+  ImageBackground,
+  useWindowDimensions,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { LinearGradient } from 'expo-linear-gradient';
 import { getViableTeamAbbrs } from '../data/players';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { useStatsStore } from '../store/statsStore';
@@ -11,36 +23,62 @@ import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-export function HomeScreen() {
-  const navigation = useNavigation<Nav>();
-  const streak = useStatsStore((s) => s.streak);
-  const setMode = useGameStore((s) => s.setMode);
-  const beginDraftSession = useGameStore((s) => s.beginDraftSession);
-  const homeHeaderImage = require('../../assets/undefeated-gridiron-legends-header.png');
-  const fallbackHeaderImage = require('../../assets/icon.png');
+// ─── Asset references ────────────────────────────────────────────────────────
+// Drop your generated images into assets/ with these exact names.
+// React Native auto-selects @2x / @3x variants on high-DPI devices.
+//
+//   assets/stadium-bg.png        (430 × 932 px baseline)
+//   assets/stadium-bg@2x.png     (860 × 1864 px)
+//   assets/stadium-bg@3x.png     (1290 × 2796 px)
+//
+//   assets/field-bottom.png      (430 × 220 px baseline, top edge transparent/faded)
+//   assets/field-bottom@2x.png   (860 × 440 px)
+//   assets/field-bottom@3x.png   (1290 × 660 px)
+//
+//   assets/undefeated-header.png        (800 × 220 px baseline, transparent bg)
+//   assets/undefeated-header@2x.png     (1600 × 440 px)
+//   assets/undefeated-header@3x.png     (2400 × 660 px)
+//
+// Until the real images are ready the LinearGradient fallbacks keep the
+// screen functional and on-brand.
 
-  const [setupVisible, setSetupVisible] = useState(false);
-  const [useFallbackHeader, setUseFallbackHeader] = useState(false);
-  const [pendingMode, setPendingMode] = useState<'daily' | 'classic' | 'iq'>('classic');
-  const [teamScope, setTeamScope] = useState<TeamScope>('all');
-  const [selectedEras, setSelectedEras] = useState<EraToken[]>(ERA_OPTIONS);
+const STADIUM_BG    = require('../../assets/stadium-bg.png');
+const FIELD_BOTTOM  = require('../../assets/field-bottom.png');
+const HEADER_LOGO   = require('../../assets/undefeated-gridiron-legends-header.png');
+const FALLBACK_LOGO = require('../../assets/icon.png');
+
+export function HomeScreen() {
+  const navigation             = useNavigation<Nav>();
+  const streak                 = useStatsStore((s) => s.streak);
+  const setMode                = useGameStore((s) => s.setMode);
+  const beginDraftSession      = useGameStore((s) => s.beginDraftSession);
+  const { width: screenWidth } = useWindowDimensions();
+
+  const [setupVisible,    setSetupVisible]    = useState(false);
+  const [useFallbackLogo, setUseFallbackLogo] = useState(false);
+  const [stadiumError,    setStadiumError]    = useState(false);
+  const [fieldError,      setFieldError]      = useState(false);
+  const [pendingMode,     setPendingMode]     = useState<'daily' | 'classic' | 'iq' | 'timer'>('classic');
+  const [teamScope,       setTeamScope]       = useState<TeamScope>('all');
+  const [selectedEras,    setSelectedEras]    = useState<EraToken[]>(ERA_OPTIONS);
+
   const viableSingleTeamCount = getViableTeamAbbrs(
     ['PIT', 'DAL', 'NE', 'SF', 'GB', 'BAL', 'MIA', 'KC', 'BUF', 'DEN', 'CHI', 'NYG'],
     selectedEras,
   ).length;
   const canStart = selectedEras.length > 0 && (teamScope === 'all' || viableSingleTeamCount > 0);
 
-  function startGame(mode: 'daily' | 'classic' | 'iq') {
+  function startGame(mode: 'daily' | 'classic' | 'iq' | 'timer') {
     setPendingMode(mode);
     setSetupVisible(true);
   }
 
   function toggleEra(era: EraToken) {
-    setSelectedEras((current) => (current.includes(era) ? current.filter((e) => e !== era) : [...current, era]));
+    setSelectedEras((cur) => cur.includes(era) ? cur.filter((e) => e !== era) : [...cur, era]);
   }
 
   function toggleSelectAllEras() {
-    setSelectedEras((current) => (current.length === 0 ? ERA_OPTIONS : []));
+    setSelectedEras((cur) => cur.length === 0 ? ERA_OPTIONS : []);
   }
 
   function handleStartFromSetup() {
@@ -51,34 +89,76 @@ export function HomeScreen() {
     navigation.navigate('Spin');
   }
 
+  // Header logo: scales proportionally to screen width.
+  // Ratio matches the recommended export canvas (800 x 220 px).
+  const logoWidth  = screenWidth * 0.72;
+  const logoHeight = Math.round(logoWidth * (220 / 800));
+
   return (
     <SafeAreaView style={styles.safe}>
-      {/* <Image source={require('../../assets/splash-icon.png')} style={styles.bgTexture} resizeMode="cover" /> */}
-      <View style={styles.bgVignetteTop} pointerEvents="none" />
-      <View style={styles.bgVignetteBottom} pointerEvents="none" />
+
+      {/* ── STADIUM BACKGROUND ─────────────────────────────────────────────
+           Full-screen image pinned behind everything. A dark LinearGradient
+           scrim sits on top so UI text/cards stay readable regardless of
+           how bright the source image is.
+           Falls back to a plain dark gradient until the PNG is in assets.  */}
+      {stadiumError ? (
+        <LinearGradient
+          colors={['#1C2B3A', '#0D151E', '#060A0E']}
+          locations={[0, 0.55, 1]}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+      ) : (
+        <ImageBackground
+          source={STADIUM_BG}
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
+          onError={() => setStadiumError(true)}
+        >
+          <LinearGradient
+            colors={['#0B0F14CC', '#0B0F14AA', '#0B0F14F0']}
+            locations={[0, 0.5, 1]}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+        </ImageBackground>
+      )}
 
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
+
+        {/* ── HEADER ───────────────────────────────────────────────────────
+             Logo width is 72% of screen width; height derives from the
+             asset aspect ratio (800x220) so it scales on every device.
+             Settings gear is wired and visible in the top-right corner.   */}
         <View style={styles.header}>
-          <View style={styles.headerBrandWrap}>
-            <Image
-              source={useFallbackHeader ? fallbackHeaderImage : homeHeaderImage}
-              style={styles.headerBrandImage}  
-              accessibilityRole="image"
-              accessibilityLabel="Undefeated Gridiron Legends"
-              onError={() => setUseFallbackHeader(true)}
-            />
-          </View>
+          <Image
+            source={useFallbackLogo ? FALLBACK_LOGO : HEADER_LOGO}
+            style={{ width: logoWidth, height: logoHeight }}
+            resizeMode="contain"
+            accessibilityRole="image"
+            accessibilityLabel="Undefeated Gridiron Legends"
+            onError={() => setUseFallbackLogo(true)}
+          />
+          <TouchableOpacity
+            style={styles.settingsBtn}
+            onPress={() => { /* navigate to settings */ }}
+            accessibilityLabel="Settings"
+            accessibilityRole="button"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.settingsIcon}>⚙</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Daily Challenge */}
+        {/* ── DAILY CHALLENGE CARD ─────────────────────────────────────── */}
         <View style={styles.dailyCard}>
           <View style={styles.dailyTop}>
-            <View>
+            <View style={{ flex: 1, marginRight: 12 }}>
               <Text style={styles.dailyLabel}>TODAY'S CHALLENGE</Text>
               <Text style={styles.dailyTitle}>DAILY ROSTER BUILD</Text>
               <Text style={styles.dailyMeta}>Same spins for everyone • 1 attempt</Text>
@@ -103,72 +183,117 @@ export function HomeScreen() {
             </View>
           </View>
 
+          {/* Gold metallic gradient CTA button — matches the mockup sheen */}
           <TouchableOpacity
-            style={styles.playBtn}
             onPress={() => startGame('daily')}
             activeOpacity={0.85}
             hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            accessibilityRole="button"
           >
-            <Text style={styles.playBtnText}>PLAY TODAY&apos;S CHALLENGE</Text>
+            <LinearGradient
+              colors={['#A86A05', '#D4A017', '#F0CC50', '#D4A017', '#A86A05']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.playBtn}
+            >
+              <Text style={styles.playBtnText}>PLAY TODAY'S CHALLENGE</Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
 
-        {/* Choose Mode */}
+        {/* ── CHOOSE YOUR MODE ─────────────────────────────────────────── */}
         <Text style={styles.sectionLabel}>CHOOSE YOUR MODE</Text>
         <View style={styles.modeRow}>
-          <TouchableOpacity
-            style={styles.modeCard}
-            onPress={() => startGame('classic')}
-            activeOpacity={0.8}
-            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-          >
-            <Text style={styles.modeEmoji}>100</Text>
-            <View style={styles.modeTextWrap}>
-              <Text style={styles.modeName}>CLASSIC</Text>
-              <Text style={styles.modeDesc}>Stats visible</Text>
-            </View>
-            <Text style={styles.modeChevron}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.modeCard}
-            onPress={() => startGame('iq')}
-            activeOpacity={0.8}
-            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-          >
-            <Text style={styles.modeEmoji}>🧠</Text>
-            <View style={styles.modeTextWrap}>
-              <Text style={styles.modeName}>GRIDIRON IQ</Text>
-              <Text style={styles.modeDesc}>Stats hidden</Text>
-            </View>
-            <Text style={styles.modeChevron}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.modeCard}
-            onPress={() => navigation.navigate('Leaderboard')}
-            activeOpacity={0.8}
-            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-          >
-            <Text style={styles.modeEmoji}>⚔️</Text>
-            <View style={styles.modeTextWrap}>
-              <Text style={styles.modeName}>CHALLENGE</Text>
-              <Text style={styles.modeDesc}>vs friends</Text>
-            </View>
-            <Text style={styles.modeChevron}>›</Text>
-          </TouchableOpacity>
+          {[
+            { id: 'classic', emoji: '100', label: 'CLASSIC',     desc: 'Stats visible', onPress: () => startGame('classic') },
+            { id: 'iq',      emoji: '🧠',  label: 'GRIDIRON IQ', desc: 'Stats hidden',  onPress: () => startGame('iq') },
+          ].map((mode) => (
+            <TouchableOpacity
+              key={mode.id}
+              style={styles.modeCard}
+              onPress={mode.onPress}
+              activeOpacity={0.8}
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+            >
+              <Text style={styles.modeEmoji}>{mode.emoji}</Text>
+              <View style={styles.modeTextWrap}>
+                <Text style={styles.modeName}>{mode.label}</Text>
+                <Text style={styles.modeDesc}>{mode.desc}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        {/* Disclaimer */}
+         <View style={styles.modeRow}>
+          {[
+            { id: 'timer',  emoji: '⏱',  label: 'TIMED', desc: 'Beat the clock', onPress: () => startGame('timer') },
+            { id: 'chal',    emoji: '⚔️',  label: 'CHALLENGE',   desc: 'vs friends',    onPress: () => navigation.navigate('Leaderboard') },
+          ].map((mode) => (
+            <TouchableOpacity
+              key={mode.id}
+              style={styles.modeCard}
+              onPress={mode.onPress}
+              activeOpacity={0.8}
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+            >
+              <Text style={styles.modeEmoji}>{mode.emoji}</Text>
+              <View style={styles.modeTextWrap}>
+                <Text style={styles.modeName}>{mode.label}</Text>
+                <Text style={styles.modeDesc}>{mode.desc}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* ── DISCLAIMER ───────────────────────────────────────────────── */}
         <Text style={styles.disclaimer}>
           Not affiliated with or endorsed by the NFL, NFLPA, or any team.
         </Text>
+
+        {/* ── FIELD BOTTOM IMAGE ───────────────────────────────────────────
+             Always screen-width wide. aspectRatio (430/220) matches the
+             export canvas so height auto-scales on any device.
+             A LinearGradient fades the top edge into the background above.
+             Falls back to a dark-green gradient until PNG is in assets.   */}
+        {/* <View style={[styles.fieldWrap, { width: screenWidth }]}>
+          {fieldError ? (
+            <LinearGradient
+              colors={['#00000000', '#0A1A0E', '#0D2310']}
+              locations={[0, 0.4, 1]}
+              style={styles.fieldFallback}
+            />
+          ) : (
+            <Image
+              source={FIELD_BOTTOM}
+              style={styles.fieldImage}
+              resizeMode="cover"
+              onError={() => setFieldError(true)}
+              accessible={false}
+            />
+          )}
+          
+          <LinearGradient
+            colors={['#0B0F14FF', '#00000000']}
+            locations={[0, 0.4]}
+            style={styles.fieldTopFade}
+            pointerEvents="none"
+          />
+        </View> */}
+
       </ScrollView>
 
-      <Modal visible={setupVisible} transparent animationType="slide" onRequestClose={() => setSetupVisible(false)}>
+      {/* ── GAME SETUP MODAL ─────────────────────────────────────────────── */}
+      <Modal
+        visible={setupVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSetupVisible(false)}
+      >
         <Pressable style={styles.sheetBackdrop} onPress={() => setSetupVisible(false)}>
           <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.sheetIcon}>⚔︎✕</Text>
             <Text style={styles.sheetTitle}>GAME SETUP</Text>
-            <Text style={styles.sheetHint}>Configure constraints for each round&apos;s team + era spin.</Text>
+            <Text style={styles.sheetHint}>Configure constraints for each round's team + era spin.</Text>
 
             <View style={styles.sheetSection}>
               <Text style={styles.sheetLabel}>TEAMS</Text>
@@ -234,12 +359,21 @@ export function HomeScreen() {
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setSetupVisible(false)} activeOpacity={0.85}>
                 <Text style={styles.cancelText}>CANCEL</Text>
               </TouchableOpacity>
+              
               <TouchableOpacity
-                style={[styles.startBtn, !canStart && styles.startBtnDisabled]}
                 onPress={handleStartFromSetup}
+                activeOpacity={0.85}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                accessibilityRole="button" 
                 disabled={!canStart}
               >
-                <Text style={styles.startBtnText}>START GAME →</Text>
+                <LinearGradient
+                  colors={['#A86A05', '#D4A017', '#F0CC50', '#D4A017', '#A86A05']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.startBtn}>
+                  <Text style={styles.startBtnText}>Start Game</Text>
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           </Pressable>
@@ -250,53 +384,22 @@ export function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.bgPrimary },
-  bgTexture: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    opacity: 0.22,
-  },
-  bgVignetteTop: {
-    position: 'absolute',
-    top: -120,
-    left: -80,
-    right: -80,
-    height: 260,
-    backgroundColor: '#0A1220AA',
-    borderBottomLeftRadius: 160,
-    borderBottomRightRadius: 160,
-  },
-  bgVignetteBottom: {
-    position: 'absolute',
-    bottom: -150,
-    left: -100,
-    right: -100,
-    height: 320,
-    backgroundColor: '#00000099',
-    borderTopLeftRadius: 180,
-    borderTopRightRadius: 180,
-  },
-  scroll: { flex: 1 },
-  scrollContent: { paddingBottom: Spacing['2xl'] },
-  header: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.md,
-    gap: 6,
-  },
-  headerBrandWrap: {
+  safe: {
     flex: 1,
+    backgroundColor: '#0B0F14', // Midnight Black — visible before images load
   },
-  headerBrandImage: {
-    width: '100%',
-    maxWidth: 460,
-    aspectRatio: 800 / 250,
-    minHeight: 72,
+
+  // ── SCROLL
+  scroll: { flex: 1 },
+  scrollContent: { paddingBottom: 0 }, // field image provides bottom padding
+
+  // ── HEADER
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
   settingsBtn: {
     width: 44,
@@ -304,26 +407,37 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     backgroundColor: '#111A25DD',
     borderWidth: 1,
-    borderColor: Colors.goldMuted,
-    alignItems: 'center', justifyContent: 'center',
+    borderColor: '#8B6B2C',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10,
   },
-  settingsIcon: { fontSize: 17, fontFamily: Font.primarySemiBold },
+  settingsIcon: {
+    fontSize: 18,
+    color: Colors.gold,
+  },
 
+  // ── DAILY CARD
   dailyCard: {
     marginHorizontal: Spacing.lg,
     backgroundColor: '#0E1722E6',
     borderRadius: Radius.lg,
     padding: Spacing.lg,
     borderWidth: 1.5,
-    borderColor: '#7A612299',
+    borderColor: '#8B6B2C',
     marginBottom: Spacing.xl,
-    shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
+    shadowColor: '#C9930A',
+    shadowOpacity: 0.3,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
   },
-  dailyTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },
+  dailyTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 14,
+  },
   dailyLabel: {
     fontSize: Typography.md,
     color: Colors.gold,
@@ -338,11 +452,11 @@ const styles = StyleSheet.create({
     letterSpacing: 1.1,
     lineHeight: 36,
   },
-  dailyMeta: { 
-    fontSize: Typography.sm, 
-    color: Colors.textSecondary, 
-    marginTop: 4, 
-    fontFamily: Font.secondaryRegular, 
+  dailyMeta: {
+    fontSize: Typography.sm,
+    color: Colors.textSecondary,
+    marginTop: 4,
+    fontFamily: Font.secondaryRegular,
   },
   newBadge: {
     backgroundColor: Colors.gold,
@@ -352,8 +466,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E9C35A',
   },
-  newBadgeText: { fontSize: Typography.md, color: Colors.bgDark, fontFamily: Font.primarySemiBold },
+  newBadgeText: {
+    fontSize: Typography.md,
+    color: Colors.bgDark,
+    fontFamily: Font.primarySemiBold,
+  },
 
+  // ── STAT PILLS
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   statPill: {
     flex: 1,
@@ -365,7 +484,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2B3744',
   },
-  statNum: { fontSize: Typography['2xl'], color: Colors.textPrimary, fontFamily: Font.primaryBold },
+  statNum: {
+    fontSize: Typography['2xl'],
+    color: Colors.textPrimary,
+    fontFamily: Font.primaryBold,
+  },
   statLabel: {
     fontSize: Typography.sm,
     color: Colors.textMuted,
@@ -375,22 +498,24 @@ const styles = StyleSheet.create({
     fontFamily: Font.secondaryMedium,
   },
 
+  // ── PLAY BUTTON — LinearGradient is the container; styles apply to it.
   playBtn: {
-    backgroundColor: '#D4A017',
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: '#EDCB6D',
+    borderColor: '#F5DC7A',
     minHeight: 58,
-    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 20,
   },
-  playBtnText: { 
-    fontSize: Typography.xl, 
-    color: Colors.bgDark, 
-    fontFamily: Font.primaryBold 
+  playBtnText: {
+    fontSize: Typography.xl,
+    color: Colors.bgDark,
+    fontFamily: Font.primaryBold,
+    letterSpacing: 0.8,
   },
 
+  // ── MODE CARDS
   sectionLabel: {
     fontSize: Typography.md,
     color: Colors.textSecondary,
@@ -399,20 +524,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     marginBottom: 10,
   },
-  modeRow: { 
-    flexDirection: 'column', 
-    gap: 15, 
-    paddingHorizontal: Spacing.lg, 
-    marginBottom: Spacing.xl 
+  modeRow: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
   },
   modeCard: {
-    width: '100%',
-    flexDirection: 'row',
+    width: '48%',
+    flexDirection: 'column',
     alignItems: 'center',
-    backgroundColor: '#101A25E6',
+    textAlign: 'center',
+    backgroundColor: '#111C28F0',
     borderWidth: 1,
-    borderColor: '#2C3A49',
-    borderRadius: Radius.lg,
+    borderColor: '#2C3A4A',
+    borderTopColor: '#3A4E62',  // subtle top highlight simulates bevel edge
+    borderRadius: 12,
     minHeight: 90,
     paddingVertical: 10,
     paddingHorizontal: 16,
@@ -421,41 +548,58 @@ const styles = StyleSheet.create({
     fontSize: 32,
     width: 52,
     textAlign: 'center',
-    marginRight: 12,
     color: Colors.gold,
     fontFamily: Font.primaryBold,
   },
   modeTextWrap: { flex: 1 },
-  modeName: { 
-    fontSize: 28, 
-    color: Colors.textPrimary, 
-    fontFamily: Font.primaryBold 
+  modeName: {
+    fontSize: 28,
+    color: Colors.textPrimary,
+    fontFamily: Font.primaryBold,
+    textAlign: 'center',
   },
-  modeDesc: { 
-    fontSize: Typography.sm, 
-    color: Colors.textMuted, 
-    fontFamily: Font.secondaryMedium 
-  },
-  modeChevron: {
-    position: 'absolute',
-    right: 20,
-    top: 10,
-    color: Colors.gold,
-    fontSize: 80,
-    lineHeight: 80,
-    fontFamily: Font.primarySemiBold,
+  modeDesc: {
+    fontSize: Typography.sm,
+    color: Colors.textMuted,
+    fontFamily: Font.secondaryMedium,
+    textAlign: 'center',
   },
 
+  // ── DISCLAIMER
   disclaimer: {
     fontSize: Typography.md,
     color: Colors.textDim,
     textAlign: 'center',
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
-    paddingBottom: Spacing.xl,
+    paddingBottom: Spacing.lg,
     fontFamily: Font.primaryRegular,
   },
 
+  // ── FIELD BOTTOM
+  // width set dynamically to screenWidth so it always bleeds edge-to-edge.
+  // aspectRatio (430/220) matches the export canvas; height auto-scales.
+  fieldWrap: {
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  fieldImage: {
+    width: '100%',
+    aspectRatio: 430 / 220,
+  },
+  fieldFallback: {
+    width: '100%',
+    height: 180,
+  },
+  fieldTopFade: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 70,
+  },
+
+  // ── MODAL / SHEET
   sheetBackdrop: {
     flex: 1,
     backgroundColor: '#000000A8',
@@ -506,23 +650,23 @@ const styles = StyleSheet.create({
     borderTopColor: '#1F2D3B',
     paddingTop: 12,
   },
-  sheetSectionHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    marginBottom: 8 
+  sheetSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  sheetLabel: { 
-    color: Colors.gold, 
-    fontSize: Typography.md, 
-    letterSpacing: 1.4, 
-    fontFamily: Font.primaryMedium 
+  sheetLabel: {
+    color: Colors.gold,
+    fontSize: Typography.md,
+    letterSpacing: 1.4,
+    fontFamily: Font.primaryMedium,
   },
-  clearText: { 
-    color: Colors.gold, 
-    fontSize: Typography.md, 
-    fontFamily: Font.primarySemiBold, 
-    letterSpacing: 1 
+  clearText: {
+    color: Colors.gold,
+    fontSize: Typography.md,
+    fontFamily: Font.primarySemiBold,
+    letterSpacing: 1,
   },
   segmentWrap: {
     flexDirection: 'row',
@@ -550,27 +694,27 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 0 },
   },
-  segmentText: { 
-    color: Colors.textSecondary, 
-    fontSize: Typography.md, 
-    fontFamily: Font.primaryMedium, 
-    letterSpacing: 0.8 
+  segmentText: {
+    color: Colors.textSecondary,
+    fontSize: Typography.md,
+    fontFamily: Font.primaryMedium,
+    letterSpacing: 0.8,
   },
-  segmentTextActive: { 
-    color: Colors.gold, 
-    fontFamily: Font.primaryBold 
+  segmentTextActive: {
+    color: Colors.gold,
+    fontFamily: Font.primaryBold,
   },
-  noteText: { 
-    color: Colors.textMuted, 
-    fontSize: Typography.sm, 
-    marginTop: 8, 
-    fontFamily: Font.secondaryRegular 
+  noteText: {
+    color: Colors.textMuted,
+    fontSize: Typography.sm,
+    marginTop: 8,
+    fontFamily: Font.secondaryRegular,
   },
-  chipsWrap: { 
-    flexDirection: 'row', 
-    flexWrap: 'wrap', 
-    gap: 10, 
-    justifyContent: 'space-between' 
+  chipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    justifyContent: 'space-between',
   },
   eraChip: {
     borderWidth: 1,
@@ -584,7 +728,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   eraChipActive: { borderColor: Colors.gold, backgroundColor: '#211907' },
-  eraChipText: { color: Colors.textPrimary, fontSize: Typography.lg, fontFamily: Font.primaryMedium, letterSpacing: 0.9 },
+  eraChipText: {
+    color: Colors.textPrimary,
+    fontSize: Typography.lg,
+    fontFamily: Font.primaryMedium,
+    letterSpacing: 0.9,
+  },
   eraChipTextActive: { color: Colors.gold, fontFamily: Font.primaryBold },
   eraCheckBadge: {
     position: 'absolute',
@@ -603,7 +752,12 @@ const styles = StyleSheet.create({
     lineHeight: 14,
     fontFamily: Font.secondaryBold,
   },
-  warningText: { color: Colors.gold, fontSize: Typography.sm, marginTop: 8, fontFamily: Font.secondarySemiBold },
+  warningText: {
+    color: Colors.gold,
+    fontSize: Typography.sm,
+    marginTop: 8,
+    fontFamily: Font.secondarySemiBold,
+  },
   sheetActions: {
     marginTop: 20,
     flexDirection: 'row',
@@ -624,11 +778,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cancelText: { 
-    color: Colors.textSecondary, 
-    fontSize: Typography.lg, 
-    fontFamily: Font.primarySemiBold, 
-    letterSpacing: 0.9 
+  cancelText: {
+    color: Colors.textSecondary,
+    fontSize: Typography.lg,
+    fontFamily: Font.primaryBold,
+    letterSpacing: 1,
   },
   startBtn: {
     flex: 1.5,
@@ -636,16 +790,16 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.gold,
     borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: '#ECCB6A',
-    paddingHorizontal: 16,
+    borderColor: '#F5DC7A',
+    paddingHorizontal: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },
   startBtnDisabled: { opacity: 0.45 },
-  startBtnText: { 
-    color: Colors.bgDark, 
-    fontSize: Typography.lg, 
-    fontFamily: Font.primaryBold, 
-    letterSpacing: 1 
+  startBtnText: {
+    color: Colors.bgDark,
+    fontSize: Typography.xl,
+    fontFamily: Font.primaryBold,
+    letterSpacing: 1,
   },
 });
