@@ -14,12 +14,21 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { DRAFT_POSITIONS, Position } from '../data/players';
 import { useGameStore } from '../store/gameStore';
+import { useResponsive } from '../hooks/useResponsive';
+import { PlayerDetailPanel } from '../components/PlayerDetailPanel';
+import { InfoChip } from '../components/InfoChip';
+import { SegmentedControl } from '../components/SegmentedControl';
+import { SelectablePill } from '../components/SelectablePill';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const OFFENSE_POSITIONS: Position[] = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'FLEX2'];
 const DEFENSE_POSITIONS: Position[] = ['EDGE', 'DT', 'LB', 'CB', 'S', 'D-FLEX'];
+const SLOT_FILTER_OPTIONS: { value: 'offense' | 'defense'; label: string }[] = [
+  { value: 'offense', label: 'OFF' },
+  { value: 'defense', label: 'DEF' },
+];
 const QB_STAT_DISPLAY_ORDER: Array<[string, string]> = [
   ['completions', 'COMP'],
   ['attempts', 'ATT'],
@@ -85,7 +94,9 @@ function formatChipValue(value: number): string {
 
 export function GameScreen() {
   const navigation = useNavigation<Nav>();
+  const { isWide } = useResponsive();
   const {
+    mode,
     positionIndex,
     playerIndex,
     roster,
@@ -100,6 +111,7 @@ export function GameScreen() {
     rerollsRemaining,
   } = useGameStore();
 
+  const spinRouteName = mode === 'timer' ? 'TwoMinuteDrillSpin' : 'Spin';
   const candidates = currentCandidates();
   const selectedPlayer = currentPlayer();
   const selectedCandidateId = candidates[playerIndex]?.id;
@@ -172,9 +184,9 @@ export function GameScreen() {
 
   useEffect(() => {
     if (!currentSpin && !isComplete) {
-      navigation.replace('Spin');
+      navigation.replace(spinRouteName);
     }
-  }, [currentSpin, isComplete, navigation]);
+  }, [currentSpin, isComplete, navigation, spinRouteName]);
 
   useFocusEffect(
     useCallback(() => {
@@ -207,7 +219,9 @@ export function GameScreen() {
 
   function handleSelectPlayer(index: number) {
     setPlayerIndex(index);
-    setStatsModalVisible(true);
+    // On wide layouts the detail lives in a persistent side panel — only
+    // narrow layouts need the bottom-sheet Modal to surface it.
+    if (!isWide) setStatsModalVisible(true);
   }
 
   function renderSlot(position: Position) {
@@ -216,27 +230,82 @@ export function GameScreen() {
     const disabled = filled || !selectedPlayer || !isEligible;
 
     return (
-      <TouchableOpacity
+      <SelectablePill
         key={position}
-        style={[
-          styles.slot,
-          filled && styles.slotFilled,
-          !filled && isEligible && styles.slotEligible,
-        ]}
+        label={position}
+        selected={!filled && isEligible}
+        filled={filled}
         disabled={disabled}
         onPress={() => handleAssign(position)}
-        activeOpacity={0.85}
-      >
-        <Text
-          style={[
-            styles.slotText,
-            filled && styles.slotTextFilled,
-            !filled && isEligible && styles.slotTextEligible,
-          ]}
-        >
-          {position}
-        </Text>
-      </TouchableOpacity>
+        style={styles.slot}
+      />
+    );
+  }
+
+  function renderAssignBlock(variantStyle?: object) {
+    return (
+      <View style={[styles.assignWrap, variantStyle]}>
+        <View style={styles.assignHeaderRow}>
+          <Text style={styles.assignLabel}>ASSIGN TO SLOT</Text>
+          <SegmentedControl compact options={SLOT_FILTER_OPTIONS} value={slotFilter} onChange={setSlotFilter} />
+        </View>
+        <View style={styles.slotGrid}>
+          {filteredSlotPositions.map((position) => renderSlot(position))}
+        </View>
+        {openSlots.length === 0 && <Text style={styles.assignHint}>Roster complete.</Text>}
+      </View>
+    );
+  }
+
+  function renderPlayerList() {
+    return (
+      <>
+        <Text style={styles.sectionTitle}>Available Players</Text>
+        {candidates.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>No players for this spin</Text>
+            <TouchableOpacity style={styles.emptyBtn} onPress={() => navigation.replace(spinRouteName)}>
+              <Text style={styles.emptyBtnText}>Back to spin</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+            {groupedCandidates.map((group) => (
+              <View key={group.position} style={styles.groupWrap}>
+                <Text style={styles.groupHeader}>{group.position} · {group.entries.length}</Text>
+                {group.entries.map(({ candidate, index }) => {
+                  const selected = candidate.id === selectedCandidateId;
+                  return (
+                    <TouchableOpacity
+                      key={candidate.id}
+                      style={[styles.rowCard, selected && styles.rowCardSelected]}
+                      onPress={() => handleSelectPlayer(index)}
+                      activeOpacity={0.9}
+                    >
+                      <View style={styles.rowLeft}>
+                        <View style={styles.posBadge}>
+                          <Text style={styles.posBadgeText}>{candidate.position}</Text>
+                        </View>
+                        <View style={styles.nameWrap}>
+                          <Text style={styles.playerName}>{candidate.name}</Text>
+                          <Text style={styles.playerMeta}>
+                            {candidate.team} · {parseYear(candidate.years)}
+                            {candidate.tier ? <Text style={styles.playerMetaTier}> · {candidate.tier}</Text> : null}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.rowRight}>
+                        <Text style={styles.metricValue}>{candidate.rating}</Text>
+                        <Text style={styles.metricLabel}>OVR</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ))}
+          </ScrollView>
+        )}
+      </>
     );
   }
 
@@ -255,18 +324,12 @@ export function GameScreen() {
         <View style={styles.metaRow}>
           {!!currentSpin && (
             <>
-                <View style={styles.pillOutline}>
-                <Text style={styles.pillOutlineLabel}>TEAM</Text>
-                <Text style={styles.pillOutlineValue}>{currentSpin.team.abbr}</Text>
-              </View>
-                <View style={styles.pillOutline}>
-                <Text style={styles.pillOutlineLabel}>ERA</Text>
-                <Text style={styles.pillOutlineValue}>{currentSpin.era}</Text>
-              </View>
+              <InfoChip label="TEAM" value={currentSpin.team.abbr} accentColor={Colors.gold} />
+              <InfoChip label="ERA" value={currentSpin.era} accentColor={Colors.gridironBlue} labelColor="#5C9BCF" />
             </>
           )}
-          <View style={styles.rerollPill}>
-            <Text style={styles.rerollText}>Reroll ({rerollsRemaining})</Text>
+          <View style={styles.rerollPillWrap}>
+            <InfoChip label="REROLL" value={String(rerollsRemaining)} />
           </View>
         </View>
       </View>
@@ -275,142 +338,45 @@ export function GameScreen() {
 
       <View style={styles.divider} />
 
-      <Text style={styles.sectionTitle}>Available Players</Text>
-
-      {/* <Text style={styles.inlineHint}>Tap a player row to inspect full stats.</Text> */}
-
-      {candidates.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>No players for this spin</Text>
-          <TouchableOpacity style={styles.emptyBtn} onPress={() => navigation.replace('Spin')}>
-            <Text style={styles.emptyBtnText}>Back to spin</Text>
-          </TouchableOpacity>
+      {isWide ? (
+        <View style={styles.wideRow}>
+          <View style={styles.widePaneLeft}>
+            {renderPlayerList()}
+          </View>
+          <View style={styles.widePaneRight}>
+            {renderAssignBlock(styles.assignWrapWide)}
+            <ScrollView style={styles.detailPanel} contentContainerStyle={styles.detailPanelContent}>
+              <PlayerDetailPanel
+                player={selectedPlayer}
+                fallbackStatMetrics={fallbackStatMetrics}
+                quickAssignSlots={quickAssignSlots}
+                onAssign={handleAssign}
+              />
+            </ScrollView>
+          </View>
         </View>
       ) : (
-        <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
-          {groupedCandidates.map((group) => (
-            <View key={group.position} style={styles.groupWrap}>
-              <Text style={styles.groupHeader}>{group.position} · {group.entries.length}</Text>
-              {group.entries.map(({ candidate, index }) => {
-                const selected = candidate.id === selectedCandidateId;
-                return (
-                  <TouchableOpacity
-                    key={candidate.id}
-                    style={[styles.rowCard, selected && styles.rowCardSelected]}
-                    onPress={() => handleSelectPlayer(index)}
-                    activeOpacity={0.9}
-                  >
-                    <View style={styles.rowLeft}>
-                      <View style={styles.posBadge}>
-                        <Text style={styles.posBadgeText}>{candidate.position}</Text>
-                      </View>
-                      <View style={styles.nameWrap}>
-                        <Text style={styles.playerName}>{candidate.name}</Text>
-                        <Text style={styles.playerMeta}>{candidate.team} · {parseYear(candidate.years)}</Text>
-                      </View>
-                    </View>
-                    <View style={styles.rowRight}>
-                      <Text style={styles.metricValue}>{candidate.rating}</Text>
-                      <Text style={styles.metricLabel}>OVR</Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          ))}
-        </ScrollView>
+        <>
+          {renderPlayerList()}
+          {renderAssignBlock()}
+        </>
       )}
 
-      <View style={styles.assignWrap}>
-        <View style={styles.assignHeaderRow}>
-          <Text style={styles.assignLabel}>Assign To Position</Text>
-          {/* <View style={styles.filterWrap}>
-            <TouchableOpacity
-              style={[styles.filterBtn, slotFilter === 'offense' && styles.filterBtnActive]}
-              onPress={() => setSlotFilter('offense')}
-              activeOpacity={0.85}
-            >
-              <Text style={[styles.filterBtnText, slotFilter === 'offense' && styles.filterBtnTextActive]}>OFF</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.filterBtn, slotFilter === 'defense' && styles.filterBtnActive]}
-              onPress={() => setSlotFilter('defense')}
-              activeOpacity={0.85}
-            >
-              <Text style={[styles.filterBtnText, slotFilter === 'defense' && styles.filterBtnTextActive]}>DEF</Text>
-            </TouchableOpacity>
-          </View> */}
-        </View>
-        <View style={styles.slotGrid}>
-          {filteredSlotPositions.map((position) => renderSlot(position))}
-        </View>
-        {openSlots.length === 0 && <Text style={styles.assignHint}>Roster complete.</Text>}
-      </View>
-
       <Modal
-        visible={statsModalVisible && !!selectedPlayer}
+        visible={!isWide && statsModalVisible && !!selectedPlayer}
         animationType="slide"
         transparent
         onRequestClose={() => setStatsModalVisible(false)}
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setStatsModalVisible(false)}>
           <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-            {!!selectedPlayer && (
-              <>
-                <View style={styles.selectedTopRow}>
-                  <View style={styles.selectedTitleWrap}>
-                    <Text style={styles.selectedName}>{selectedPlayer.name}</Text>
-                    <Text style={styles.selectedMeta}>{selectedPlayer.team} · {parseYear(selectedPlayer.years)} · {selectedPlayer.tier}</Text>
-                  </View>
-                  <View style={styles.selectedOvrPill}>
-                    <Text style={styles.selectedOvrValue}>{selectedPlayer.rating}</Text>
-                    <Text style={styles.selectedOvrLabel}>OVR</Text>
-                  </View>
-                </View>
-
-                <View style={styles.selectedStatsBox}>
-                  <Text style={styles.selectedStatsLabel}>STATISTICS</Text>
-                  <View style={styles.statMetricGrid}>
-                    {fallbackStatMetrics.map((metric) => (
-                      <View key={metric.key} style={styles.statMetricItem}>
-                        <Text style={styles.statMetricValue}>{metric.value}</Text>
-                        <Text style={styles.statMetricLabel}>{metric.label}</Text>
-                      </View>
-                    ))}
-                    {fallbackStatMetrics.length === 0 && (
-                      <Text style={styles.statsEmptyText}>No stat breakdown available.</Text>
-                    )}
-                  </View>
-                </View>
-
-                <View style={styles.quickAssignWrap}>
-                  <Text style={styles.quickAssignLabel}>Quick Assign</Text>
-                  <View style={styles.quickAssignGrid}>
-                    {quickAssignSlots.map((position) => (
-                      <TouchableOpacity
-                        key={position}
-                        style={styles.quickAssignBtn}
-                        onPress={() => handleAssign(position)}
-                        activeOpacity={0.85}
-                      >
-                        <Text style={styles.quickAssignBtnText}>{position}</Text>
-                      </TouchableOpacity>
-                    ))}
-                    {quickAssignSlots.length === 0 && (
-                      <Text style={styles.quickAssignEmpty}>No open eligible slots.</Text>
-                    )}
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.modalCloseBtn}
-                  onPress={() => setStatsModalVisible(false)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.modalCloseBtnText}>Close</Text>
-                </TouchableOpacity>
-              </>
-            )}
+            <PlayerDetailPanel
+              player={selectedPlayer}
+              fallbackStatMetrics={fallbackStatMetrics}
+              quickAssignSlots={quickAssignSlots}
+              onAssign={handleAssign}
+              onClose={() => setStatsModalVisible(false)}
+            />
           </Pressable>
         </Pressable>
       </Modal>
@@ -445,46 +411,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  roundPillText: { 
-    color: Colors.textSecondary, 
+  roundPillText: {
+    color: Colors.textSecondary,
     fontFamily: Font.primarySemiBold,
-    fontSize: Typography.lg, 
-    textAlign: 'center' 
+    fontSize: Typography.lg,
+    textAlign: 'center'
   },
-  pillOutline: {
-    borderWidth: 2,
-    borderRadius: Radius.md,
-    borderColor: Colors.steel,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    minWidth: 82,
-  },
-  pillOutlineLabel: {
-    color: Colors.textMuted,
-    fontSize: Typography.md,
-    fontFamily: Font.primarySemiBold,
-    letterSpacing: 1,
-  },
-  pillOutlineValue: { 
-    color: Colors.textPrimary, 
-    fontSize: Typography['2xl'], 
-    fontFamily: Font.primaryBold,
-    fontWeight: '800' 
-  },
-  rerollPill: {
+  rerollPillWrap: {
     marginLeft: 'auto',
-    borderWidth: 1,
-    borderColor: Colors.borderMid,
-    borderRadius: Radius.md,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  rerollText: { 
-    color: Colors.textSecondary, 
-    fontSize: Typography.md, 
-    fontFamily: Font.primarySemiBold,
-    paddingVertical: 10,
-    paddingHorizontal: 5,
   },
   helper: {
     color: Colors.textDim,
@@ -509,115 +443,43 @@ const styles = StyleSheet.create({
     fontSize: Typography.sm,
     marginTop: 4,
   },
-  selectedTopRow: {
+
+  // ── WIDE TWO-PANE LAYOUT
+  wideRow: {
+    flex: 1,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 10,
+    gap: Spacing.lg,
+    marginTop: 4,
+    width: '100%',
+    maxWidth: 1200,
+    alignSelf: 'center',
   },
-  selectedTitleWrap: { flexShrink: 1 },
-  selectedName: {
-    color: Colors.textPrimary,
-    fontSize: Typography.xl,
-    fontWeight: '800',
+  widePaneLeft: {
+    flex: 1.4,
+    minWidth: 0,
   },
-  selectedMeta: {
-    color: Colors.textSecondary,
-    fontSize: Typography.base,
-    marginTop: 2,
+  widePaneRight: {
+    flex: 1,
+    maxWidth: 420,
+    gap: Spacing.md,
+    paddingBottom: Spacing.md,
   },
-  selectedOvrPill: {
-    backgroundColor: Colors.bgDark,
-    borderColor: Colors.borderMid,
-    borderWidth: 1,
-    borderRadius: Radius.md,
-    minWidth: 62,
-    paddingVertical: 6,
-    alignItems: 'center',
+  assignWrapWide: {
+    marginTop: 4,
+    marginBottom: 0,
   },
-  selectedOvrValue: {
-    color: Colors.textPrimary,
-    fontSize: Typography.xl,
-    fontWeight: '800',
-    lineHeight: Typography.xl + 2,
-  },
-  selectedOvrLabel: {
-    color: Colors.textDim,
-    fontSize: Typography.sm,
-    fontWeight: '700',
-  },
-  selectedStatsBox: {
+  detailPanel: {
+    flex: 1,
     backgroundColor: Colors.bgCardDeep,
-    borderRadius: Radius.md,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    gap: 8,
-  },
-  selectedStatsLabel: {
-    color: Colors.textMuted,
-    fontSize: Typography.sm,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  statsEmptyText: {
-    color: Colors.textDim,
-    fontSize: Typography.sm,
-    fontWeight: '600',
-  },
-  statMetricGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 10,
-    columnGap: 8,
-  },
-  statMetricItem: {
-    width: '31%',
-    alignItems: 'center',
-  },
-  statMetricLabel: {
-    color: Colors.textMuted,
-    fontSize: Typography.sm,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-  },
-  statMetricValue: {
-    color: Colors.textPrimary,
-    fontSize: Typography.xl,
-    fontWeight: '800',
-  },
-  quickAssignWrap: {
-    gap: 6,
-  },
-  quickAssignLabel: {
-    color: Colors.textMuted,
-    fontSize: Typography.sm,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  quickAssignGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  quickAssignBtn: {
+    borderRadius: Radius.lg,
     borderWidth: 1,
-    borderColor: Colors.gold,
-    backgroundColor: '#2A210F',
-    borderRadius: Radius.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderColor: Colors.border,
   },
-  quickAssignBtnText: {
-    color: Colors.gold,
-    fontSize: Typography.sm,
-    fontWeight: '800',
+  detailPanelContent: {
+    padding: 14,
+    flexGrow: 1,
   },
-  quickAssignEmpty: {
-    color: Colors.textDim,
-    fontSize: Typography.sm,
-    fontWeight: '600',
-  },
+
   list: { flex: 1, marginTop: 8 },
   listContent: { paddingBottom: 8, gap: 10 },
   groupWrap: { gap: 8 },
@@ -654,33 +516,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  posBadgeText: { 
-    color: Colors.textSecondary, 
-    fontSize: Typography.xl, 
+  posBadgeText: {
+    color: Colors.textSecondary,
+    fontSize: Typography.xl,
     fontWeight: '700',
     fontFamily: Font.primaryBold,
   },
-  playerName: { 
-    color: Colors.textPrimary, 
-    fontSize: Typography['2xl'], 
+  playerName: {
+    color: Colors.textPrimary,
+    fontSize: Typography['2xl'],
     fontFamily: Font.primaryBold,
   },
-  playerMeta: { 
-    color: Colors.textDim, 
-    fontSize: Typography.lg, 
-    fontFamily: Font.primaryRegular,
-    marginTop: 2 
+  playerMeta: {
+    color: Colors.textDim,
+    fontSize: Typography.lg,
+    fontFamily: Font.secondaryRegular,
+    marginTop: 2
+  },
+  playerMetaTier: {
+    color: Colors.gold,
+    fontFamily: Font.primarySemiBold,
   },
   rowRight: { alignItems: 'flex-end' },
-  metricValue: { 
-    color: Colors.textPrimary, 
+  metricValue: {
+    color: Colors.gold,
     fontFamily: Font.primaryBold,
-    fontSize: Typography.xl, 
-    fontWeight: '800' 
+    fontSize: Typography.xl,
+    fontWeight: '800'
   },
-  metricLabel: { 
-    color: Colors.textDim, 
-    fontSize: Typography.md, 
+  metricLabel: {
+    color: Colors.textDim,
+    fontSize: Typography.md,
     fontWeight: '700',
     fontFamily: Font.primaryBold,
   },
@@ -695,34 +561,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  assignLabel: { 
-    color: Colors.textSecondary, 
-    fontSize: Typography.xl, 
+  assignLabel: {
+    color: Colors.textSecondary,
+    fontSize: Typography.xl,
     fontWeight: '700',
     fontFamily: Font.primaryBold,
-  },
-  filterWrap: {
-    flexDirection: 'row',
-    backgroundColor: Colors.bgDark,
-    borderWidth: 1,
-    borderColor: Colors.borderMid,
-    borderRadius: Radius.sm,
-    overflow: 'hidden',
-  },
-  filterBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  filterBtnActive: {
-    backgroundColor: Colors.bgNavy,
-  },
-  filterBtnText: {
-    color: Colors.textMuted,
-    fontSize: Typography.sm,
-    fontWeight: '700',
-  },
-  filterBtnTextActive: {
-    color: Colors.gold,
   },
   slotGrid: {
     flexDirection: 'row',
@@ -732,29 +575,7 @@ const styles = StyleSheet.create({
   },
   slot: {
     width: '32%',
-    borderRadius: Radius.sm,
-    borderWidth: 1,
-    borderColor: Colors.borderMid,
-    backgroundColor: Colors.bgCardDeep,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 10,
   },
-  slotEligible: {
-    borderColor: Colors.gold,
-    backgroundColor: '#2A210F',
-  },
-  slotFilled: {
-    borderColor: Colors.green,
-  },
-  slotText: { 
-    color: Colors.textSecondary, 
-    fontSize: Typography.lg, 
-    fontFamily: Font.primaryBold,
-  },
-  slotTextEligible: { color: Colors.gold },
-  slotTextFilled: { color: Colors.green },
   assignHint: { color: Colors.textDim, fontSize: Typography.sm },
   emptyState: {
     flex: 1,
@@ -765,7 +586,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     color: Colors.textPrimary,
     fontSize: Typography.xl,
-    fontWeight: '700',
+    fontFamily: Font.primaryBold,
   },
   emptyBtn: {
     backgroundColor: Colors.green,
@@ -773,7 +594,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
-  emptyBtnText: { color: Colors.greenDark, fontWeight: '800', fontSize: Typography.base },
+  emptyBtnText: { color: Colors.greenDark, fontFamily: Font.primaryBold, fontSize: Typography.base },
   modalBackdrop: {
     flex: 1,
     backgroundColor: '#070A0ED1',
@@ -787,18 +608,5 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     padding: 14,
     gap: 12,
-  },
-  modalCloseBtn: {
-    alignSelf: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: Radius.sm,
-    borderWidth: 1,
-    borderColor: Colors.borderMid,
-  },
-  modalCloseBtnText: {
-    color: Colors.textSecondary,
-    fontSize: Typography.sm,
-    fontWeight: '700',
   },
 });

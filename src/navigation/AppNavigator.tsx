@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { HomeScreen } from '../screens/HomeScreen';
 import { SpinScreen } from '../screens/SpinScreen';
+import { TwoMinuteDrillSpinScreen } from '../screens/TwoMinuteDrillSpinScreen';
 import { GameScreen } from '../screens/GameScreen';
 import { ResultScreen } from '../screens/ResultScreen';
 import { LeaderboardScreen } from '../screens/LeaderboardScreen';
@@ -24,6 +25,7 @@ export function AppNavigator() {
       >
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="Spin" component={SpinScreen} />
+        <Stack.Screen name="TwoMinuteDrillSpin" component={TwoMinuteDrillSpinScreen} />
         <Stack.Screen name="Game" component={GameScreen} />
         <Stack.Screen name="Result" component={ResultScreen} />
         <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />

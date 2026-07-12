@@ -3,15 +3,19 @@ import { View, Text, TouchableOpacity, StyleSheet, Pressable, Animated, Easing }
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { ERA_OPTIONS, FRANCHISES, useGameStore } from '../store/gameStore';
 import { DRAFT_POSITIONS } from '../data/players';
+import { SpinCard, ChamferButtonBackground } from '../components/SpinOrnaments';
+import { useResponsive } from '../hooks/useResponsive';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export function SpinScreen() {
   const navigation = useNavigation<Nav>();
+  const { isWide } = useResponsive();
   const {
     positionIndex,
     currentSpin,
@@ -123,45 +127,51 @@ export function SpinScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <Pressable style={styles.container} onPress={() => (canAdvance ? handleAdvance() : triggerSpin())}>
-        <View style={styles.bgOrbTop} />
-        <View style={styles.bgOrbBottom} />
-
+      <Pressable
+        style={[styles.container, isWide && styles.containerWide]}
+        onPress={() => (canAdvance ? handleAdvance() : triggerSpin())}
+      >
         <Text style={styles.roundLabel}>{roundLabel}</Text>
 
         <Text style={styles.roundPositionLabel}>{roundPositionType}</Text>
 
-        <View style={styles.pillContainer}>
-          {DRAFT_POSITIONS.map((_, idx) => (
-             <View key={idx} style={idx <= positionIndex ? styles.roundPillGold : styles.roundPillBlue} />
-          ))}
+        <View style={styles.dividerRow}>
+          <LinearGradient
+            colors={['transparent', Colors.gold, 'transparent']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.dividerLine}
+          />
         </View>
 
-        <View style={styles.cardsFrame}>
-          <View style={styles.cardsColumn}>
-            <View style={styles.spinCard}>
-              <Text style={styles.cardTag}>TEAM</Text>
-              <View style={styles.reelWindow}>
-                <Animated.Text style={[styles.cardValue, { transform: [{ translateY: teamTranslateY }] }]}> 
-                  {teamDisplay}
-                </Animated.Text>
-              </View>
-            </View>
-            <View style={styles.spinCard}>
-              <Text style={styles.cardTag}>ERA</Text>
-              <View style={styles.reelWindow}>
-                <Animated.Text style={[styles.cardValue, { transform: [{ translateY: eraTranslateY }] }]}> 
-                  {eraDisplay}
-                </Animated.Text>
-              </View>
-            </View>
-          </View>
+        <View style={styles.cardsColumn}>
+          <SpinCard tone="gold" label="TEAM" useTexture>
+            <Animated.Text
+              style={[styles.cardValue, { transform: [{ translateY: teamTranslateY }] }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.4}
+            >
+              {teamDisplay}
+            </Animated.Text>
+          </SpinCard>
+          <SpinCard tone="silver" label="ERA">
+            <Animated.Text
+              style={[styles.cardValue, styles.cardValueSilver, { transform: [{ translateY: eraTranslateY }] }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.4}
+            >
+              {eraDisplay}
+            </Animated.Text>
+          </SpinCard>
         </View>
 
         {spinState !== 'revealed' ? (
           <>
             <TouchableOpacity style={styles.spinBtn} onPress={triggerSpin} activeOpacity={0.85}>
-              <Text style={styles.spinText}>SPIN</Text>
+              <ChamferButtonBackground />
+              <Text style={styles.spinText}>★  SPIN  ★</Text>
             </TouchableOpacity>
             <Text style={styles.helper}>Tap anywhere to spin</Text>
           </>
@@ -191,113 +201,54 @@ export function SpinScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bgPrimary },
-  container: { flex: 1, paddingHorizontal: Spacing.lg, paddingTop: 20, overflow: 'hidden' },
-  bgOrbTop: {
-    position: 'absolute',
-    top: -120,
-    right: -90,
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: Colors.gridironBlue + '33',
-  },
-  bgOrbBottom: {
-    position: 'absolute',
-    bottom: -140,
-    left: -120,
-    width: 320,
-    height: 320,
-    borderRadius: 160,
-    backgroundColor: Colors.goldMuted,
-  },
+  container: { flex: 1, paddingHorizontal: Spacing.lg, paddingTop: 20 },
+  containerWide: { width: '100%', maxWidth: 560, alignSelf: 'center' },
   roundLabel: {
     textAlign: 'center',
     color: Colors.gold,
     fontFamily: Font.primarySemiBold,
     fontSize: Typography.md,
     letterSpacing: 1.2,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   roundPositionLabel: {
     textAlign: 'center',
     color: Colors.textPrimary,
-    fontFamily: Font.primarySemiBold,
-    fontSize: Typography['2xl'],
-    letterSpacing: 1.5,
-    marginBottom: 12,
-  },
-  pillContainer: { 
-    height: 14, 
-    flexDirection: 'row', 
-    justifyContent: 'center', 
-    gap: 5, 
-  },
-  roundPillGold: {
-    width: 24,
-    height: 6,
-    borderRadius: 8,
-    backgroundColor: Colors.gold,
-  },
-  roundPillBlue: {
-    width: 24,
-    height: 6,
-    borderRadius: 8,
-    backgroundColor: Colors.gridironBlue,
-  },
-  cardsFrame: {
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: Colors.borderMid,
-    backgroundColor: '#0B0F14CC',
-    padding: 12,
-    marginTop: 4,
-  },
-  cardsColumn: { gap: 12 },
-  spinCard: {
-    minHeight: 200,
-    borderRadius: Radius.xl,
-    borderWidth: 2,
-    borderColor: Colors.steel,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.bgCard,
-  },
-  cardTag: {
-    fontFamily: Font.primarySemiBold,
-    fontSize: Typography.xl,
-    marginBottom: 12,
-    letterSpacing: 1,
-    color: Colors.steel,
-  },
-  reelWindow: {
-    height: 64,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cardValue: { 
-    fontSize: 44, 
-    color: Colors.gold, 
-    fontWeight: '900', 
     fontFamily: Font.primaryBold,
-    textAlign: 'center', 
-    letterSpacing: -0.8 
+    fontSize: 34,
+    letterSpacing: 2,
+    marginBottom: 14,
   },
+  dividerRow: {
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  dividerLine: {
+    height: 1.5,
+    width: '82%',
+  },
+  cardsColumn: { gap: 16 },
+  cardValue: {
+    fontSize: 46,
+    color: Colors.gold,
+    fontFamily: Font.primaryBold,
+    textAlign: 'center',
+    letterSpacing: -0.5,
+  },
+  cardValueSilver: { color: Colors.textPrimary, fontSize: 32, letterSpacing: 0 },
   spinBtn: {
     marginTop: 28,
-    backgroundColor: Colors.gold,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: '#F4CA61',
-    minHeight: 56,
+    borderRadius: Radius.md,
+    minHeight: 58,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
-  spinText: { 
-    color: Colors.bgDark, 
-    fontSize: Typography.xl, 
-    fontFamily: Font.primaryBold, 
-    letterSpacing: 1 
+  spinText: {
+    color: Colors.bgDark,
+    fontSize: Typography.xl,
+    fontFamily: Font.primaryBold,
+    letterSpacing: 2,
   },
   helper: { 
     marginTop: 10, 

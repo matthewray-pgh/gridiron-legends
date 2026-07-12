@@ -43,6 +43,9 @@ export const Colors = {
   eliteBg: '#11253A',
   eliteText: '#7CB2E0',
   eliteBorder: '#2F6A9D',
+
+  // Broadcast-scoreboard home screen (docs/handoff/01-home-screen.md)
+  tickerText: '#3A2600', // dark warm brown, for text on solid-gold ticker backgrounds
 };
 
 export const Typography = {
@@ -68,6 +71,7 @@ export const Spacing = {
 };
 
 export const Radius = {
+  sharp: 2, // broadcast-scoreboard home screen (docs/handoff/01-home-screen.md) — sharp corners, not the rounded-card scale below
   sm: 6,
   md: 10,
   lg: 14,
@@ -84,4 +88,6 @@ export const Font = {
   secondaryMedium: 'Inter_500Medium',
   secondarySemiBold: 'Inter_600SemiBold',
   secondaryBold: 'Inter_700Bold',
+  mono: 'SpaceMono_400Regular',
+  monoBold: 'SpaceMono_700Bold',
 };
