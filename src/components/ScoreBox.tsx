@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
     color: Colors.gold,
   },
   label: {
-    fontFamily: Font.secondaryMedium,
+    fontFamily: Font.mono,
     fontSize: 8,
     color: Colors.textMuted,
     textTransform: 'uppercase',

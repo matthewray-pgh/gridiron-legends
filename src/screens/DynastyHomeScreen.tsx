@@ -33,6 +33,16 @@ export function DynastyHomeScreen() {
   const activePerks = useDynastyStore((s) => s.activePerks);
   const retirePlayer = useDynastyStore((s) => s.retirePlayer);
   const startNextSeason = useDynastyStore((s) => s.startNextSeason);
+  const earnRings = useDynastyStore((s) => s.earnRings);
+
+  // Dev-only playtesting affordance: real Rings income is currently just
+  // Daily Challenge completion (15/day), far below pack costs (100/60) —
+  // this exists to unblock testing the pack/roster/HOF loop without
+  // grinding Daily for a week. __DEV__ strips it from release builds.
+  const DEV_RINGS_GRANT = 500;
+  function handleDevGrantRings() {
+    earnRings(DEV_RINGS_GRANT, 'dev_grant');
+  }
 
   const filledSlots = DRAFT_POSITIONS.filter((pos) => roster[pos]);
   const progressPct = xpToNextLevel > 0 ? Math.min(1, dynastyXP / xpToNextLevel) : 0;
@@ -160,6 +170,11 @@ export function DynastyHomeScreen() {
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.toolbarTitle}>DYNASTY</Text>
+        {__DEV__ && (
+          <TouchableOpacity style={styles.devBtn} onPress={handleDevGrantRings} activeOpacity={0.7}>
+            <Text style={styles.devBtnText}>DEV +{DEV_RINGS_GRANT}</Text>
+          </TouchableOpacity>
+        )}
         <View style={styles.ringsChip}>
           <Text style={styles.ringsText}>{rings} 💍</Text>
         </View>
@@ -196,6 +211,8 @@ const styles = StyleSheet.create({
   toolbarTitle: { flex: 1, fontSize: Typography.xl, color: Colors.textPrimary, letterSpacing: 1.1, fontFamily: Font.primaryBold },
   ringsChip: { borderWidth: 1, borderColor: Colors.gold, borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4 },
   ringsText: { color: Colors.gold, fontSize: Typography.sm, fontFamily: Font.secondarySemiBold },
+  devBtn: { borderWidth: 1, borderColor: Colors.loss, borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4, marginRight: 8 },
+  devBtnText: { color: Colors.loss, fontSize: Typography.xs, fontFamily: Font.secondarySemiBold },
 
   scrollContent: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg },
 

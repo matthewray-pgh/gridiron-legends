@@ -111,6 +111,11 @@ export function GameScreen() {
     rerollsRemaining,
   } = useGameStore();
 
+  // Gridiron IQ ("trust your instincts", docs/handoff/05-game-loop-bugfixes.md
+  // P1): hide OVR and the rating-derived tier badge everywhere in the draft
+  // screen — actual box-score stats stay visible, only the computed
+  // quality signal is hidden.
+  const hideRating = mode === 'iq';
   const spinRouteName = mode === 'timer' ? 'TwoMinuteDrillSpin' : 'Spin';
   const candidates = currentCandidates();
   const selectedPlayer = currentPlayer();
@@ -290,14 +295,16 @@ export function GameScreen() {
                           <Text style={styles.playerName}>{candidate.name}</Text>
                           <Text style={styles.playerMeta}>
                             {candidate.team} · {parseYear(candidate.years)}
-                            {candidate.tier ? <Text style={styles.playerMetaTier}> · {candidate.tier}</Text> : null}
+                            {!hideRating && candidate.tier ? <Text style={styles.playerMetaTier}> · {candidate.tier}</Text> : null}
                           </Text>
                         </View>
                       </View>
-                      <View style={styles.rowRight}>
-                        <Text style={styles.metricValue}>{candidate.rating}</Text>
-                        <Text style={styles.metricLabel}>OVR</Text>
-                      </View>
+                      {!hideRating && (
+                        <View style={styles.rowRight}>
+                          <Text style={styles.metricValue}>{candidate.rating}</Text>
+                          <Text style={styles.metricLabel}>OVR</Text>
+                        </View>
+                      )}
                     </TouchableOpacity>
                   );
                 })}
@@ -351,6 +358,7 @@ export function GameScreen() {
                 fallbackStatMetrics={fallbackStatMetrics}
                 quickAssignSlots={quickAssignSlots}
                 onAssign={handleAssign}
+                hideRating={hideRating}
               />
             </ScrollView>
           </View>
@@ -376,6 +384,7 @@ export function GameScreen() {
               quickAssignSlots={quickAssignSlots}
               onAssign={handleAssign}
               onClose={() => setStatsModalVisible(false)}
+              hideRating={hideRating}
             />
           </Pressable>
         </Pressable>

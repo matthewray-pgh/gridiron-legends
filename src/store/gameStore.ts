@@ -8,6 +8,7 @@ import {
   getPlayableSpinCombosForOpenPositions,
   getViableTeamAbbrs,
 } from '../data/players';
+import { dailyRandom } from '../utils/seededRandom';
 
 export type GameMode = 'daily' | 'classic' | 'iq' | 'timer';
 export type TeamScope = 'all' | 'single';
@@ -66,13 +67,20 @@ interface DrillPending {
 // Shared by rollSpin() and beginDrillRound() so both modes select from the
 // identical playable-combo pool — the only thing Two-Minute Drill changes is
 // *when* the result is revealed to the player, never how it's picked.
+//
+// Daily Challenge must produce the same spins for every player on the same
+// calendar day (docs/handoff/05-game-loop-bugfixes.md, P0) — every other
+// mode stays genuinely random. `roundSalt` (the draft round index) keeps
+// each of the 12 rounds distinct instead of replaying one seed 12 times.
 function pickSpinResult(params: {
+  mode: GameMode;
+  roundSalt: number;
   teamScope: TeamScope;
   selectedEras: EraToken[];
   lockedTeam: Franchise | null;
   openPositions: Position[];
 }): DrillPending | null {
-  const { teamScope, selectedEras, lockedTeam, openPositions } = params;
+  const { mode, roundSalt, teamScope, selectedEras, lockedTeam, openPositions } = params;
   const eras = selectedEras.length > 0 ? selectedEras : ERA_OPTIONS;
 
   const viableTeamAbbrs = getViableTeamAbbrs(FRANCHISES.map((franchise) => franchise.abbr), eras);
@@ -90,7 +98,8 @@ function pickSpinResult(params: {
 
   if (playableCombos.length === 0) return null;
 
-  const selectedCombo = playableCombos[Math.floor(Math.random() * playableCombos.length)];
+  const random = mode === 'daily' ? dailyRandom('spin', roundSalt) : Math.random();
+  const selectedCombo = playableCombos[Math.floor(random * playableCombos.length)];
   const team = availableTeams.find((entry) => entry.abbr === selectedCombo.teamAbbr);
   if (!team) return null;
 
@@ -110,7 +119,6 @@ export interface GameState {
   currentSpin: SpinResult | null;
   positionIndex: number;
   playerIndex: number;
-  passesUsed: Record<string, number>;
   roster: Partial<Record<Position, Player>>;
   isComplete: boolean;
 
@@ -127,8 +135,6 @@ export interface GameState {
   setSpinState: (state: SpinState) => void;
   beginDrillRound: () => void;
   lockDrillTrack: (which: 'team' | 'era', hit: boolean) => void;
-  keepPlayer: () => void;
-  passPlayer: () => void;
   setPlayerIndex: (index: number) => void;
   assignPlayerToPosition: (position: Position) => void;
   resetGame: () => void;
@@ -136,15 +142,7 @@ export interface GameState {
   openPositions: () => Position[];
   currentCandidates: () => Player[];
   currentPlayer: () => Player | null;
-  maxPasses: () => number;
 }
-
-const MAX_PASSES_BY_MODE: Record<GameMode, number> = {
-  daily: 1,
-  classic: 2,
-  iq: 0,
-  timer: 3,
-};
 
 export const useGameStore = create<GameState>((set, get) => ({
   mode: 'classic',
@@ -156,7 +154,6 @@ export const useGameStore = create<GameState>((set, get) => ({
   currentSpin: null,
   positionIndex: 0,
   playerIndex: 0,
-  passesUsed: {},
   roster: {},
   isComplete: false,
 
@@ -178,7 +175,6 @@ export const useGameStore = create<GameState>((set, get) => ({
       currentSpin: null,
       positionIndex: 0,
       playerIndex: 0,
-      passesUsed: {},
       roster: {},
       isComplete: false,
       teamLockResult: 'pending',
@@ -189,7 +185,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   rollSpin: () => {
-    const { teamScope, selectedEras, lockedTeam } = get();
+    const { mode, teamScope, selectedEras, lockedTeam, positionIndex } = get();
     const openPositions = get().openPositions();
 
     if (openPositions.length === 0) {
@@ -197,7 +193,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       return;
     }
 
-    const picked = pickSpinResult({ teamScope, selectedEras, lockedTeam, openPositions });
+    const picked = pickSpinResult({ mode, roundSalt: positionIndex, teamScope, selectedEras, lockedTeam, openPositions });
     if (!picked) {
       set({ currentSpin: null, spinState: 'pre' });
       return;
@@ -224,7 +220,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   setSpinState: (state) => set({ spinState: state }),
 
   beginDrillRound: () => {
-    const { teamScope, selectedEras, lockedTeam } = get();
+    const { mode, teamScope, selectedEras, lockedTeam, positionIndex } = get();
     const openPositions = get().openPositions();
 
     if (openPositions.length === 0) {
@@ -240,7 +236,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     // Pre-determine the result now and hold it — don't reveal it to the UI
     // until both tracks lock, so lock timing can never leak the outcome.
-    const picked = pickSpinResult({ teamScope, selectedEras, lockedTeam, openPositions });
+    const picked = pickSpinResult({ mode, roundSalt: positionIndex, teamScope, selectedEras, lockedTeam, openPositions });
     set({
       drillPending: picked,
       currentSpin: null,
@@ -305,20 +301,6 @@ export const useGameStore = create<GameState>((set, get) => ({
     return pool[get().playerIndex % pool.length];
   },
 
-  maxPasses: () => MAX_PASSES_BY_MODE[get().mode],
-
-  keepPlayer: () => {
-    const position = get().currentPosition();
-    get().assignPlayerToPosition(position);
-  },
-
-  passPlayer: () => {
-    const poolSize = get().currentCandidates().length;
-    if (poolSize <= 1) return;
-    const nextIndex = (get().playerIndex + 1) % poolSize;
-    set({ playerIndex: nextIndex });
-  },
-
   setPlayerIndex: (index) => {
     const poolSize = get().currentCandidates().length;
     if (poolSize <= 0) {
@@ -350,7 +332,6 @@ export const useGameStore = create<GameState>((set, get) => ({
       roster: nextRoster,
       positionIndex: Math.min(draftedCount, DRAFT_POSITIONS.length - 1),
       playerIndex: 0,
-      passesUsed: {},
       currentSpin: null,
       drillOvrBonusPending: 0,
       spinState: isComplete ? 'picked' : 'pre',
@@ -368,7 +349,6 @@ export const useGameStore = create<GameState>((set, get) => ({
       currentSpin: null,
       positionIndex: 0,
       playerIndex: 0,
-      passesUsed: {},
       roster: {},
       isComplete: false,
       teamLockResult: 'pending',

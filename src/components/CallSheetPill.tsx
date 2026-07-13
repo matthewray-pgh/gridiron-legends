@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   tag: {
-    fontFamily: Font.secondaryRegular,
+    fontFamily: Font.mono,
     fontSize: Typography.sm,
     color: Colors.textMuted,
   },
