@@ -60,7 +60,7 @@ interface GeneratedStats {
   defTD: number;
 }
 
-interface GeneratedPlayerRecord {
+export interface GeneratedPlayerRecord {
   id: string;
   playerId: string;
   name: string | null;
@@ -107,7 +107,7 @@ const GENERATED_POSITION_MAP: Record<Position, GeneratedPosition[]> = {
   'D-FLEX': ['EDGE', 'DL', 'DT', 'LB', 'CB', 'S', 'DB'],
 };
 
-const GENERATED_RECORDS = (generatedData.records ?? []).filter((record): record is GeneratedPlayerRecord => {
+export const GENERATED_RECORDS = (generatedData.records ?? []).filter((record): record is GeneratedPlayerRecord => {
   return Boolean(
     record?.id
       && record.team
@@ -119,7 +119,7 @@ const GENERATED_RECORDS = (generatedData.records ?? []).filter((record): record 
   );
 });
 
-function ratingToTier(rating: number): Tier {
+export function ratingToTier(rating: number): Tier {
   if (rating >= 95) return 'GOAT';
   if (rating >= 85) return 'Legend';
   return 'Elite';

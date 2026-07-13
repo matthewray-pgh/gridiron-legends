@@ -12,6 +12,16 @@ import {
 export type GameMode = 'daily' | 'classic' | 'iq' | 'timer';
 export type TeamScope = 'all' | 'single';
 export type SpinState = 'pre' | 'spinning' | 'revealed' | 'picked';
+export type LockResult = 'pending' | 'hit' | 'miss';
+
+// docs/handoff/02-spin-mechanic-and-two-minute-drill.md > DECISION NEEDED:
+// these bonus values are placeholders carried directly from the reference
+// mockup's demo JS (lockReel() in gridiron-legends-redesign-concepts.html),
+// not finalized game balance. Also left open there: whether these should
+// mint Rings currency once Legacy mode (doc 03) ships. Don't tune either
+// without confirming first.
+export const DRILL_TEAM_LOCK_REROLL_BONUS = 1;
+export const DRILL_ERA_LOCK_OVR_BONUS = 3;
 
 export type EraToken =
   | '2000-2005'
@@ -43,9 +53,51 @@ export const FRANCHISES: Franchise[] = [
   { id: 'nyg', abbr: 'NYG', name: 'New York Giants' },
 ];
 
-interface SpinResult {
+export interface SpinResult {
   team: Franchise;
   era: EraToken;
+}
+
+interface DrillPending {
+  spin: SpinResult;
+  nextLockedTeam: Franchise | null;
+}
+
+// Shared by rollSpin() and beginDrillRound() so both modes select from the
+// identical playable-combo pool — the only thing Two-Minute Drill changes is
+// *when* the result is revealed to the player, never how it's picked.
+function pickSpinResult(params: {
+  teamScope: TeamScope;
+  selectedEras: EraToken[];
+  lockedTeam: Franchise | null;
+  openPositions: Position[];
+}): DrillPending | null {
+  const { teamScope, selectedEras, lockedTeam, openPositions } = params;
+  const eras = selectedEras.length > 0 ? selectedEras : ERA_OPTIONS;
+
+  const viableTeamAbbrs = getViableTeamAbbrs(FRANCHISES.map((franchise) => franchise.abbr), eras);
+  const availableTeams = teamScope === 'single'
+    ? (lockedTeam
+      ? [lockedTeam]
+      : FRANCHISES.filter((team) => viableTeamAbbrs.includes(team.abbr)))
+    : FRANCHISES;
+
+  const playableCombos = getPlayableSpinCombosForOpenPositions(
+    openPositions,
+    availableTeams.map((team) => team.abbr),
+    eras,
+  );
+
+  if (playableCombos.length === 0) return null;
+
+  const selectedCombo = playableCombos[Math.floor(Math.random() * playableCombos.length)];
+  const team = availableTeams.find((entry) => entry.abbr === selectedCombo.teamAbbr);
+  if (!team) return null;
+
+  return {
+    spin: { team, era: selectedCombo.era as EraToken },
+    nextLockedTeam: teamScope === 'single' ? team : null,
+  };
 }
 
 export interface GameState {
@@ -62,11 +114,19 @@ export interface GameState {
   roster: Partial<Record<Position, Player>>;
   isComplete: boolean;
 
+  // Two-Minute Drill ("Lock It In") state — see TwoMinuteDrillSpinScreen.
+  teamLockResult: LockResult;
+  eraLockResult: LockResult;
+  drillPending: DrillPending | null;
+  drillOvrBonusPending: number;
+
   setMode: (mode: GameMode) => void;
   beginDraftSession: (params: { teamScope: TeamScope; selectedEras: EraToken[] }) => void;
   rollSpin: () => void;
   rerollSpin: () => void;
   setSpinState: (state: SpinState) => void;
+  beginDrillRound: () => void;
+  lockDrillTrack: (which: 'team' | 'era', hit: boolean) => void;
   keepPlayer: () => void;
   passPlayer: () => void;
   setPlayerIndex: (index: number) => void;
@@ -100,6 +160,11 @@ export const useGameStore = create<GameState>((set, get) => ({
   roster: {},
   isComplete: false,
 
+  teamLockResult: 'pending',
+  eraLockResult: 'pending',
+  drillPending: null,
+  drillOvrBonusPending: 0,
+
   setMode: (mode) => set({ mode }),
 
   beginDraftSession: ({ teamScope, selectedEras }) => {
@@ -116,12 +181,15 @@ export const useGameStore = create<GameState>((set, get) => ({
       passesUsed: {},
       roster: {},
       isComplete: false,
+      teamLockResult: 'pending',
+      eraLockResult: 'pending',
+      drillPending: null,
+      drillOvrBonusPending: 0,
     });
   },
 
   rollSpin: () => {
     const { teamScope, selectedEras, lockedTeam } = get();
-    const eras = selectedEras.length > 0 ? selectedEras : ERA_OPTIONS;
     const openPositions = get().openPositions();
 
     if (openPositions.length === 0) {
@@ -129,35 +197,15 @@ export const useGameStore = create<GameState>((set, get) => ({
       return;
     }
 
-    const viableTeamAbbrs = getViableTeamAbbrs(FRANCHISES.map((franchise) => franchise.abbr), eras);
-    const availableTeams = teamScope === 'single'
-      ? (lockedTeam
-        ? [lockedTeam]
-        : FRANCHISES.filter((team) => viableTeamAbbrs.includes(team.abbr)))
-      : FRANCHISES;
-
-    const playableCombos = getPlayableSpinCombosForOpenPositions(
-      openPositions,
-      availableTeams.map((team) => team.abbr),
-      eras,
-    );
-
-    if (playableCombos.length === 0) {
-      set({ currentSpin: null, spinState: 'pre' });
-      return;
-    }
-
-    const selectedCombo = playableCombos[Math.floor(Math.random() * playableCombos.length)];
-    const team = availableTeams.find((entry) => entry.abbr === selectedCombo.teamAbbr);
-
-    if (!team) {
+    const picked = pickSpinResult({ teamScope, selectedEras, lockedTeam, openPositions });
+    if (!picked) {
       set({ currentSpin: null, spinState: 'pre' });
       return;
     }
 
     set({
-      lockedTeam: teamScope === 'single' ? team : null,
-      currentSpin: { team, era: selectedCombo.era as EraToken },
+      lockedTeam: picked.nextLockedTeam,
+      currentSpin: picked.spin,
       playerIndex: 0,
       spinState: 'revealed',
     });
@@ -174,6 +222,69 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   setSpinState: (state) => set({ spinState: state }),
+
+  beginDrillRound: () => {
+    const { teamScope, selectedEras, lockedTeam } = get();
+    const openPositions = get().openPositions();
+
+    if (openPositions.length === 0) {
+      set({
+        drillPending: null,
+        currentSpin: null,
+        spinState: 'picked',
+        teamLockResult: 'pending',
+        eraLockResult: 'pending',
+      });
+      return;
+    }
+
+    // Pre-determine the result now and hold it — don't reveal it to the UI
+    // until both tracks lock, so lock timing can never leak the outcome.
+    const picked = pickSpinResult({ teamScope, selectedEras, lockedTeam, openPositions });
+    set({
+      drillPending: picked,
+      currentSpin: null,
+      spinState: 'spinning',
+      teamLockResult: 'pending',
+      eraLockResult: 'pending',
+    });
+  },
+
+  lockDrillTrack: (which, hit) => {
+    const { teamLockResult, eraLockResult, drillPending } = get();
+    const currentResult = which === 'team' ? teamLockResult : eraLockResult;
+    if (currentResult !== 'pending') return; // already locked — ignore duplicate taps
+
+    const resultValue: LockResult = hit ? 'hit' : 'miss';
+    const nextTeamLock = which === 'team' ? resultValue : teamLockResult;
+    const nextEraLock = which === 'era' ? resultValue : eraLockResult;
+
+    if (nextTeamLock === 'pending' || nextEraLock === 'pending') {
+      set(which === 'team' ? { teamLockResult: resultValue } : { eraLockResult: resultValue });
+      return;
+    }
+
+    // Both tracks locked — reveal the pre-determined result and apply bonuses.
+    if (!drillPending) {
+      set({ teamLockResult: nextTeamLock, eraLockResult: nextEraLock, currentSpin: null, spinState: 'pre' });
+      return;
+    }
+
+    const rerollBonus = nextTeamLock === 'hit' ? DRILL_TEAM_LOCK_REROLL_BONUS : 0;
+    const ovrBonus = nextEraLock === 'hit' ? DRILL_ERA_LOCK_OVR_BONUS : 0;
+
+    set({
+      teamLockResult: nextTeamLock,
+      eraLockResult: nextEraLock,
+      lockedTeam: drillPending.nextLockedTeam,
+      currentSpin: drillPending.spin,
+      drillPending: null,
+      playerIndex: 0,
+      spinState: 'revealed',
+      rerollsRemaining: get().rerollsRemaining + rerollBonus,
+      drillOvrBonusPending: ovrBonus,
+    });
+  },
 
   currentPosition: () => {
     const nextOpen = DRAFT_POSITIONS.find((position) => !get().roster[position]);
@@ -219,7 +330,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   assignPlayerToPosition: (position) => {
-    const { roster, currentPlayer, openPositions } = get();
+    const { roster, currentPlayer, openPositions, drillOvrBonusPending } = get();
 
     if (!openPositions().includes(position)) return;
 
@@ -229,7 +340,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     const eligiblePositions = player.eligiblePositions ?? [];
     if (!eligiblePositions.includes(position)) return;
 
-    const nextRoster = { ...roster, [position]: { ...player, position } };
+    // Two-Minute Drill era-lock bonus: a one-time OVR boost on this pick only.
+    const boostedRating = drillOvrBonusPending > 0 ? player.rating + drillOvrBonusPending : player.rating;
+    const nextRoster = { ...roster, [position]: { ...player, position, rating: boostedRating } };
     const draftedCount = DRAFT_POSITIONS.filter((slot) => nextRoster[slot]).length;
     const isComplete = draftedCount >= DRAFT_POSITIONS.length;
 
@@ -239,6 +352,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       playerIndex: 0,
       passesUsed: {},
       currentSpin: null,
+      drillOvrBonusPending: 0,
       spinState: isComplete ? 'picked' : 'pre',
       isComplete,
     });
@@ -257,5 +371,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       passesUsed: {},
       roster: {},
       isComplete: false,
+      teamLockResult: 'pending',
+      eraLockResult: 'pending',
+      drillPending: null,
+      drillOvrBonusPending: 0,
     }),
 }));

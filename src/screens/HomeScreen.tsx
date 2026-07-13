@@ -7,60 +7,70 @@ import {
   StyleSheet,
   Modal,
   Pressable,
-  Image,
-  ImageBackground,
-  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
-import { getViableTeamAbbrs } from '../data/players';
+import { DRAFT_POSITIONS, getViableTeamAbbrs } from '../data/players';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { useStatsStore } from '../store/statsStore';
 import { ERA_OPTIONS, EraToken, TeamScope, useGameStore } from '../store/gameStore';
+import { Ticker } from '../components/Ticker';
+import { ScoreBox } from '../components/ScoreBox';
+import { CallSheetPill } from '../components/CallSheetPill';
+import { SegmentedControl } from '../components/SegmentedControl';
+import { SelectablePill } from '../components/SelectablePill';
+import { useResponsive } from '../hooks/useResponsive';
+import { DYNASTY_ENABLED } from '../config/featureFlags';
+import { useDynastyStore } from '../store/dynastyStore';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-// ─── Asset references ────────────────────────────────────────────────────────
-// Drop your generated images into assets/ with these exact names.
-// React Native auto-selects @2x / @3x variants on high-DPI devices.
-//
-//   assets/stadium-bg.png        (430 × 932 px baseline)
-//   assets/stadium-bg@2x.png     (860 × 1864 px)
-//   assets/stadium-bg@3x.png     (1290 × 2796 px)
-//
-//   assets/field-bottom.png      (430 × 220 px baseline, top edge transparent/faded)
-//   assets/field-bottom@2x.png   (860 × 440 px)
-//   assets/field-bottom@3x.png   (1290 × 660 px)
-//
-//   assets/undefeated-header.png        (800 × 220 px baseline, transparent bg)
-//   assets/undefeated-header@2x.png     (1600 × 440 px)
-//   assets/undefeated-header@3x.png     (2400 × 660 px)
-//
-// Until the real images are ready the LinearGradient fallbacks keep the
-// screen functional and on-brand.
-
-const STADIUM_BG    = require('../../assets/stadium-bg.png');
-const FIELD_BOTTOM  = require('../../assets/field-bottom.png');
-const HEADER_LOGO   = require('../../assets/undefeated-gridiron-legends-header.png');
-const FALLBACK_LOGO = require('../../assets/icon.png');
-
 export function HomeScreen() {
-  const navigation             = useNavigation<Nav>();
-  const streak                 = useStatsStore((s) => s.streak);
-  const setMode                = useGameStore((s) => s.setMode);
-  const beginDraftSession      = useGameStore((s) => s.beginDraftSession);
-  const { width: screenWidth } = useWindowDimensions();
+  const navigation        = useNavigation<Nav>();
+  const { isWide }         = useResponsive();
+  const streak             = useStatsStore((s) => s.streak);
+  const bestRecord         = useStatsStore((s) => s.bestRecord);
+  const leaderboard        = useStatsStore((s) => s.leaderboard);
+  const setMode             = useGameStore((s) => s.setMode);
+  const beginDraftSession   = useGameStore((s) => s.beginDraftSession);
+  const roster              = useGameStore((s) => s.roster);
+  const isComplete          = useGameStore((s) => s.isComplete);
+  const positionIndex       = useGameStore((s) => s.positionIndex);
+  const lockedTeam          = useGameStore((s) => s.lockedTeam);
 
-  const [setupVisible,    setSetupVisible]    = useState(false);
-  const [useFallbackLogo, setUseFallbackLogo] = useState(false);
-  const [stadiumError,    setStadiumError]    = useState(false);
-  const [fieldError,      setFieldError]      = useState(false);
-  const [pendingMode,     setPendingMode]     = useState<'daily' | 'classic' | 'iq' | 'timer'>('classic');
-  const [teamScope,       setTeamScope]       = useState<TeamScope>('all');
-  const [selectedEras,    setSelectedEras]    = useState<EraToken[]>(ERA_OPTIONS);
+  const dynastyLevel      = useDynastyStore((s) => s.dynastyLevel);
+  const dynastyRings      = useDynastyStore((s) => s.rings);
+  const dynastyAllTime    = useDynastyStore((s) => s.allTimeRecord);
+  const dynastyHOFCount   = useDynastyStore((s) => s.hallOfFame.length);
+  const dynastyPackCount  = useDynastyStore((s) => s.ownedPacks.length);
+
+  const myRank = leaderboard.find((entry) => entry.isMe)?.rank;
+  const hasInProgressRun = Object.keys(roster).length > 0 && !isComplete;
+  const ringsBalance = dynastyRings;
+
+  // Hero call panel is a single contextual slot (doc 01, rule 3): an
+  // in-progress run wins over Today's Challenge when both exist. In that
+  // case the challenge doesn't disappear — it surfaces as a normal pill in
+  // the call sheet rail below instead of being lost.
+  const heroState: 'continue' | 'daily' = hasInProgressRun ? 'continue' : 'daily';
+  const showDailyPill = heroState === 'continue';
+  const continueSubtitle = lockedTeam
+    ? `${lockedTeam.abbr} · Round ${positionIndex + 1}/${DRAFT_POSITIONS.length}`
+    : `Round ${positionIndex + 1}/${DRAFT_POSITIONS.length}`;
+
+  const tickerItems = [
+    `${streak} DAY STREAK`,
+    myRank ? `RANK #${myRank}` : 'RANK —',
+    `RECORD ${bestRecord}`,
+  ];
+
+  const [setupVisible, setSetupVisible] = useState(false);
+  const [pendingMode,  setPendingMode]  = useState<'daily' | 'classic' | 'iq' | 'timer'>('classic');
+  const [teamScope,    setTeamScope]    = useState<TeamScope>('all');
+  const [selectedEras, setSelectedEras] = useState<EraToken[]>(ERA_OPTIONS);
 
   const viableSingleTeamCount = getViableTeamAbbrs(
     ['PIT', 'DAL', 'NE', 'SF', 'GB', 'BAL', 'MIA', 'KC', 'BUF', 'DEN', 'CHI', 'NYG'],
@@ -71,6 +81,10 @@ export function HomeScreen() {
   function startGame(mode: 'daily' | 'classic' | 'iq' | 'timer') {
     setPendingMode(mode);
     setSetupVisible(true);
+  }
+
+  function resumeRun() {
+    navigation.navigate('Game');
   }
 
   function toggleEra(era: EraToken) {
@@ -86,200 +100,140 @@ export function HomeScreen() {
     setMode(pendingMode);
     beginDraftSession({ teamScope, selectedEras });
     setSetupVisible(false);
-    navigation.navigate('Spin');
+    // Two-Minute Drill carries the Lock It In mechanic and gets its own
+    // screen (doc 02) — every other mode, including Daily, keeps the
+    // existing blind-spin SpinScreen.
+    navigation.navigate(pendingMode === 'timer' ? 'TwoMinuteDrillSpin' : 'Spin');
   }
 
-  // Header logo: scales proportionally to screen width.
-  // Ratio matches the recommended export canvas (800 x 220 px).
-  const logoWidth  = screenWidth * 0.72;
-  const logoHeight = Math.round(logoWidth * (220 / 800));
-
   return (
-    <SafeAreaView style={styles.safe}>
-
-      {/* ── STADIUM BACKGROUND ─────────────────────────────────────────────
-           Full-screen image pinned behind everything. A dark LinearGradient
-           scrim sits on top so UI text/cards stay readable regardless of
-           how bright the source image is.
-           Falls back to a plain dark gradient until the PNG is in assets.  */}
-      {stadiumError ? (
-        <LinearGradient
-          colors={['#1C2B3A', '#0D151E', '#060A0E']}
-          locations={[0, 0.55, 1]}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
-      ) : (
-        <ImageBackground
-          source={STADIUM_BG}
-          style={StyleSheet.absoluteFill}
-          resizeMode="cover"
-          onError={() => setStadiumError(true)}
-        >
-          <LinearGradient
-            colors={['#0B0F14CC', '#0B0F14AA', '#0B0F14F0']}
-            locations={[0, 0.5, 1]}
-            style={StyleSheet.absoluteFill}
-            pointerEvents="none"
-          />
-        </ImageBackground>
-      )}
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+      <Ticker items={tickerItems} />
 
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-
-        {/* ── HEADER ───────────────────────────────────────────────────────
-             Logo width is 72% of screen width; height derives from the
-             asset aspect ratio (800x220) so it scales on every device.
-             Settings gear is wired and visible in the top-right corner.   */}
-        <View style={styles.header}>
-          <Image
-            source={useFallbackLogo ? FALLBACK_LOGO : HEADER_LOGO}
-            style={{ width: logoWidth, height: logoHeight }}
-            resizeMode="contain"
-            accessibilityRole="image"
-            accessibilityLabel="Undefeated Gridiron Legends"
-            onError={() => setUseFallbackLogo(true)}
-          />
-          <TouchableOpacity
-            style={styles.settingsBtn}
-            onPress={() => { /* navigate to settings */ }}
-            accessibilityLabel="Settings"
-            accessibilityRole="button"
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={styles.settingsIcon}>⚙</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── DAILY CHALLENGE CARD ─────────────────────────────────────── */}
-        <View style={styles.dailyCard}>
-          <View style={styles.dailyTop}>
-            <View style={{ flex: 1, marginRight: 12 }}>
-              <Text style={styles.dailyLabel}>TODAY'S CHALLENGE</Text>
-              <Text style={styles.dailyTitle}>DAILY ROSTER BUILD</Text>
-              <Text style={styles.dailyMeta}>Same spins for everyone • 1 attempt</Text>
-            </View>
-            <View style={styles.newBadge}>
-              <Text style={styles.newBadgeText}>NEW</Text>
-            </View>
+        <View style={[styles.contentWrap, isWide && styles.contentWrapWide]}>
+          {/* ── HEADER ───────────────────────────────────────────────── */}
+          <View style={styles.header}>
+            <Text style={styles.headerWordmark}>UNDEFEATED</Text>
+            <TouchableOpacity
+              style={styles.gearBtn}
+              onPress={() => { /* navigate to settings */ }}
+              accessibilityLabel="Settings"
+              accessibilityRole="button"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.gearIcon}>⚙</Text>
+            </TouchableOpacity>
           </View>
 
-          <View style={styles.statsRow}>
-            <View style={styles.statPill}>
-              <Text style={styles.statNum}>--</Text>
-              <Text style={styles.statLabel}>PLAYERS</Text>
-            </View>
-            <View style={styles.statPill}>
-              <Text style={[styles.statNum, { color: Colors.gold }]}>--h --m</Text>
-              <Text style={styles.statLabel}>RESETS IN</Text>
-            </View>
-            <View style={styles.statPill}>
-              <Text style={styles.statNum}>🔥 {streak}</Text>
-              <Text style={styles.statLabel}>STREAK</Text>
-            </View>
-          </View>
-
-          {/* Gold metallic gradient CTA button — matches the mockup sheen */}
-          <TouchableOpacity
-            onPress={() => startGame('daily')}
-            activeOpacity={0.85}
-            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-            accessibilityRole="button"
-          >
-            <LinearGradient
-              colors={['#A86A05', '#D4A017', '#F0CC50', '#D4A017', '#A86A05']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.playBtn}
-            >
-              <Text style={styles.playBtnText}>PLAY TODAY'S CHALLENGE</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── CHOOSE YOUR MODE ─────────────────────────────────────────── */}
-        <Text style={styles.sectionLabel}>CHOOSE YOUR MODE</Text>
-        <View style={styles.modeRow}>
-          {[
-            { id: 'classic', emoji: '100', label: 'CLASSIC',     desc: 'Stats visible', onPress: () => startGame('classic') },
-            { id: 'iq',      emoji: '🧠',  label: 'GRIDIRON IQ', desc: 'Stats hidden',  onPress: () => startGame('iq') },
-          ].map((mode) => (
+          {/* ── DYNASTY BANNER ─────────────────────────────────────────────
+               Legacy mode (doc 03), renamed Dynasty — its own persistent-
+               save entry point, distinct from the one-and-done runs below.*/}
+          {DYNASTY_ENABLED && (
             <TouchableOpacity
-              key={mode.id}
-              style={styles.modeCard}
-              onPress={mode.onPress}
-              activeOpacity={0.8}
-              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              style={styles.dynastyBanner}
+              onPress={() => navigation.navigate('DynastyHome')}
+              activeOpacity={0.85}
             >
-              <Text style={styles.modeEmoji}>{mode.emoji}</Text>
-              <View style={styles.modeTextWrap}>
-                <Text style={styles.modeName}>{mode.label}</Text>
-                <Text style={styles.modeDesc}>{mode.desc}</Text>
+              <Text style={styles.dynastyEyebrow}>YOUR DYNASTY</Text>
+              <Text style={styles.dynastyTitle}>Dynasty · Level {dynastyLevel}</Text>
+              <View style={styles.dynastyRow}>
+                <View style={styles.dynastyChip}>
+                  <Text style={styles.dynastyChipValue}>{dynastyAllTime.wins}-{dynastyAllTime.losses}</Text>
+                  <Text style={styles.dynastyChipLabel}>All-time</Text>
+                </View>
+                <View style={styles.dynastyChip}>
+                  <Text style={styles.dynastyChipValue}>{dynastyHOFCount}</Text>
+                  <Text style={styles.dynastyChipLabel}>HOF cards</Text>
+                </View>
+                <View style={styles.dynastyChip}>
+                  <Text style={styles.dynastyChipValue}>{dynastyPackCount}</Text>
+                  <Text style={styles.dynastyChipLabel}>Packs ready</Text>
+                </View>
+              </View>
+              <View style={styles.dynastyBtn}>
+                <Text style={styles.dynastyBtnText}>Enter dynasty</Text>
               </View>
             </TouchableOpacity>
-          ))}
-        </View>
-
-         <View style={styles.modeRow}>
-          {[
-            { id: 'timer',  emoji: '⏱',  label: 'TIMED', desc: 'Beat the clock', onPress: () => startGame('timer') },
-            { id: 'chal',    emoji: '⚔️',  label: 'CHALLENGE',   desc: 'vs friends',    onPress: () => navigation.navigate('Leaderboard') },
-          ].map((mode) => (
-            <TouchableOpacity
-              key={mode.id}
-              style={styles.modeCard}
-              onPress={mode.onPress}
-              activeOpacity={0.8}
-              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-            >
-              <Text style={styles.modeEmoji}>{mode.emoji}</Text>
-              <View style={styles.modeTextWrap}>
-                <Text style={styles.modeName}>{mode.label}</Text>
-                <Text style={styles.modeDesc}>{mode.desc}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* ── DISCLAIMER ───────────────────────────────────────────────── */}
-        <Text style={styles.disclaimer}>
-          Not affiliated with or endorsed by the NFL, NFLPA, or any team.
-        </Text>
-
-        {/* ── FIELD BOTTOM IMAGE ───────────────────────────────────────────
-             Always screen-width wide. aspectRatio (430/220) matches the
-             export canvas so height auto-scales on any device.
-             A LinearGradient fades the top edge into the background above.
-             Falls back to a dark-green gradient until PNG is in assets.   */}
-        {/* <View style={[styles.fieldWrap, { width: screenWidth }]}>
-          {fieldError ? (
-            <LinearGradient
-              colors={['#00000000', '#0A1A0E', '#0D2310']}
-              locations={[0, 0.4, 1]}
-              style={styles.fieldFallback}
-            />
-          ) : (
-            <Image
-              source={FIELD_BOTTOM}
-              style={styles.fieldImage}
-              resizeMode="cover"
-              onError={() => setFieldError(true)}
-              accessible={false}
-            />
           )}
-          
-          <LinearGradient
-            colors={['#0B0F14FF', '#00000000']}
-            locations={[0, 0.4]}
-            style={styles.fieldTopFade}
-            pointerEvents="none"
-          />
-        </View> */}
 
+          {/* ── HERO CALL PANEL + SCOREBOX ROW ────────────────────────────
+               Single contextual hero slot — continue-run beats today's-
+               challenge when both exist (see heroState above). On wide
+               viewports the hero and scorebox sit side by side instead of
+               stacked, with the scoreboxes forming a vertical column.    */}
+          <View style={[styles.heroRow, isWide && styles.heroRowWide]}>
+            <View style={[styles.heroPanel, isWide && styles.heroPanelWide]}>
+              <View style={styles.heroAccentBar} />
+              <View style={styles.heroContent}>
+                {heroState === 'continue' ? (
+                  <>
+                    <Text style={styles.heroLabel}>IN PROGRESS</Text>
+                    <Text style={styles.heroTitle}>CONTINUE YOUR RUN</Text>
+                    <Text style={styles.heroClock}>{continueSubtitle}</Text>
+                    <TouchableOpacity style={styles.heroBtn} onPress={resumeRun} activeOpacity={0.85}>
+                      <Text style={styles.heroBtnText}>RESUME</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.heroLabel}>TODAY'S CHALLENGE</Text>
+                    <Text style={styles.heroTitle}>DAILY ROSTER BUILD</Text>
+                    <Text style={styles.heroClock}>RESETS --:--:--</Text>
+                    <TouchableOpacity style={styles.heroBtn} onPress={() => startGame('daily')} activeOpacity={0.85}>
+                      <Text style={styles.heroBtnText}>PLAY NOW</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            </View>
+
+            <View style={[styles.scoreRow, isWide && styles.scoreRowWide]}>
+              <ScoreBox value={String(streak).padStart(2, '0')} label="Streak" />
+              <ScoreBox value={myRank ? `#${myRank}` : '—'} label="Rank" />
+              <ScoreBox value={String(ringsBalance)} label="Rings" />
+            </View>
+          </View>
+
+          {/* ── CALL SHEET RAIL ───────────────────────────────────────────
+               If Today's Challenge got bumped out of the hero slot above,
+               it surfaces here as a normal (silver-accent) pill instead of
+               being lost. On wide viewports this wraps into a grid.      */}
+          <Text style={styles.railLabel}>Call sheet</Text>
+          <View style={[styles.rail, isWide && styles.railWide]}>
+            {showDailyPill && (
+              <View style={isWide && styles.railItemWide}>
+                <CallSheetPill title="Daily Challenge" tag="today only" onPress={() => startGame('daily')} />
+              </View>
+            )}
+            <View style={isWide && styles.railItemWide}>
+              <CallSheetPill title="Classic" tag="stats on" onPress={() => startGame('classic')} />
+            </View>
+            <View style={isWide && styles.railItemWide}>
+              <CallSheetPill title="Gridiron IQ" tag="stats off" onPress={() => startGame('iq')} />
+            </View>
+            <View style={isWide && styles.railItemWide}>
+              <CallSheetPill
+                title="Two-Minute Drill"
+                tag="skill spin"
+                accentColor={Colors.gridironBlue}
+                onPress={() => startGame('timer')}
+              />
+            </View>
+            <View style={isWide && styles.railItemWide}>
+              <CallSheetPill title="Challenge" tag="vs friends" onPress={() => navigation.navigate('Leaderboard')} />
+            </View>
+          </View>
+
+          {/* ── DISCLAIMER ─────────────────────────────────────────────── */}
+          <Text style={styles.disclaimer}>
+            Not affiliated with or endorsed by the NFL, NFLPA, or any team.
+          </Text>
+        </View>
       </ScrollView>
 
       {/* ── GAME SETUP MODAL ─────────────────────────────────────────────── */}
@@ -297,20 +251,11 @@ export function HomeScreen() {
 
             <View style={styles.sheetSection}>
               <Text style={styles.sheetLabel}>TEAMS</Text>
-              <View style={styles.segmentWrap}>
-                <TouchableOpacity
-                  style={[styles.segmentBtn, teamScope === 'all' && styles.segmentBtnActive]}
-                  onPress={() => setTeamScope('all')}
-                >
-                  <Text style={[styles.segmentText, teamScope === 'all' && styles.segmentTextActive]}>All teams</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.segmentBtn, teamScope === 'single' && styles.segmentBtnActive]}
-                  onPress={() => setTeamScope('single')}
-                >
-                  <Text style={[styles.segmentText, teamScope === 'single' && styles.segmentTextActive]}>One team</Text>
-                </TouchableOpacity>
-              </View>
+              <SegmentedControl
+                options={[{ value: 'all', label: 'All teams' }, { value: 'single', label: 'One team' }]}
+                value={teamScope}
+                onChange={setTeamScope}
+              />
               {teamScope === 'single' && (
                 <Text style={styles.noteText}>
                   {viableSingleTeamCount > 0
@@ -328,23 +273,16 @@ export function HomeScreen() {
                 </TouchableOpacity>
               </View>
               <View style={styles.chipsWrap}>
-                {ERA_OPTIONS.map((era) => {
-                  const selected = selectedEras.includes(era);
-                  return (
-                    <TouchableOpacity
-                      key={era}
-                      style={[styles.eraChip, selected && styles.eraChipActive]}
-                      onPress={() => toggleEra(era)}
-                    >
-                      <Text style={[styles.eraChipText, selected && styles.eraChipTextActive]}>{era}</Text>
-                      {selected && (
-                        <View style={styles.eraCheckBadge}>
-                          <Text style={styles.eraCheckText}>✓</Text>
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
+                {ERA_OPTIONS.map((era) => (
+                  <SelectablePill
+                    key={era}
+                    label={era}
+                    selected={selectedEras.includes(era)}
+                    showCheck
+                    onPress={() => toggleEra(era)}
+                    style={styles.eraChip}
+                  />
+                ))}
               </View>
               {!canStart && (
                 <Text style={styles.warningText}>
@@ -359,12 +297,12 @@ export function HomeScreen() {
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setSetupVisible(false)} activeOpacity={0.85}>
                 <Text style={styles.cancelText}>CANCEL</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 onPress={handleStartFromSetup}
                 activeOpacity={0.85}
                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                accessibilityRole="button" 
+                accessibilityRole="button"
                 disabled={!canStart}
               >
                 <LinearGradient
@@ -386,183 +324,207 @@ export function HomeScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#0B0F14', // Midnight Black — visible before images load
+    backgroundColor: Colors.bgPrimary,
   },
 
   // ── SCROLL
   scroll: { flex: 1 },
-  scrollContent: { paddingBottom: 0 }, // field image provides bottom padding
+  scrollContent: { paddingBottom: Spacing.xl, width: '100%' },
+  contentWrap: { width: '100%' },
+  contentWrapWide: { maxWidth: 1040, alignSelf: 'center' },
 
   // ── HEADER
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
   },
-  settingsBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#111A25DD',
-    borderWidth: 1,
-    borderColor: '#8B6B2C',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 10,
+  headerWordmark: {
+    fontSize: 20,
+    color: Colors.textPrimary,
+    fontFamily: Font.primaryBold,
+    letterSpacing: 1.5,
   },
-  settingsIcon: {
-    fontSize: 18,
-    color: Colors.gold,
-  },
-
-  // ── DAILY CARD
-  dailyCard: {
-    marginHorizontal: Spacing.lg,
-    backgroundColor: '#0E1722E6',
-    borderRadius: Radius.lg,
-    padding: Spacing.lg,
+  gearBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#8B6B2C',
-    marginBottom: Spacing.xl,
-    shadowColor: '#C9930A',
-    shadowOpacity: 0.3,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
-  },
-  dailyTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 14,
-  },
-  dailyLabel: {
-    fontSize: Typography.md,
-    color: Colors.gold,
-    fontFamily: Font.primarySemiBold,
-    letterSpacing: 1.1,
-    marginBottom: 6,
-  },
-  dailyTitle: {
-    fontSize: 34,
-    color: Colors.textPrimary,
-    fontFamily: Font.primaryBold,
-    letterSpacing: 1.1,
-    lineHeight: 36,
-  },
-  dailyMeta: {
-    fontSize: Typography.sm,
-    color: Colors.textSecondary,
-    marginTop: 4,
-    fontFamily: Font.secondaryRegular,
-  },
-  newBadge: {
-    backgroundColor: Colors.gold,
-    borderRadius: Radius.md,
-    paddingHorizontal: 11,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: '#E9C35A',
-  },
-  newBadgeText: {
-    fontSize: Typography.md,
-    color: Colors.bgDark,
-    fontFamily: Font.primarySemiBold,
-  },
-
-  // ── STAT PILLS
-  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  statPill: {
-    flex: 1,
-    backgroundColor: '#0B1119EE',
-    borderRadius: Radius.sm,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#2B3744',
-  },
-  statNum: {
-    fontSize: Typography['2xl'],
-    color: Colors.textPrimary,
-    fontFamily: Font.primaryBold,
-  },
-  statLabel: {
-    fontSize: Typography.sm,
-    color: Colors.textMuted,
-    marginTop: 3,
-    textAlign: 'center',
-    letterSpacing: 0.3,
-    fontFamily: Font.secondaryMedium,
-  },
-
-  // ── PLAY BUTTON — LinearGradient is the container; styles apply to it.
-  playBtn: {
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: '#F5DC7A',
-    minHeight: 58,
+    borderColor: Colors.steel,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
   },
-  playBtnText: {
-    fontSize: Typography.xl,
-    color: Colors.bgDark,
-    fontFamily: Font.primaryBold,
-    letterSpacing: 0.8,
+  gearIcon: {
+    fontSize: 14,
+    color: Colors.steel,
   },
 
-  // ── MODE CARDS
-  sectionLabel: {
-    fontSize: Typography.md,
-    color: Colors.textSecondary,
-    fontFamily: Font.primaryMedium,
-    letterSpacing: 2.2,
-    paddingHorizontal: Spacing.lg,
+  // ── DYNASTY BANNER
+  dynastyBanner: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.gold,
+    backgroundColor: '#150F04',
+    padding: Spacing.lg,
+  },
+  dynastyEyebrow: {
+    fontSize: Typography.xs,
+    color: Colors.gold,
+    fontFamily: Font.mono,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  dynastyTitle: {
+    fontSize: 22,
+    color: Colors.textPrimary,
+    fontFamily: Font.primaryBold,
+    letterSpacing: 1,
+    marginTop: 2,
     marginBottom: 10,
   },
-  modeRow: {
+  dynastyRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
+    marginBottom: 12,
+  },
+  dynastyChip: {
+    flex: 1,
+    backgroundColor: '#00000033',
+    borderRadius: Radius.sm,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+  },
+  dynastyChipValue: {
+    fontSize: Typography.base,
+    color: Colors.gold,
+    fontFamily: Font.secondarySemiBold,
+  },
+  dynastyChipLabel: {
+    fontSize: 9,
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 1,
+  },
+  dynastyBtn: {
+    backgroundColor: Colors.gold,
+    borderRadius: Radius.md,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  dynastyBtnText: {
+    color: Colors.bgDark,
+    fontFamily: Font.primarySemiBold,
+    fontSize: Typography.base,
+    letterSpacing: 0.5,
+  },
+
+  // ── HERO CALL PANEL (+ scorebox row pairing on wide)
+  heroRow: {},
+  heroRowWide: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: Spacing.lg,
+  },
+  heroPanel: {
+    flexDirection: 'row',
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+    borderRadius: Radius.sharp,
+    borderWidth: 1,
+    borderColor: Colors.gold,
+    backgroundColor: '#1B140A',
+    overflow: 'hidden',
+  },
+  heroPanelWide: {
+    flex: 3,
+    marginHorizontal: 0,
+    marginBottom: 0,
+  },
+  heroAccentBar: {
+    width: 4,
+    backgroundColor: Colors.gold,
+  },
+  heroContent: {
+    flex: 1,
+    padding: Spacing.lg,
+  },
+  heroLabel: {
+    fontSize: Typography.xs,
+    color: Colors.gold,
+    fontFamily: Font.mono,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  heroTitle: {
+    fontSize: 26,
+    color: Colors.textPrimary,
+    fontFamily: Font.primaryBold,
+    letterSpacing: 1,
+    marginTop: 4,
+    marginBottom: 6,
+  },
+  heroClock: {
+    fontSize: Typography.sm,
+    color: Colors.textSecondary,
+    fontFamily: Font.mono,
+    marginBottom: 12,
+  },
+  heroBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.gold,
+    borderRadius: Radius.sharp,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  heroBtnText: {
+    fontSize: Typography.md,
+    color: Colors.bgDark,
+    fontFamily: Font.primaryBold,
+    letterSpacing: 1,
+  },
+
+  // ── SCOREBOX ROW
+  scoreRow: {
+    flexDirection: 'row',
+    gap: 8,
     paddingHorizontal: Spacing.lg,
     marginBottom: Spacing.lg,
   },
-  modeCard: {
-    width: '48%',
+  scoreRowWide: {
+    flex: 2,
     flexDirection: 'column',
-    alignItems: 'center',
-    textAlign: 'center',
-    backgroundColor: '#111C28F0',
-    borderWidth: 1,
-    borderColor: '#2C3A4A',
-    borderTopColor: '#3A4E62',  // subtle top highlight simulates bevel edge
-    borderRadius: 12,
-    minHeight: 90,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
+    marginBottom: 0,
   },
-  modeEmoji: {
-    fontSize: 32,
-    width: 52,
-    textAlign: 'center',
-    color: Colors.gold,
-    fontFamily: Font.primaryBold,
+
+  // ── CALL SHEET RAIL
+  railLabel: {
+    fontSize: Typography.xs,
+    color: Colors.textSecondary,
+    fontFamily: Font.mono,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    paddingHorizontal: Spacing.lg,
+    marginBottom: 8,
   },
-  modeTextWrap: { flex: 1 },
-  modeName: {
-    fontSize: 28,
-    color: Colors.textPrimary,
-    fontFamily: Font.primaryBold,
-    textAlign: 'center',
+  rail: {
+    gap: 8,
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
   },
-  modeDesc: {
-    fontSize: Typography.sm,
-    color: Colors.textMuted,
-    fontFamily: Font.secondaryMedium,
-    textAlign: 'center',
+  railWide: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  railItemWide: {
+    width: '32%',
   },
 
   // ── DISCLAIMER
@@ -573,30 +535,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.lg,
-    fontFamily: Font.primaryRegular,
-  },
-
-  // ── FIELD BOTTOM
-  // width set dynamically to screenWidth so it always bleeds edge-to-edge.
-  // aspectRatio (430/220) matches the export canvas; height auto-scales.
-  fieldWrap: {
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  fieldImage: {
-    width: '100%',
-    aspectRatio: 430 / 220,
-  },
-  fieldFallback: {
-    width: '100%',
-    height: 180,
-  },
-  fieldTopFade: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 70,
+    fontFamily: Font.secondaryRegular,
   },
 
   // ── MODAL / SHEET
@@ -668,42 +607,6 @@ const styles = StyleSheet.create({
     fontFamily: Font.primarySemiBold,
     letterSpacing: 1,
   },
-  segmentWrap: {
-    flexDirection: 'row',
-    backgroundColor: '#09111B',
-    borderRadius: Radius.md,
-    padding: 4,
-    gap: 4,
-    borderWidth: 1,
-    borderColor: '#2B3A48',
-  },
-  segmentBtn: {
-    flex: 1,
-    minHeight: 46,
-    borderRadius: Radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  segmentBtnActive: {
-    backgroundColor: '#221A08',
-    borderColor: '#BD9030',
-    shadowColor: Colors.gold,
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  segmentText: {
-    color: Colors.textSecondary,
-    fontSize: Typography.md,
-    fontFamily: Font.primaryMedium,
-    letterSpacing: 0.8,
-  },
-  segmentTextActive: {
-    color: Colors.gold,
-    fontFamily: Font.primaryBold,
-  },
   noteText: {
     color: Colors.textMuted,
     fontSize: Typography.sm,
@@ -717,40 +620,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   eraChip: {
-    borderWidth: 1,
-    borderColor: '#324252',
-    borderRadius: Radius.md,
     width: '48.5%',
     minHeight: 62,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: '#0E1823',
-    justifyContent: 'center',
-  },
-  eraChipActive: { borderColor: Colors.gold, backgroundColor: '#211907' },
-  eraChipText: {
-    color: Colors.textPrimary,
-    fontSize: Typography.lg,
-    fontFamily: Font.primaryMedium,
-    letterSpacing: 0.9,
-  },
-  eraChipTextActive: { color: Colors.gold, fontFamily: Font.primaryBold },
-  eraCheckBadge: {
-    position: 'absolute',
-    right: 8,
-    bottom: 8,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: Colors.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  eraCheckText: {
-    color: Colors.bgDark,
-    fontSize: 12,
-    lineHeight: 14,
-    fontFamily: Font.secondaryBold,
   },
   warningText: {
     color: Colors.gold,

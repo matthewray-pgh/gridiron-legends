@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Undefeated Gridiron Legends — Redesign Concepts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --black:#0B0F14;
+    --panel:#12171F;
+    --panel2:#171D26;
+    --silver:#A7B1BC;
+    --gold:#D4A017;
+    --gold-bright:#F0C24B;
+    --blue:#123B5D;
+    --white:#F5F7FA;
+    --line:#242C38;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:#05070A;
+    color:var(--white);
+    font-family:'Inter',sans-serif;
+    padding:40px 20px 80px;
+  }
+  h1.page-title{
+    font-family:'Bebas Neue',sans-serif;
+    letter-spacing:2px;
+    font-size:34px;
+    text-align:center;
+    margin:0 0 4px;
+    background:linear-gradient(180deg,#fff,#B9C2CC);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+  p.page-sub{
+    text-align:center;
+    color:var(--silver);
+    font-size:13px;
+    margin:0 0 48px;
+  }
+  section{max-width:1080px;margin:0 auto 72px;}
+  h2.section-title{
+    font-family:'Oswald',sans-serif;
+    font-weight:600;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    font-size:15px;
+    color:var(--gold-bright);
+    border-left:3px solid var(--gold);
+    padding-left:12px;
+    margin:0 0 6px;
+  }
+  p.section-note{
+    color:var(--silver);
+    font-size:13px;
+    max-width:640px;
+    margin:0 0 28px;
+    line-height:1.6;
+  }
+
+  /* ICON CONCEPTS */
+  .icon-row{display:flex;gap:24px;flex-wrap:wrap;}
+  .icon-card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:20px;
+    width:160px;
+    text-align:center;
+  }
+  .icon-card svg{width:88px;height:88px;}
+  .icon-card .icon-label{
+    font-family:'Oswald',sans-serif;
+    font-weight:600;
+    font-size:12px;
+    letter-spacing:1px;
+    color:var(--white);
+    margin-top:12px;
+  }
+  .icon-card .icon-desc{
+    font-size:11px;
+    color:var(--silver);
+    margin-top:4px;
+    line-height:1.5;
+  }
+  .icon-card.recommended{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset;}
+  .rec-tag{
+    display:inline-block;
+    background:var(--gold);
+    color:#3A2600;
+    font-size:9px;
+    font-weight:700;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+    padding:3px 8px;
+    border-radius:20px;
+    margin-bottom:10px;
+  }
+
+  /* PHONE FRAME */
+  .phones{display:flex;gap:40px;flex-wrap:wrap;}
+  .phone{
+    width:300px;
+    height:620px;
+    background:var(--black);
+    border-radius:36px;
+    border:6px solid #1B222C;
+    padding:14px;
+    position:relative;
+    box-shadow:0 30px 60px rgba(0,0,0,0.5);
+    flex-shrink:0;
+  }
+  .phone-caption{
+    text-align:center;
+    font-family:'Oswald',sans-serif;
+    font-size:12px;
+    letter-spacing:1px;
+    color:var(--silver);
+    margin-top:14px;
+  }
+  .notch{
+    position:absolute;top:14px;left:50%;transform:translateX(-50%);
+    width:90px;height:18px;background:#000;border-radius:12px;
+  }
+  .screen{
+    height:100%;
+    overflow:hidden;
+    border-radius:24px;
+    background:radial-gradient(circle at 50% -10%, #16202C 0%, #0B0F14 60%);
+    padding:34px 14px 14px;
+    display:flex;
+    flex-direction:column;
+  }
+
+  /* HOME SCREEN */
+  .home-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  .home-logo{display:flex;align-items:center;gap:8px;}
+  .home-logo svg{width:26px;height:26px;}
+  .home-logo span{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px;}
+  .gear{width:16px;height:16px;border:1.5px solid var(--silver);border-radius:50%;}
+
+  .stat-strip{display:flex;gap:8px;margin-bottom:14px;}
+  .stat-chip{
+    flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:8px 6px;text-align:center;
+  }
+  .stat-chip .v{font-family:'Oswald',sans-serif;font-weight:600;font-size:15px;color:var(--gold-bright);}
+  .stat-chip .l{font-size:8.5px;color:var(--silver);letter-spacing:0.5px;text-transform:uppercase;margin-top:2px;}
+
+  .hero-card{
+    background:linear-gradient(160deg,#1B140A 0%, #0B0F14 70%);
+    border:1px solid var(--gold);
+    border-radius:14px;
+    padding:14px;
+    margin-bottom:14px;
+  }
+  .hero-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .badge-new{background:var(--gold);color:#3A2600;font-size:8px;font-weight:700;padding:2px 6px;border-radius:8px;letter-spacing:0.5px;}
+  .hero-eyebrow{font-size:9px;color:var(--gold-bright);letter-spacing:1px;text-transform:uppercase;}
+  .hero-title{font-family:'Oswald',sans-serif;font-weight:600;font-size:16px;margin:4px 0 2px;}
+  .hero-sub{font-size:10.5px;color:var(--silver);margin-bottom:10px;}
+  .hero-btn{
+    background:linear-gradient(180deg,var(--gold-bright),var(--gold));
+    color:#3A2600;text-align:center;padding:9px;border-radius:9px;
+    font-family:'Oswald',sans-serif;font-weight:600;font-size:12px;letter-spacing:0.5px;
+  }
+
+  .continue-card{
+    display:flex;align-items:center;gap:10px;
+    background:var(--panel2);border:1px solid var(--blue);border-radius:12px;
+    padding:10px 12px;margin-bottom:16px;
+  }
+  .continue-card .cc-icon{width:30px;height:30px;border-radius:8px;background:var(--blue);flex-shrink:0;}
+  .continue-card .cc-title{font-size:11px;font-weight:600;}
+  .continue-card .cc-sub{font-size:9.5px;color:var(--silver);margin-top:2px;}
+  .continue-card .cc-arrow{margin-left:auto;color:var(--gold-bright);font-size:14px;}
+
+  .mode-label{font-size:10px;letter-spacing:1px;color:var(--silver);text-transform:uppercase;margin-bottom:8px;}
+  .mode-card{
+    display:flex;align-items:center;gap:10px;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:10px 12px;margin-bottom:8px;
+  }
+  .mode-card .mc-icon{
+    width:32px;height:32px;border-radius:8px;background:var(--panel2);
+    display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;
+  }
+  .mode-card .mc-title{font-size:12px;font-weight:600;}
+  .mode-card .mc-sub{font-size:9.5px;color:var(--silver);margin-top:1px;}
+  .mode-card .mc-arrow{margin-left:auto;color:var(--silver);}
+
+  .tab-bar{
+    margin-top:auto;display:flex;justify-content:space-between;
+    border-top:1px solid var(--line);padding-top:10px;
+  }
+  .tab-item{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;}
+  .tab-item .ti-dot{width:16px;height:16px;border-radius:4px;background:var(--line);}
+  .tab-item.active .ti-dot{background:var(--gold);}
+  .tab-item span{font-size:7.5px;color:var(--silver);letter-spacing:0.3px;}
+  .tab-item.active span{color:var(--gold-bright);}
+
+  /* SPIN SCREEN */
+  .spin-header{text-align:center;margin-bottom:6px;}
+  .spin-round{font-size:9.5px;color:var(--gold-bright);letter-spacing:1px;}
+  .spin-title{font-family:'Oswald',sans-serif;font-weight:600;font-size:17px;letter-spacing:1px;margin-top:2px;}
+  .spin-instructions{text-align:center;font-size:10px;color:var(--silver);margin-bottom:18px;line-height:1.5;}
+
+  .lock-block{margin-bottom:20px;}
+  .lock-label-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
+  .lock-label{font-family:'Oswald',sans-serif;font-size:12px;letter-spacing:1px;color:var(--white);}
+  .lock-result{font-size:11px;color:var(--gold-bright);font-weight:600;min-height:14px;}
+  .track-wrap{position:relative;height:34px;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .sweet-zone{
+    position:absolute;top:0;bottom:0;left:41%;width:15%;
+    background:rgba(212,160,23,0.22);
+    border-left:1px dashed var(--gold);
+    border-right:1px dashed var(--gold);
+  }
+  .marker{
+    position:absolute;top:2px;bottom:2px;width:4px;border-radius:2px;
+    background:var(--gold-bright);
+    left:0%;
+  }
+  .marker.locked-hit{background:#7BD88F;}
+  .marker.locked-miss{background:var(--silver);}
+  #teamMarker{animation:sweepTeam 1.5s ease-in-out infinite alternate;}
+  #eraMarker{animation:sweepEra 1.9s ease-in-out infinite alternate;}
+  @keyframes sweepTeam{from{left:1%;}to{left:93%;}}
+  @keyframes sweepEra{from{left:1%;}to{left:93%;}}
+
+  .lock-btn{
+    margin-top:8px;width:100%;border:none;border-radius:8px;padding:9px;
+    font-family:'Oswald',sans-serif;font-weight:600;font-size:11.5px;letter-spacing:1px;
+    background:linear-gradient(180deg,var(--gold-bright),var(--gold));color:#3A2600;
+    cursor:pointer;
+  }
+  .lock-btn:disabled{background:var(--panel2);color:var(--silver);cursor:default;}
+
+  .reveal-panel{
+    margin-top:auto;
+    background:var(--panel2);border:1px solid var(--line);border-radius:12px;
+    padding:12px;text-align:center;min-height:64px;
+  }
+  .reveal-panel .rp-line{font-size:11px;color:var(--silver);}
+  .reveal-panel .rp-value{font-family:'Oswald',sans-serif;font-size:15px;font-weight:600;color:var(--white);margin-top:2px;}
+  .reveal-panel .rp-bonus{font-size:10.5px;color:#7BD88F;margin-top:6px;font-weight:600;}
+
+  .continue-btn{
+    margin-top:10px;background:linear-gradient(180deg,var(--gold-bright),var(--gold));
+    color:#3A2600;text-align:center;padding:11px;border-radius:9px;
+    font-family:'Oswald',sans-serif;font-weight:600;font-size:12.5px;letter-spacing:0.5px;
+    opacity:0.3;pointer-events:none;transition:opacity 0.3s;
+  }
+  .continue-btn.ready{opacity:1;pointer-events:auto;}
+</style>
+</head>
+<body>
+
+<h1 class="page-title">Undefeated Gridiron Legends</h1>
+<p class="page-sub">Redesign concepts — app icon, home screen, spin mechanic</p>
+
+<section>
+  <h2 class="section-title">1. App icon concepts</h2>
+  <p class="section-note">Four tighter executions of the shield/U crest, tuned for legibility at small icon sizes (the current concept art reads great at poster size but loses detail at 40&times;40 home-screen scale). B is recommended as the app icon; A works better as an in-app wordmark lockup.</p>
+  <div class="icon-row">
+
+    <div class="icon-card">
+      <svg viewBox="0 0 100 100">
+        <polygon points="50,4 88,20 88,54 50,96 12,54 12,20" fill="#12171F" stroke="#D4A017" stroke-width="3"/>
+        <rect x="42" y="24" width="16" height="42" rx="3" fill="#F5F7FA"/>
+        <line x1="50" y1="30" x2="50" y2="60" stroke="#D4A017" stroke-width="2"/>
+        <line x1="45" y1="34" x2="55" y2="34" stroke="#D4A017" stroke-width="1.5"/>
+        <line x1="45" y1="42" x2="55" y2="42" stroke="#D4A017" stroke-width="1.5"/>
+        <line x1="45" y1="50" x2="55" y2="50" stroke="#D4A017" stroke-width="1.5"/>
+        <circle cx="50" cy="80" r="4" fill="#D4A017"/>
+      </svg>
+      <div class="icon-label">A · Refined crest</div>
+      <div class="icon-desc">Same shield language, simplified bevel and thicker stroke weight for clarity at a distance.</div>
+    </div>
+
+    <div class="icon-card recommended">
+      <div class="rec-tag">Recommended</div>
+      <svg viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="46" fill="#0B0F14" stroke="#D4A017" stroke-width="4"/>
+        <rect x="41" y="26" width="18" height="46" rx="4" fill="#F5F7FA"/>
+        <line x1="50" y1="32" x2="50" y2="66" stroke="#D4A017" stroke-width="2.5"/>
+      </svg>
+      <div class="icon-label">B · Monogram medallion</div>
+      <div class="icon-desc">Circular badge, single silhouette. Reads instantly at app-icon scale, no fine detail to lose.</div>
+    </div>
+
+    <div class="icon-card">
+      <svg viewBox="0 0 100 100">
+        <polygon points="28,6 72,6 94,50 72,94 28,94 6,50" fill="#123B5D" stroke="#D4A017" stroke-width="3"/>
+        <rect x="41" y="26" width="18" height="46" rx="3" fill="#F5F7FA"/>
+        <line x1="50" y1="32" x2="50" y2="66" stroke="#D4A017" stroke-width="2"/>
+      </svg>
+      <div class="icon-label">C · Angular plate</div>
+      <div class="icon-desc">Hexagonal crest, more team-jersey feel. Good candidate for a "franchise" sub-brand later.</div>
+    </div>
+
+    <div class="icon-card">
+      <svg viewBox="0 0 100 100">
+        <rect x="8" y="8" width="84" height="84" rx="20" fill="#D4A017"/>
+        <rect x="41" y="24" width="18" height="52" rx="4" fill="#0B0F14"/>
+      </svg>
+      <div class="icon-label">D · Flat store icon</div>
+      <div class="icon-desc">Maximum-contrast fallback for App Store / favicon contexts where detail disappears entirely.</div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2 class="section-title">2. Home screen redesign</h2>
+  <p class="section-note">Adds a quick-glance stat strip (streak, rank, record) above the fold, a persistent "continue run" card so an in-progress season is never buried, and tightens the mode cards to a consistent icon + title + one-liner + visibility badge pattern.</p>
+  <div class="phones">
+    <div>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="screen">
+          <div class="home-header">
+            <div class="home-logo">
+              <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#0B0F14" stroke="#D4A017" stroke-width="6"/><rect x="41" y="26" width="18" height="46" rx="4" fill="#F5F7FA"/><line x1="50" y1="32" x2="50" y2="66" stroke="#D4A017" stroke-width="3"/></svg>
+              <span>UNDEFEATED</span>
+            </div>
+            <div class="gear"></div>
+          </div>
+
+          <div class="stat-strip">
+            <div class="stat-chip"><div class="v">5</div><div class="l">Streak</div></div>
+            <div class="stat-chip"><div class="v">#5</div><div class="l">Rank</div></div>
+            <div class="stat-chip"><div class="v">14-6</div><div class="l">Record</div></div>
+          </div>
+
+          <div class="hero-card">
+            <div class="hero-top">
+              <div class="hero-eyebrow">Today's challenge</div>
+              <div class="badge-new">New</div>
+            </div>
+            <div class="hero-title">Daily roster build</div>
+            <div class="hero-sub">Same spins for everyone · resets in 14h 22m</div>
+            <div class="hero-btn">Play today's challenge</div>
+          </div>
+
+          <div class="continue-card">
+            <div class="cc-icon"></div>
+            <div>
+              <div class="cc-title">Continue classic run</div>
+              <div class="cc-sub">Round 8/12 · BUF 2016-2020</div>
+            </div>
+            <div class="cc-arrow">&rsaquo;</div>
+          </div>
+
+          <div class="mode-label">Choose your mode</div>
+          <div class="mode-card">
+            <div class="mc-icon">%</div>
+            <div><div class="mc-title">Classic</div><div class="mc-sub">Stats visible</div></div>
+            <div class="mc-arrow">&rsaquo;</div>
+          </div>
+          <div class="mode-card">
+            <div class="mc-icon">?</div>
+            <div><div class="mc-title">Gridiron IQ</div><div class="mc-sub">Stats hidden</div></div>
+            <div class="mc-arrow">&rsaquo;</div>
+          </div>
+          <div class="mode-card">
+            <div class="mc-icon">x</div>
+            <div><div class="mc-title">Challenge</div><div class="mc-sub">Vs friends</div></div>
+            <div class="mc-arrow">&rsaquo;</div>
+          </div>
+
+          <div class="tab-bar">
+            <div class="tab-item active"><div class="ti-dot"></div><span>BOARD</span></div>
+            <div class="tab-item"><div class="ti-dot"></div><span>ROSTER</span></div>
+            <div class="tab-item"><div class="ti-dot"></div><span>SPIN</span></div>
+            <div class="tab-item"><div class="ti-dot"></div><span>HISTORY</span></div>
+            <div class="tab-item"><div class="ti-dot"></div><span>PROFILE</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-caption">Home — default state</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2 class="section-title">3. Spin screen — "lock in" mechanic</h2>
+  <p class="section-note">Replaces a blind random spin with a timing-based lock. Each reel sweeps on its own rhythm; tap LOCK to freeze it. Landing inside the gold zone doesn't change your team/era outcome — that stays fair and random — but it grants a small bonus (extra reroll or a one-time OVR boost). Try it below.</p>
+  <div class="phones">
+    <div>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="screen">
+          <div class="spin-header">
+            <div class="spin-round">ROUND 1 / 12</div>
+            <div class="spin-title">LOCK IT IN</div>
+          </div>
+          <div class="spin-instructions">Tap LOCK while each bar sweeps.<br>Land in the gold zone for a bonus.</div>
+
+          <div class="lock-block">
+            <div class="lock-label-row">
+              <span class="lock-label">TEAM</span>
+              <span class="lock-result" id="teamResult"></span>
+            </div>
+            <div class="track-wrap">
+              <div class="sweet-zone"></div>
+              <div class="marker" id="teamMarker"></div>
+            </div>
+            <button class="lock-btn" id="teamLockBtn" onclick="lockReel('team')">LOCK TEAM</button>
+          </div>
+
+          <div class="lock-block">
+            <div class="lock-label-row">
+              <span class="lock-label">ERA</span>
+              <span class="lock-result" id="eraResult"></span>
+            </div>
+            <div class="track-wrap">
+              <div class="sweet-zone"></div>
+              <div class="marker" id="eraMarker"></div>
+            </div>
+            <button class="lock-btn" id="eraLockBtn" onclick="lockReel('era')">LOCK ERA</button>
+          </div>
+
+          <div class="reveal-panel">
+            <div class="rp-line">Result</div>
+            <div class="rp-value" id="revealValue">— · —</div>
+            <div class="rp-bonus" id="revealBonus"></div>
+          </div>
+          <div class="continue-btn" id="continueBtn">Continue &rarr;</div>
+        </div>
+      </div>
+      <div class="phone-caption">Spin — lock-in mechanic (interactive demo)</div>
+    </div>
+  </div>
+</section>
+
+<script>
+const teams = ['BUF','PIT','SF','GB','DAL','MIA','KC','DEN'];
+const eras = ['2000-2005','2006-2010','2011-2015','2016-2020','2021-2025'];
+const locked = { team:false, era:false };
+let teamVal = '', eraVal = '';
+
+function lockReel(which){
+  const marker = document.getElementById(which+'Marker');
+  const btn = document.getElementById(which+'LockBtn');
+  const resultEl = document.getElementById(which+'Result');
+  const track = marker.parentElement;
+
+  const computedLeft = parseFloat(getComputedStyle(marker).left);
+  const trackWidth = track.clientWidth;
+  const pct = (computedLeft / trackWidth) * 100;
+
+  marker.style.animation = 'none';
+  marker.style.left = computedLeft + 'px';
+
+  const hit = pct >= 41 && pct <= 56;
+  marker.classList.add(hit ? 'locked-hit' : 'locked-miss');
+  resultEl.textContent = hit ? 'BONUS!' : '';
+
+  btn.disabled = true;
+  btn.textContent = hit ? 'LOCKED — BONUS' : 'LOCKED';
+
+  if(which === 'team'){
+    teamVal = teams[Math.floor(Math.random()*teams.length)];
+    locked.team = { hit };
+  } else {
+    eraVal = eras[Math.floor(Math.random()*eras.length)];
+    locked.era = { hit };
+  }
+
+  if(locked.team && locked.era){
+    document.getElementById('revealValue').textContent = teamVal + ' · ' + eraVal;
+    const bonuses = [];
+    if(locked.team.hit) bonuses.push('+1 reroll (team lock)');
+    if(locked.era.hit) bonuses.push('+3 OVR first pick (era lock)');
+    document.getElementById('revealBonus').textContent = bonuses.join('   ');
+    document.getElementById('continueBtn').classList.add('ready');
+  }
+}
+</script>
+
+</body>
+</html>

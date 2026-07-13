@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Undefeated Gridiron Legends — Legacy Mode Concepts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --black:#0B0F14; --panel:#12171F; --panel2:#171D26;
+    --silver:#A7B1BC; --gold:#D4A017; --gold-bright:#F0C24B;
+    --blue:#123B5D; --white:#F5F7FA; --line:#242C38;
+    --rare:#3E8DE0; --elite:#9B6FE3; --legend:#F0C24B; --common:#A7B1BC;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:#05070A;color:var(--white);font-family:'Inter',sans-serif;padding:40px 20px 80px;}
+  h1.page-title{font-family:'Bebas Neue',sans-serif;letter-spacing:2px;font-size:34px;text-align:center;margin:0 0 4px;
+    background:linear-gradient(180deg,#fff,#B9C2CC);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  p.page-sub{text-align:center;color:var(--silver);font-size:13px;margin:0 0 48px;}
+  section{max-width:1080px;margin:0 auto 72px;}
+  h2.section-title{font-family:'Oswald',sans-serif;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;font-size:15px;
+    color:var(--gold-bright);border-left:3px solid var(--gold);padding-left:12px;margin:0 0 6px;}
+  p.section-note{color:var(--silver);font-size:13px;max-width:660px;margin:0 0 28px;line-height:1.6;}
+
+  .phones{display:flex;gap:40px;flex-wrap:wrap;}
+  .phone{width:300px;height:620px;background:var(--black);border-radius:36px;border:6px solid #1B222C;padding:14px;
+    position:relative;box-shadow:0 30px 60px rgba(0,0,0,0.5);flex-shrink:0;}
+  .phone-caption{text-align:center;font-family:'Oswald',sans-serif;font-size:12px;letter-spacing:1px;color:var(--silver);margin-top:14px;}
+  .notch{position:absolute;top:14px;left:50%;transform:translateX(-50%);width:90px;height:18px;background:#000;border-radius:12px;}
+  .screen{height:100%;overflow-y:auto;border-radius:24px;background:radial-gradient(circle at 50% -10%, #16202C 0%, #0B0F14 60%);
+    padding:34px 14px 14px;display:flex;flex-direction:column;}
+
+  .home-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .home-logo{display:flex;align-items:center;gap:8px;}
+  .home-logo svg{width:24px;height:24px;}
+  .home-logo span{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:1px;}
+  .header-right{display:flex;align-items:center;gap:10px;}
+  .rings-chip{display:flex;align-items:center;gap:4px;background:var(--panel);border:1px solid var(--gold);border-radius:14px;padding:4px 9px;}
+  .rings-chip .dot{width:10px;height:10px;border-radius:50%;background:var(--gold-bright);}
+  .rings-chip span{font-family:'Oswald',sans-serif;font-size:11px;font-weight:600;}
+  .gear{width:16px;height:16px;border:1.5px solid var(--silver);border-radius:50%;}
+  .back-arrow{font-size:18px;color:var(--silver);}
+
+  /* HOME (v2 with Legacy banner + Two-Minute Drill) */
+  .legacy-banner{
+    background:linear-gradient(135deg,#241705 0%, #0B0F14 75%);
+    border:1px solid var(--gold);border-radius:14px;padding:14px;margin-bottom:14px;position:relative;overflow:hidden;
+  }
+  .legacy-eyebrow{font-size:9px;letter-spacing:1.5px;color:var(--gold-bright);text-transform:uppercase;}
+  .legacy-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;margin:2px 0 8px;}
+  .legacy-row{display:flex;gap:8px;margin-bottom:10px;}
+  .legacy-chip{flex:1;background:rgba(0,0,0,0.3);border-radius:8px;padding:6px 8px;text-align:center;}
+  .legacy-chip .v{font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;color:var(--gold-bright);}
+  .legacy-chip .l{font-size:7.5px;color:var(--silver);text-transform:uppercase;letter-spacing:0.5px;margin-top:1px;}
+  .legacy-btn{background:linear-gradient(180deg,var(--gold-bright),var(--gold));color:#3A2600;text-align:center;padding:9px;
+    border-radius:9px;font-family:'Oswald',sans-serif;font-weight:600;font-size:12px;letter-spacing:0.5px;}
+
+  .mode-label{font-size:10px;letter-spacing:1px;color:var(--silver);text-transform:uppercase;margin-bottom:8px;}
+  .mode-card{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:9px 12px;margin-bottom:7px;}
+  .mode-card.skill{border-color:var(--blue);}
+  .mode-card .mc-icon{width:30px;height:30px;border-radius:8px;background:var(--panel2);display:flex;align-items:center;
+    justify-content:center;font-size:13px;flex-shrink:0;}
+  .mode-card .mc-title{font-size:11.5px;font-weight:600;}
+  .mode-card .mc-sub{font-size:9px;color:var(--silver);margin-top:1px;}
+  .mode-card .mc-badge{margin-left:auto;font-size:8px;background:var(--blue);color:var(--white);padding:2px 6px;border-radius:8px;letter-spacing:0.3px;}
+
+  .tab-bar{margin-top:auto;display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:10px;}
+  .tab-item{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;}
+  .tab-item .ti-dot{width:16px;height:16px;border-radius:4px;background:var(--line);}
+  .tab-item.active .ti-dot{background:var(--gold);}
+  .tab-item span{font-size:7.5px;color:var(--silver);letter-spacing:0.3px;}
+  .tab-item.active span{color:var(--gold-bright);}
+
+  /* LEGACY HOME */
+  .dynasty-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px;}
+  .dynasty-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
+  .dynasty-level{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--gold-bright);letter-spacing:1px;}
+  .dynasty-record{font-size:11px;color:var(--silver);}
+  .progress-track{height:6px;background:var(--panel2);border-radius:4px;overflow:hidden;margin-bottom:6px;}
+  .progress-fill{height:100%;width:64%;background:linear-gradient(90deg,var(--gold),var(--gold-bright));}
+  .progress-caption{font-size:9px;color:var(--silver);}
+
+  .roster-strip-label{font-size:10px;letter-spacing:1px;color:var(--silver);text-transform:uppercase;margin:14px 0 8px;}
+  .roster-strip{display:flex;gap:6px;margin-bottom:14px;}
+  .roster-slot{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 4px;text-align:center;}
+  .roster-slot .pos{font-size:8px;color:var(--silver);letter-spacing:0.5px;}
+  .roster-slot .ovr{font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;color:var(--white);margin-top:2px;}
+
+  .hof-card{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;
+    padding:10px 12px;margin-bottom:14px;}
+  .hof-icon{width:30px;height:30px;border-radius:8px;background:var(--blue);flex-shrink:0;}
+  .hof-title{font-size:11.5px;font-weight:600;}
+  .hof-sub{font-size:9px;color:var(--silver);margin-top:1px;}
+  .hof-arrow{margin-left:auto;color:var(--silver);}
+
+  .cta-row{display:flex;gap:8px;margin-top:auto;margin-bottom:12px;}
+  .cta-primary{flex:1.4;background:linear-gradient(180deg,var(--gold-bright),var(--gold));color:#3A2600;text-align:center;
+    padding:11px;border-radius:9px;font-family:'Oswald',sans-serif;font-weight:600;font-size:12px;letter-spacing:0.5px;}
+  .cta-secondary{flex:1;background:var(--panel);border:1px solid var(--gold);color:var(--gold-bright);text-align:center;
+    padding:11px 6px;border-radius:9px;font-family:'Oswald',sans-serif;font-weight:600;font-size:11px;letter-spacing:0.3px;position:relative;}
+  .pack-count{position:absolute;top:-6px;right:-6px;background:var(--gold);color:#3A2600;font-size:9px;font-weight:700;
+    width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+
+  .legacy-tabs{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:10px;margin-top:6px;}
+
+  /* PACK OPENING */
+  .pack-header-row{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+  .pack-title{font-family:'Oswald',sans-serif;font-weight:600;font-size:15px;letter-spacing:0.5px;}
+
+  .pack-select-row{display:flex;gap:8px;margin-bottom:20px;}
+  .pack-select{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 8px;text-align:center;}
+  .pack-select.active{border-color:var(--gold);}
+  .pack-select .ps-title{font-size:10px;font-weight:600;}
+  .pack-select .ps-count{font-size:9px;color:var(--silver);margin-top:2px;}
+
+  .pack-stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;}
+  .pack-visual{width:130px;height:170px;border-radius:12px;background:linear-gradient(160deg,#241705,#0B0F14);
+    border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;cursor:pointer;
+    font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:1px;color:var(--gold-bright);text-align:center;
+    transition:transform 0.2s;}
+  .pack-visual:active{transform:scale(0.96);}
+  .pack-tap-hint{font-size:10px;color:var(--silver);}
+
+  .reveal-card{width:150px;border-radius:12px;padding:14px 10px;text-align:center;display:none;border-width:2px;border-style:solid;}
+  .reveal-card.show{display:block;}
+  .reveal-card .rarity-tag{font-size:8.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:2px 8px;
+    border-radius:8px;display:inline-block;margin-bottom:8px;}
+  .reveal-card .rc-name{font-family:'Oswald',sans-serif;font-weight:600;font-size:14px;}
+  .reveal-card .rc-sub{font-size:9.5px;color:var(--silver);margin-top:3px;}
+  .reveal-card .rc-ovr{font-family:'Bebas Neue',sans-serif;font-size:26px;margin-top:8px;}
+
+  .r-common{border-color:var(--common);} .r-common .rarity-tag{background:rgba(167,177,188,0.2);color:var(--common);}
+  .r-rare{border-color:var(--rare);} .r-rare .rarity-tag{background:rgba(62,141,224,0.2);color:var(--rare);}
+  .r-elite{border-color:var(--elite);} .r-elite .rarity-tag{background:rgba(155,111,227,0.2);color:var(--elite);}
+  .r-legend{border-color:var(--legend);} .r-legend .rarity-tag{background:rgba(240,194,75,0.2);color:var(--legend);}
+
+  .pack-actions{display:flex;gap:8px;width:100%;margin-top:auto;}
+  .pack-btn{flex:1;text-align:center;padding:10px;border-radius:9px;font-family:'Oswald',sans-serif;font-weight:600;
+    font-size:11px;letter-spacing:0.3px;}
+  .pack-btn.primary{background:linear-gradient(180deg,var(--gold-bright),var(--gold));color:#3A2600;}
+  .pack-btn.ghost{background:var(--panel);border:1px solid var(--line);color:var(--silver);}
+</style>
+</head>
+<body>
+
+<h1 class="page-title">Undefeated Gridiron Legends</h1>
+<p class="page-sub">Legacy mode — home tab, pack opening, and Two-Minute Drill</p>
+
+<section>
+  <h2 class="section-title">1. Home screen — Legacy banner + Two-Minute Drill</h2>
+  <p class="section-note">Legacy sits above the quick-play modes as its own persistent-save entry point, distinct from the one-and-done runs below it. Two-Minute Drill joins the mode list carrying the Lock It In mechanic, marked with a "skill spin" badge so players know what they're opting into before they tap.</p>
+  <div class="phones">
+    <div>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="screen">
+          <div class="home-header">
+            <div class="home-logo">
+              <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#0B0F14" stroke="#D4A017" stroke-width="6"/><rect x="41" y="26" width="18" height="46" rx="4" fill="#F5F7FA"/><line x1="50" y1="32" x2="50" y2="66" stroke="#D4A017" stroke-width="3"/></svg>
+              <span>UNDEFEATED</span>
+            </div>
+            <div class="header-right">
+              <div class="rings-chip"><div class="dot"></div><span>240</span></div>
+              <div class="gear"></div>
+            </div>
+          </div>
+
+          <div class="legacy-banner">
+            <div class="legacy-eyebrow">Your dynasty</div>
+            <div class="legacy-title">Legacy · Level 7</div>
+            <div class="legacy-row">
+              <div class="legacy-chip"><div class="v">18-6</div><div class="l">All-time</div></div>
+              <div class="legacy-chip"><div class="v">3</div><div class="l">HOF cards</div></div>
+              <div class="legacy-chip"><div class="v">4</div><div class="l">Packs ready</div></div>
+            </div>
+            <div class="legacy-btn">Enter legacy</div>
+          </div>
+
+          <div class="mode-label">Choose your mode</div>
+          <div class="mode-card">
+            <div class="mc-icon">%</div>
+            <div><div class="mc-title">Classic</div><div class="mc-sub">Stats visible</div></div>
+          </div>
+          <div class="mode-card">
+            <div class="mc-icon">?</div>
+            <div><div class="mc-title">Gridiron IQ</div><div class="mc-sub">Stats hidden</div></div>
+          </div>
+          <div class="mode-card skill">
+            <div class="mc-icon">&#9201;</div>
+            <div><div class="mc-title">Two-Minute Drill</div><div class="mc-sub">Timed spin, bonus on lock</div></div>
+            <div class="mc-badge">SKILL SPIN</div>
+          </div>
+          <div class="mode-card">
+            <div class="mc-icon">x</div>
+            <div><div class="mc-title">Challenge</div><div class="mc-sub">Vs friends</div></div>
+          </div>
+
+          <div class="tab-bar">
+            <div class="tab-item active"><div class="ti-dot"></div><span>BOARD</span></div>
+            <div class="tab-item"><div class="ti-dot"></div><span>ROSTER</span></div>
+            <div class="tab-item"><div class="ti-dot"></div><span>SPIN</span></div>
+            <div class="tab-item"><div class="ti-dot"></div><span>HISTORY</span></div>
+            <div class="tab-item"><div class="ti-dot"></div><span>PROFILE</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-caption">Home — with Legacy banner</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2 class="section-title">2. Legacy home tab (dynasty overview)</h2>
+  <p class="section-note">Where the meta-layer lives: dynasty level and progress, a snapshot of the persistent roster, a Hall of Fame teaser, and the two things players will do most — start the next season or spend packs. Its own sub-tabs (Dynasty / Roster / Packs / HOF) keep this separate from the top-level app nav.</p>
+  <div class="phones">
+    <div>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="screen">
+          <div class="pack-header-row">
+            <span class="back-arrow">&larr;</span>
+            <span class="pack-title">Legacy dynasty</span>
+            <div class="rings-chip" style="margin-left:auto;"><div class="dot"></div><span>240</span></div>
+          </div>
+
+          <div class="dynasty-card">
+            <div class="dynasty-top">
+              <div class="dynasty-level">LEVEL 7</div>
+              <div class="dynasty-record">18-6 all-time</div>
+            </div>
+            <div class="progress-track"><div class="progress-fill"></div></div>
+            <div class="progress-caption">640 / 1,000 XP to level 8</div>
+          </div>
+
+          <div class="roster-strip-label">Current roster</div>
+          <div class="roster-strip">
+            <div class="roster-slot"><div class="pos">QB</div><div class="ovr">96</div></div>
+            <div class="roster-slot"><div class="pos">RB</div><div class="ovr">88</div></div>
+            <div class="roster-slot"><div class="pos">WR</div><div class="ovr">91</div></div>
+            <div class="roster-slot"><div class="pos">TE</div><div class="ovr">79</div></div>
+            <div class="roster-slot"><div class="pos">EDGE</div><div class="ovr">85</div></div>
+          </div>
+
+          <div class="hof-card">
+            <div class="hof-icon"></div>
+            <div>
+              <div class="hof-title">Hall of Fame</div>
+              <div class="hof-sub">3 retired legends · view shelf</div>
+            </div>
+            <div class="hof-arrow">&rsaquo;</div>
+          </div>
+
+          <div class="cta-row">
+            <div class="cta-secondary">Open packs<div class="pack-count">4</div></div>
+            <div class="cta-primary">Start season 8</div>
+          </div>
+
+          <div class="legacy-tabs">
+            <div class="tab-item active"><div class="ti-dot"></div><span>DYNASTY</span></div>
+            <div class="tab-item"><div class="ti-dot"></div><span>ROSTER</span></div>
+            <div class="tab-item"><div class="ti-dot"></div><span>PACKS</span></div>
+            <div class="tab-item"><div class="ti-dot"></div><span>HOF</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-caption">Legacy — dynasty overview</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2 class="section-title">3. Pack opening screen</h2>
+  <p class="section-note">Two pack types stay visually distinct — Player packs pull a card, Perk packs pull a season modifier. Tap the pack to open it (working demo below); rarity color-codes to the badge tiers you already established in the brand doc.</p>
+  <div class="phones">
+    <div>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="screen">
+          <div class="pack-header-row">
+            <span class="back-arrow">&larr;</span>
+            <span class="pack-title">Open packs</span>
+            <div class="rings-chip" style="margin-left:auto;"><div class="dot"></div><span>240</span></div>
+          </div>
+
+          <div class="pack-select-row">
+            <div class="pack-select active"><div class="ps-title">Player pack</div><div class="ps-count">3 owned</div></div>
+            <div class="pack-select"><div class="ps-title">Perk pack</div><div class="ps-count">1 owned</div></div>
+          </div>
+
+          <div class="pack-stage">
+            <div class="pack-visual" id="packVisual" onclick="openPack()">TAP TO<br>OPEN</div>
+            <div class="pack-tap-hint" id="packHint">Player pack · 1 of 3</div>
+
+            <div class="reveal-card" id="revealCard">
+              <div class="rarity-tag" id="revealRarity">RARE</div>
+              <div class="rc-name" id="revealName">M. Barkley</div>
+              <div class="rc-sub" id="revealSub">RB · 2018 · BUF</div>
+              <div class="rc-ovr" id="revealOvr">82 OVR</div>
+            </div>
+          </div>
+
+          <div class="pack-actions">
+            <div class="pack-btn ghost" onclick="resetPack()">Open another</div>
+            <div class="pack-btn primary">Add to roster</div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-caption">Pack opening (interactive demo)</div>
+    </div>
+  </div>
+</section>
+
+<script>
+const pulls = [
+  { rarity:'common', tag:'COMMON', name:'D. Anderson', sub:'QB · 2016 · BUF', ovr:58 },
+  { rarity:'rare', tag:'RARE', name:'M. Barkley', sub:'RB · 2018 · BUF', ovr:82 },
+  { rarity:'elite', tag:'ELITE', name:'T. Taylor', sub:'QB · 2016 · BUF', ovr:90 },
+  { rarity:'legend', tag:'LEGEND', name:'J. Allen', sub:'QB · 2018 · GOAT', ovr:96 }
+];
+function openPack(){
+  const visual = document.getElementById('packVisual');
+  const card = document.getElementById('revealCard');
+  const pull = pulls[Math.floor(Math.random()*pulls.length)];
+  visual.style.display = 'none';
+  document.getElementById('packHint').style.display = 'none';
+  card.className = 'reveal-card show r-' + pull.rarity;
+  document.getElementById('revealRarity').textContent = pull.tag;
+  document.getElementById('revealName').textContent = pull.name;
+  document.getElementById('revealSub').textContent = pull.sub;
+  document.getElementById('revealOvr').textContent = pull.ovr + ' OVR';
+}
+function resetPack(){
+  document.getElementById('packVisual').style.display = 'flex';
+  document.getElementById('packHint').style.display = 'block';
+  document.getElementById('revealCard').className = 'reveal-card';
+}
+</script>
+
+</body>
+</html>

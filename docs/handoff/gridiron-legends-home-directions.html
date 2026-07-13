@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Undefeated Gridiron Legends — Home Screen Directions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --black:#0B0F14; --panel:#12171F; --panel2:#171D26;
+    --silver:#A7B1BC; --gold:#D4A017; --gold-bright:#F0C24B;
+    --blue:#123B5D; --white:#F5F7FA; --line:#242C38;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:#05070A;color:var(--white);font-family:'Inter',sans-serif;padding:40px 20px 80px;}
+  h1.page-title{font-family:'Bebas Neue',sans-serif;letter-spacing:2px;font-size:34px;text-align:center;margin:0 0 4px;
+    background:linear-gradient(180deg,#fff,#B9C2CC);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  p.page-sub{text-align:center;color:var(--silver);font-size:13px;margin:0 0 48px;}
+  .phones{display:flex;gap:36px;flex-wrap:wrap;justify-content:center;max-width:1080px;margin:0 auto;}
+  .phone-block{width:300px;}
+  .phone{width:300px;height:620px;background:var(--black);border-radius:36px;border:6px solid #1B222C;padding:14px;
+    position:relative;box-shadow:0 30px 60px rgba(0,0,0,0.5);}
+  .notch{position:absolute;top:14px;left:50%;transform:translateX(-50%);width:90px;height:18px;background:#000;border-radius:12px;z-index:5;}
+  .screen{height:100%;overflow:hidden;border-radius:24px;padding:34px 12px 12px;display:flex;flex-direction:column;position:relative;}
+  .cap-name{font-family:'Oswald',sans-serif;font-weight:600;font-size:14px;letter-spacing:0.5px;color:var(--gold-bright);text-align:center;margin-top:16px;}
+  .cap-desc{font-size:11.5px;color:var(--silver);text-align:center;margin-top:4px;line-height:1.5;padding:0 6px;}
+
+  /* ============ V1: COMMAND CENTER ============ */
+  .v1 .screen{background:var(--black);}
+  .v1-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .v1-logo{display:flex;align-items:center;gap:6px;}
+  .v1-logo svg{width:20px;height:20px;}
+  .v1-logo span{font-family:'Oswald',sans-serif;font-weight:600;font-size:11px;letter-spacing:1px;}
+  .v1-header-right{display:flex;align-items:center;gap:8px;}
+  .v1-rings{font-family:'Space Mono',monospace;font-size:10px;color:var(--gold-bright);}
+  .v1-gear{width:14px;height:14px;border:1.5px solid var(--silver);border-radius:50%;}
+
+  .v1-statbar{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:8px;margin-bottom:10px;overflow:hidden;}
+  .v1-stat{flex:1;text-align:center;padding:7px 2px;border-right:1px solid var(--line);}
+  .v1-stat:last-child{border-right:none;}
+  .v1-stat .n{font-family:'Space Mono',monospace;font-weight:700;font-size:14px;color:var(--white);}
+  .v1-stat .l{font-size:6.5px;color:var(--silver);letter-spacing:0.5px;text-transform:uppercase;margin-top:1px;}
+
+  .v1-call{display:flex;align-items:center;gap:10px;background:var(--panel2);border-left:3px solid var(--gold);border-radius:6px;
+    padding:8px 10px;margin-bottom:12px;}
+  .v1-call-icon{width:26px;height:26px;background:var(--gold);border-radius:5px;flex-shrink:0;}
+  .v1-call-title{font-family:'Oswald',sans-serif;font-weight:600;font-size:11px;}
+  .v1-call-sub{font-size:8.5px;color:var(--silver);}
+  .v1-call-go{margin-left:auto;font-family:'Space Mono',monospace;color:var(--gold-bright);font-size:14px;}
+
+  .v1-grid-label{font-family:'Space Mono',monospace;font-size:8.5px;letter-spacing:1px;color:var(--silver);
+    text-transform:uppercase;margin-bottom:6px;}
+  .v1-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+  .v1-tile{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 8px;text-align:center;position:relative;}
+  .v1-tile .num{position:absolute;top:6px;left:8px;font-family:'Space Mono',monospace;font-size:8px;color:var(--gold);}
+  .v1-tile .icon{width:26px;height:26px;background:var(--panel2);border-radius:6px;margin:6px auto 8px;
+    display:flex;align-items:center;justify-content:center;font-size:12px;}
+  .v1-tile .t{font-family:'Oswald',sans-serif;font-weight:600;font-size:10.5px;}
+  .v1-tile.skill{border-color:var(--blue);}
+
+  .v1-legacy-strip{display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#241705,var(--panel));
+    border:1px solid var(--gold);border-radius:8px;padding:8px 10px;margin-bottom:10px;}
+  .v1-legacy-strip .lv{font-family:'Space Mono',monospace;font-weight:700;font-size:11px;color:var(--gold-bright);}
+  .v1-legacy-strip .lt{font-size:8.5px;color:var(--silver);}
+  .v1-legacy-strip .arrow{margin-left:auto;color:var(--gold-bright);font-size:13px;}
+
+  .v1-tabbar{margin-top:auto;display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:8px;}
+  .v1-tabbar .t-dot{width:14px;height:14px;border-radius:3px;background:var(--line);margin:0 auto 3px;}
+  .v1-tabbar .active .t-dot{background:var(--gold);}
+  .v1-tabbar .t-item{flex:1;text-align:center;}
+  .v1-tabbar span{font-family:'Space Mono',monospace;font-size:6.5px;color:var(--silver);}
+  .v1-tabbar .active span{color:var(--gold-bright);}
+
+  /* ============ V2: TROPHY CASE ============ */
+  .v2 .screen{background:radial-gradient(circle at 50% 0%, #1A1207 0%, #0B0F14 55%);align-items:center;text-align:center;}
+  .v2-header{display:flex;justify-content:space-between;width:100%;margin-bottom:6px;}
+  .v2-gear{width:14px;height:14px;border:1.5px solid var(--silver);border-radius:50%;}
+  .v2-wordmark{font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:2px;color:var(--silver);}
+
+  .v2-medallion{width:88px;height:88px;border-radius:50%;background:radial-gradient(circle,#1c1408,#0B0F14);
+    border:2px solid var(--gold);display:flex;flex-direction:column;align-items:center;justify-content:center;
+    margin:14px auto 10px;}
+  .v2-medallion .lv-label{font-size:7px;letter-spacing:1.5px;color:var(--gold-bright);}
+  .v2-medallion .lv-num{font-family:'Bebas Neue',sans-serif;font-size:26px;line-height:1;color:var(--white);}
+
+  .v2-record{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px;color:var(--gold-bright);margin-bottom:2px;}
+  .v2-caption{font-size:9px;color:var(--silver);margin-bottom:16px;}
+
+  .v2-cta{width:100%;background:linear-gradient(180deg,var(--gold-bright),var(--gold));color:#3A2600;
+    font-family:'Oswald',sans-serif;font-weight:700;font-size:12.5px;letter-spacing:0.5px;padding:12px;
+    border-radius:10px;margin-bottom:18px;}
+
+  .v2-carousel-label{align-self:flex-start;font-size:9px;letter-spacing:1px;color:var(--silver);
+    text-transform:uppercase;margin-bottom:8px;}
+  .v2-carousel{display:flex;gap:10px;overflow-x:auto;width:100%;padding-bottom:6px;margin-bottom:auto;
+    scrollbar-width:none;}
+  .v2-carousel::-webkit-scrollbar{display:none;}
+  .v2-card{flex-shrink:0;width:120px;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:12px 10px;text-align:left;}
+  .v2-card.skill{border-color:var(--blue);}
+  .v2-card .ci{width:28px;height:28px;background:var(--panel2);border-radius:7px;margin-bottom:8px;
+    display:flex;align-items:center;justify-content:center;font-size:13px;}
+  .v2-card .ct{font-family:'Oswald',sans-serif;font-weight:600;font-size:11px;}
+  .v2-card .cs{font-size:8.5px;color:var(--silver);margin-top:3px;line-height:1.4;}
+
+  .v2-tabbar{display:flex;justify-content:space-between;width:100%;border-top:1px solid var(--line);padding-top:8px;}
+  .v2-tabbar .t-item{flex:1;text-align:center;font-size:6.5px;color:var(--silver);letter-spacing:0.3px;}
+  .v2-tabbar .active{color:var(--gold-bright);font-weight:600;}
+
+  /* ============ V3: BROADCAST SCOREBOARD ============ */
+  .v3{padding:0;}
+  .v3 .screen{padding:0;background:var(--black);}
+  .v3-ticker{background:var(--gold);color:#3A2600;font-family:'Space Mono',monospace;font-size:9px;font-weight:700;
+    white-space:nowrap;overflow:hidden;padding:5px 0;margin-top:20px;}
+  .v3-ticker-track{display:inline-block;animation:tickerScroll 14s linear infinite;padding-left:100%;}
+  @keyframes tickerScroll{from{transform:translateX(0);}to{transform:translateX(-100%);}}
+
+  .v3-body{padding:12px;display:flex;flex-direction:column;flex:1;}
+  .v3-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .v3-logo{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:1px;}
+  .v3-gear{width:14px;height:14px;border:1.5px solid var(--silver);border-radius:50%;}
+
+  .v3-hero{background:linear-gradient(160deg,#1B140A,#0B0F14);border:1px solid var(--gold);border-radius:4px;
+    padding:14px;margin-bottom:10px;position:relative;}
+  .v3-hero::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;background:var(--gold);}
+  .v3-hero-label{font-family:'Space Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--gold-bright);}
+  .v3-hero-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;margin:4px 0;}
+  .v3-hero-clock{font-family:'Space Mono',monospace;font-size:10px;color:var(--silver);margin-bottom:10px;}
+  .v3-hero-btn{display:inline-block;background:var(--gold);color:#3A2600;font-family:'Oswald',sans-serif;
+    font-weight:700;font-size:11px;padding:8px 16px;border-radius:3px;letter-spacing:0.5px;}
+
+  .v3-scorebox-row{display:flex;gap:8px;margin-bottom:12px;}
+  .v3-scorebox{flex:1;background:var(--panel);border:1px solid var(--line);text-align:center;padding:8px 4px;}
+  .v3-scorebox .digits{font-family:'Space Mono',monospace;font-weight:700;font-size:18px;color:var(--gold-bright);}
+  .v3-scorebox .cap{font-size:6.5px;color:var(--silver);letter-spacing:0.5px;text-transform:uppercase;margin-top:2px;}
+
+  .v3-rail-label{font-family:'Space Mono',monospace;font-size:8px;letter-spacing:1.5px;color:var(--silver);
+    text-transform:uppercase;margin-bottom:6px;}
+  .v3-rail{display:flex;flex-direction:column;gap:6px;margin-bottom:auto;}
+  .v3-pill{display:flex;align-items:center;gap:8px;background:var(--panel);border-left:3px solid var(--silver);
+    border-radius:2px;padding:8px 10px;}
+  .v3-pill.skill{border-left-color:var(--blue);}
+  .v3-pill .pt{font-family:'Oswald',sans-serif;font-weight:600;font-size:10.5px;flex:1;}
+  .v3-pill .ps{font-size:8px;color:var(--silver);}
+
+  .v3-tabbar{display:flex;justify-content:space-between;border-top:2px solid var(--line);padding-top:8px;margin-top:10px;}
+  .v3-tabbar .t-item{flex:1;text-align:center;font-family:'Space Mono',monospace;font-size:6.5px;color:var(--silver);
+    padding-bottom:4px;border-bottom:2px solid transparent;}
+  .v3-tabbar .active{color:var(--gold-bright);border-bottom-color:var(--gold);}
+</style>
+</head>
+<body>
+
+<h1 class="page-title">Undefeated Gridiron Legends</h1>
+<p class="page-sub">Three home screen directions — same brand, different structure</p>
+
+<div class="phones">
+
+  <div class="phone-block v1">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="v1-header">
+          <div class="v1-logo">
+            <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#0B0F14" stroke="#D4A017" stroke-width="7"/><rect x="41" y="26" width="18" height="46" rx="4" fill="#F5F7FA"/><line x1="50" y1="32" x2="50" y2="66" stroke="#D4A017" stroke-width="3"/></svg>
+            <span>UNDEFEATED</span>
+          </div>
+          <div class="v1-header-right">
+            <span class="v1-rings">240 RG</span>
+            <div class="v1-gear"></div>
+          </div>
+        </div>
+
+        <div class="v1-statbar">
+          <div class="v1-stat"><div class="n">05</div><div class="l">Streak</div></div>
+          <div class="v1-stat"><div class="n">#5</div><div class="l">Rank</div></div>
+          <div class="v1-stat"><div class="n">14-6</div><div class="l">Record</div></div>
+          <div class="v1-stat"><div class="n">L7</div><div class="l">Dynasty</div></div>
+        </div>
+
+        <div class="v1-call">
+          <div class="v1-call-icon"></div>
+          <div>
+            <div class="v1-call-title">Daily roster build</div>
+            <div class="v1-call-sub">Resets in 14h 22m</div>
+          </div>
+          <div class="v1-call-go">&rarr;</div>
+        </div>
+
+        <div class="v1-grid-label">// Select mode</div>
+        <div class="v1-grid">
+          <div class="v1-tile"><div class="num">01</div><div class="icon">%</div><div class="t">Classic</div></div>
+          <div class="v1-tile"><div class="num">02</div><div class="icon">?</div><div class="t">Gridiron IQ</div></div>
+          <div class="v1-tile skill"><div class="num">03</div><div class="icon">&#9201;</div><div class="t">2-Min Drill</div></div>
+          <div class="v1-tile"><div class="num">04</div><div class="icon">x</div><div class="t">Challenge</div></div>
+        </div>
+
+        <div class="v1-legacy-strip">
+          <span class="lv">DYNASTY LV.7</span>
+          <span class="lt">4 packs ready</span>
+          <span class="arrow">&rsaquo;</span>
+        </div>
+
+        <div class="v1-tabbar">
+          <div class="t-item active"><div class="t-dot"></div><span>BOARD</span></div>
+          <div class="t-item"><div class="t-dot"></div><span>ROSTER</span></div>
+          <div class="t-item"><div class="t-dot"></div><span>SPIN</span></div>
+          <div class="t-item"><div class="t-dot"></div><span>HISTORY</span></div>
+          <div class="t-item"><div class="t-dot"></div><span>PROFILE</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="cap-name">A · Command center</div>
+    <div class="cap-desc">Dense, data-forward dashboard. 2x2 mode grid instead of a stacked list, monospace stat readouts, everything visible without scrolling. Built for players who already know what they want.</div>
+  </div>
+
+  <div class="phone-block v2">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="v2-header">
+          <div class="v2-gear"></div>
+          <div class="v2-wordmark">UNDEFEATED</div>
+          <div style="width:14px;"></div>
+        </div>
+
+        <div class="v2-medallion">
+          <div class="lv-label">DYNASTY</div>
+          <div class="lv-num">7</div>
+        </div>
+        <div class="v2-record">18–6 ALL-TIME</div>
+        <div class="v2-caption">5 day streak &middot; rank #5 &middot; 240 rings</div>
+
+        <div class="v2-cta">Play today's challenge</div>
+
+        <div class="v2-carousel-label">Modes</div>
+        <div class="v2-carousel">
+          <div class="v2-card">
+            <div class="ci">%</div>
+            <div class="ct">Classic</div>
+            <div class="cs">Stats visible, standard draft</div>
+          </div>
+          <div class="v2-card">
+            <div class="ci">?</div>
+            <div class="ct">Gridiron IQ</div>
+            <div class="cs">Stats hidden, pure instinct</div>
+          </div>
+          <div class="v2-card skill">
+            <div class="ci">&#9201;</div>
+            <div class="ct">Two-Minute Drill</div>
+            <div class="cs">Timed lock-in, earn bonuses</div>
+          </div>
+          <div class="v2-card">
+            <div class="ci">x</div>
+            <div class="ct">Challenge</div>
+            <div class="cs">Head to head vs friends</div>
+          </div>
+        </div>
+
+        <div class="v2-tabbar">
+          <div class="t-item active">BOARD</div>
+          <div class="t-item">ROSTER</div>
+          <div class="t-item">SPIN</div>
+          <div class="t-item">HISTORY</div>
+          <div class="t-item">PROFILE</div>
+        </div>
+      </div>
+    </div>
+    <div class="cap-name">B · Trophy case</div>
+    <div class="cap-desc">Editorial and cinematic. One hero moment (the dynasty medallion), one primary action, modes tucked into a swipeable carousel below the fold. Built to feel premium and unhurried.</div>
+  </div>
+
+  <div class="phone-block v3">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="v3-ticker"><span class="v3-ticker-track">1,247 PLAYING TODAY &nbsp;&bull;&nbsp; 5 DAY STREAK &nbsp;&bull;&nbsp; RANK #5 &nbsp;&bull;&nbsp; RECORD 14-6 &nbsp;&bull;&nbsp; DYNASTY LEVEL 7 &nbsp;&bull;&nbsp; </span></div>
+
+        <div class="v3-body">
+          <div class="v3-header">
+            <div class="v3-logo">UNDEFEATED</div>
+            <div class="v3-gear"></div>
+          </div>
+
+          <div class="v3-hero">
+            <div class="v3-hero-label">TODAY'S CHALLENGE</div>
+            <div class="v3-hero-title">DAILY ROSTER BUILD</div>
+            <div class="v3-hero-clock">RESETS 14:22:09</div>
+            <div class="v3-hero-btn">PLAY NOW</div>
+          </div>
+
+          <div class="v3-scorebox-row">
+            <div class="v3-scorebox"><div class="digits">05</div><div class="cap">Streak</div></div>
+            <div class="v3-scorebox"><div class="digits">#5</div><div class="cap">Rank</div></div>
+            <div class="v3-scorebox"><div class="digits">240</div><div class="cap">Rings</div></div>
+          </div>
+
+          <div class="v3-rail-label">Call sheet</div>
+          <div class="v3-rail">
+            <div class="v3-pill"><span class="pt">Classic</span><span class="ps">stats on</span></div>
+            <div class="v3-pill"><span class="pt">Gridiron IQ</span><span class="ps">stats off</span></div>
+            <div class="v3-pill skill"><span class="pt">Two-Minute Drill</span><span class="ps">skill spin</span></div>
+            <div class="v3-pill"><span class="pt">Challenge</span><span class="ps">vs friends</span></div>
+          </div>
+
+          <div class="v3-tabbar">
+            <div class="t-item active">BOARD</div>
+            <div class="t-item">ROSTER</div>
+            <div class="t-item">SPIN</div>
+            <div class="t-item">HISTORY</div>
+            <div class="t-item">PROFILE</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cap-name">C · Broadcast scoreboard</div>
+    <div class="cap-desc">Sports-broadcast energy: a live ticker, scoreboard-style digit boxes, condensed mono type, sharp corners instead of rounded cards. Modes read as a coach's call sheet, not a settings menu.</div>
+  </div>
+
+</div>
+
+</body>
+</html>
