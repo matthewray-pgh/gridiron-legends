@@ -46,6 +46,13 @@ export const Colors = {
 
   // Broadcast-scoreboard home screen (docs/handoff/01-home-screen.md)
   tickerText: '#3A2600', // dark warm brown, for text on solid-gold ticker backgrounds
+
+  // Dynasty mode pack-pull rarity (docs/handoff/03-legacy-mode.md), values
+  // carried directly from the reference mockup's rarity token set.
+  rarityCommon: '#A7B1BC',
+  rarityRare: '#3E8DE0',
+  rarityElite: '#9B6FE3',
+  rarityLegend: '#F0C24B',
 };
 
 export const Typography = {

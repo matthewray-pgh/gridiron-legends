@@ -1,3 +1,4 @@
-// Doc 03 (Legacy mode: Rings currency, dynasty persistence, HOF) hasn't
-// shipped yet. Flip this once that store exists — see docs/handoff/03-legacy-mode.md.
-export const LEGACY_ENABLED = false;
+// Dynasty mode (Rings currency, persistent roster, packs, Hall of Fame) —
+// see docs/handoff/03-legacy-mode.md (referred to there as "Legacy mode",
+// renamed Dynasty throughout per product direction).
+export const DYNASTY_ENABLED = true;

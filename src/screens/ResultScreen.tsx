@@ -9,6 +9,7 @@ import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { TIER_COLORS } from '../data/players';
 import { useGameStore } from '../store/gameStore';
 import { useStatsStore } from '../store/statsStore';
+import { TODO_BALANCE_RINGS_SOURCES, useDynastyStore } from '../store/dynastyStore';
 import { useResponsive } from '../hooks/useResponsive';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -28,8 +29,9 @@ function simulateSeason(avgRating: number): boolean[] {
 export function ResultScreen() {
   const navigation = useNavigation<Nav>();
   const { isWide } = useResponsive();
-  const { roster, resetGame } = useGameStore();
+  const { mode, roster, resetGame } = useGameStore();
   const { incrementStreak, resetStreak, recordResult } = useStatsStore();
+  const earnRings = useDynastyStore((s) => s.earnRings);
 
   const [revealedCount, setRevealedCount] = useState(0);
   const [results, setResults] = useState<boolean[]>([]);
@@ -53,6 +55,12 @@ export function ResultScreen() {
       const wins = results.filter(Boolean).length;
       recordResult(wins, TOTAL_GAMES);
       wins === TOTAL_GAMES ? incrementStreak() : resetStreak();
+      // Dynasty mode Rings: "Daily Challenge completion" is one of the
+      // named earn sources in docs/handoff/03-legacy-mode.md — the amount
+      // is a TODO_BALANCE placeholder, not confirmed game balance.
+      if (mode === 'daily') {
+        earnRings(TODO_BALANCE_RINGS_SOURCES.dailyChallengeCompletion, 'daily_challenge_completion');
+      }
       return;
     }
     const t = setTimeout(() => setRevealedCount((c) => c + 1), 220);

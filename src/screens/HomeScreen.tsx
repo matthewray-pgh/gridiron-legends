@@ -22,9 +22,8 @@ import { CallSheetPill } from '../components/CallSheetPill';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { SelectablePill } from '../components/SelectablePill';
 import { useResponsive } from '../hooks/useResponsive';
-// LEGACY_ENABLED (src/config/featureFlags.ts) gates the Legacy call-sheet
-// pill (doc 03). Not imported here: the pill has no code path in this
-// screen yet, so there's nothing to switch on until that store exists.
+import { DYNASTY_ENABLED } from '../config/featureFlags';
+import { useDynastyStore } from '../store/dynastyStore';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -42,11 +41,15 @@ export function HomeScreen() {
   const positionIndex       = useGameStore((s) => s.positionIndex);
   const lockedTeam          = useGameStore((s) => s.lockedTeam);
 
+  const dynastyLevel      = useDynastyStore((s) => s.dynastyLevel);
+  const dynastyRings      = useDynastyStore((s) => s.rings);
+  const dynastyAllTime    = useDynastyStore((s) => s.allTimeRecord);
+  const dynastyHOFCount   = useDynastyStore((s) => s.hallOfFame.length);
+  const dynastyPackCount  = useDynastyStore((s) => s.ownedPacks.length);
+
   const myRank = leaderboard.find((entry) => entry.isMe)?.rank;
   const hasInProgressRun = Object.keys(roster).length > 0 && !isComplete;
-  // Rings currency (doc 03 / Legacy store) hasn't shipped — stub at 0 rather
-  // than block this screen on that store landing.
-  const ringsBalance = 0;
+  const ringsBalance = dynastyRings;
 
   // Hero call panel is a single contextual slot (doc 01, rule 3): an
   // in-progress run wins over Today's Challenge when both exist. In that
@@ -127,6 +130,37 @@ export function HomeScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* ── DYNASTY BANNER ─────────────────────────────────────────────
+               Legacy mode (doc 03), renamed Dynasty — its own persistent-
+               save entry point, distinct from the one-and-done runs below.*/}
+          {DYNASTY_ENABLED && (
+            <TouchableOpacity
+              style={styles.dynastyBanner}
+              onPress={() => navigation.navigate('DynastyHome')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.dynastyEyebrow}>YOUR DYNASTY</Text>
+              <Text style={styles.dynastyTitle}>Dynasty · Level {dynastyLevel}</Text>
+              <View style={styles.dynastyRow}>
+                <View style={styles.dynastyChip}>
+                  <Text style={styles.dynastyChipValue}>{dynastyAllTime.wins}-{dynastyAllTime.losses}</Text>
+                  <Text style={styles.dynastyChipLabel}>All-time</Text>
+                </View>
+                <View style={styles.dynastyChip}>
+                  <Text style={styles.dynastyChipValue}>{dynastyHOFCount}</Text>
+                  <Text style={styles.dynastyChipLabel}>HOF cards</Text>
+                </View>
+                <View style={styles.dynastyChip}>
+                  <Text style={styles.dynastyChipValue}>{dynastyPackCount}</Text>
+                  <Text style={styles.dynastyChipLabel}>Packs ready</Text>
+                </View>
+              </View>
+              <View style={styles.dynastyBtn}>
+                <Text style={styles.dynastyBtnText}>Enter dynasty</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+
           {/* ── HERO CALL PANEL + SCOREBOX ROW ────────────────────────────
                Single contextual hero slot — continue-run beats today's-
                challenge when both exist (see heroState above). On wide
@@ -193,7 +227,6 @@ export function HomeScreen() {
             <View style={isWide && styles.railItemWide}>
               <CallSheetPill title="Challenge" tag="vs friends" onPress={() => navigation.navigate('Leaderboard')} />
             </View>
-            {/* Legacy pill omitted — doc 03 (Legacy mode) hasn't shipped. */}
           </View>
 
           {/* ── DISCLAIMER ─────────────────────────────────────────────── */}
@@ -327,6 +360,69 @@ const styles = StyleSheet.create({
   gearIcon: {
     fontSize: 14,
     color: Colors.steel,
+  },
+
+  // ── DYNASTY BANNER
+  dynastyBanner: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.gold,
+    backgroundColor: '#150F04',
+    padding: Spacing.lg,
+  },
+  dynastyEyebrow: {
+    fontSize: Typography.xs,
+    color: Colors.gold,
+    fontFamily: Font.mono,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  dynastyTitle: {
+    fontSize: 22,
+    color: Colors.textPrimary,
+    fontFamily: Font.primaryBold,
+    letterSpacing: 1,
+    marginTop: 2,
+    marginBottom: 10,
+  },
+  dynastyRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  dynastyChip: {
+    flex: 1,
+    backgroundColor: '#00000033',
+    borderRadius: Radius.sm,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+  },
+  dynastyChipValue: {
+    fontSize: Typography.base,
+    color: Colors.gold,
+    fontFamily: Font.secondarySemiBold,
+  },
+  dynastyChipLabel: {
+    fontSize: 9,
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 1,
+  },
+  dynastyBtn: {
+    backgroundColor: Colors.gold,
+    borderRadius: Radius.md,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  dynastyBtnText: {
+    color: Colors.bgDark,
+    fontFamily: Font.primarySemiBold,
+    fontSize: Typography.base,
+    letterSpacing: 0.5,
   },
 
   // ── HERO CALL PANEL (+ scorebox row pairing on wide)

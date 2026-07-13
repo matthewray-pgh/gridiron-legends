@@ -7,6 +7,9 @@ import { TwoMinuteDrillSpinScreen } from '../screens/TwoMinuteDrillSpinScreen';
 import { GameScreen } from '../screens/GameScreen';
 import { ResultScreen } from '../screens/ResultScreen';
 import { LeaderboardScreen } from '../screens/LeaderboardScreen';
+import { DynastyHomeScreen } from '../screens/DynastyHomeScreen';
+import { PackOpeningScreen } from '../screens/PackOpeningScreen';
+import { HallOfFameScreen } from '../screens/HallOfFameScreen';
 import type { RootStackParamList } from './types';
 import { Colors } from '../theme/colors';
 
@@ -29,6 +32,9 @@ export function AppNavigator() {
         <Stack.Screen name="Game" component={GameScreen} />
         <Stack.Screen name="Result" component={ResultScreen} />
         <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
+        <Stack.Screen name="DynastyHome" component={DynastyHomeScreen} />
+        <Stack.Screen name="PackOpening" component={PackOpeningScreen} />
+        <Stack.Screen name="HallOfFame" component={HallOfFameScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -5,4 +5,7 @@ export type RootStackParamList = {
   Game: undefined;
   Result: undefined;
   Leaderboard: undefined;
+  DynastyHome: undefined;
+  PackOpening: undefined;
+  HallOfFame: undefined;
 };
