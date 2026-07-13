@@ -20,9 +20,12 @@ interface PlayerDetailPanelProps {
   quickAssignSlots: Position[];
   onAssign: (position: Position) => void;
   onClose?: () => void;
+  // Gridiron IQ ("trust your instincts"): hide OVR and the rating-derived
+  // tier — box-score stats below stay visible either way.
+  hideRating?: boolean;
 }
 
-export function PlayerDetailPanel({ player, fallbackStatMetrics, quickAssignSlots, onAssign, onClose }: PlayerDetailPanelProps) {
+export function PlayerDetailPanel({ player, fallbackStatMetrics, quickAssignSlots, onAssign, onClose, hideRating = false }: PlayerDetailPanelProps) {
   if (!player) {
     return (
       <View style={styles.emptyWrap}>
@@ -36,12 +39,17 @@ export function PlayerDetailPanel({ player, fallbackStatMetrics, quickAssignSlot
       <View style={styles.topRow}>
         <View style={styles.titleWrap}>
           <Text style={styles.name}>{player.name}</Text>
-          <Text style={styles.meta}>{player.team} · {parseYear(player.years)} · {player.tier}</Text>
+          <Text style={styles.meta}>
+            {player.team} · {parseYear(player.years)}
+            {!hideRating ? ` · ${player.tier}` : ''}
+          </Text>
         </View>
-        <View style={styles.ovrPill}>
-          <Text style={styles.ovrValue}>{player.rating}</Text>
-          <Text style={styles.ovrLabel}>OVR</Text>
-        </View>
+        {!hideRating && (
+          <View style={styles.ovrPill}>
+            <Text style={styles.ovrValue}>{player.rating}</Text>
+            <Text style={styles.ovrLabel}>OVR</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.statsBox}>

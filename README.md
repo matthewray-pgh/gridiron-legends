@@ -4,7 +4,7 @@ Gridiron Legends is a mobile game prototype built with Expo + React Native where
 
 This repository currently includes:
 - Home, Game, Results, and Leaderboard screens
-- Keep/Pass roster drafting flow
+- Browse-and-pick roster drafting flow
 - Multiple game modes (Daily, Classic, Gridiron IQ)
 - Season simulation and share output
 - Zustand state management and typed navigation
@@ -88,8 +88,8 @@ cd data_generator
 ## Gameplay Notes
 
 - Draft positions: QB, RB, WR, TE, FLEX, EDGE, DT, LB, CB, S, D-FLEX
-- Keep or Pass each player card
-- Pass limits depend on mode
+- Browse the full candidate list for the open position and tap any eligible player to assign them to any eligible open slot
+- Gridiron IQ mode hides OVR/tier so picks are made blind, rather than limiting how many players you can browse
 - Final roster simulates a full 20-game run
 
 ## Product Direction

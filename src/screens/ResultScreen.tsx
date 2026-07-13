@@ -5,26 +5,33 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
-import { TIER_COLORS } from '../data/players';
-import { useGameStore } from '../store/gameStore';
+import { GameMode, useGameStore } from '../store/gameStore';
 import { useStatsStore } from '../store/statsStore';
 import { TODO_BALANCE_RINGS_SOURCES, useDynastyStore } from '../store/dynastyStore';
 import { useResponsive } from '../hooks/useResponsive';
+import { dailyRandom } from '../utils/seededRandom';
+import { TOTAL_SEASON_GAMES, simulateSeasonResults } from '../utils/seasonSim';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const TOTAL_GAMES = 20;
+const TOTAL_GAMES = TOTAL_SEASON_GAMES;
 
-function simulateSeason(avgRating: number): boolean[] {
-  return Array.from({ length: TOTAL_GAMES }, (_, i) => {
-    // Difficulty ramps up — later games are harder
-    const difficulty = 70 + i * 1.2;
-    const winChance = Math.min(0.9, Math.max(0.1, (avgRating - difficulty) / 40 + 0.6));
-    return Math.random() < winChance;
-  });
+// Drafted team is shown first, then this brief beat, before the season
+// simulation grid starts revealing.
+const PRE_SIM_PAUSE_MS = 900;
+
+// Daily Challenge must produce the same season result for every player on
+// the same calendar day (docs/handoff/05-game-loop-bugfixes.md, P0) — every
+// other mode stays genuinely random.
+function simulateSeason(avgRating: number, mode: GameMode): boolean[] {
+  if (mode !== 'daily') return simulateSeasonResults(avgRating);
+  return simulateSeasonResults(avgRating, (gameIndex) => dailyRandom('season', gameIndex));
 }
+
+type Phase = 'roster' | 'simulating' | 'done';
 
 export function ResultScreen() {
   const navigation = useNavigation<Nav>();
@@ -32,10 +39,11 @@ export function ResultScreen() {
   const { mode, roster, resetGame } = useGameStore();
   const { incrementStreak, resetStreak, recordResult } = useStatsStore();
   const earnRings = useDynastyStore((s) => s.earnRings);
+  const claimDailyChallenge = useDynastyStore((s) => s.claimDailyChallenge);
 
+  const [phase, setPhase] = useState<Phase>('roster');
   const [revealedCount, setRevealedCount] = useState(0);
   const [results, setResults] = useState<boolean[]>([]);
-  const [animating, setAnimating] = useState(true);
 
   const rosterEntries = Object.entries(roster);
   const avgRating =
@@ -44,32 +52,47 @@ export function ResultScreen() {
       : 90;
 
   useEffect(() => {
-    const season = simulateSeason(avgRating);
-    setResults(season);
-  }, [avgRating]);
+    setResults(simulateSeason(avgRating, mode));
+  }, [avgRating, mode]);
+
+  // Drafted team shows first — hold on it briefly before the sim starts.
+  useEffect(() => {
+    const t = setTimeout(() => setPhase('simulating'), PRE_SIM_PAUSE_MS);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
-    if (results.length === 0) return;
+    if (phase !== 'simulating' || results.length === 0) return;
     if (revealedCount >= TOTAL_GAMES) {
-      setAnimating(false);
+      setPhase('done');
       const wins = results.filter(Boolean).length;
-      recordResult(wins, TOTAL_GAMES);
-      wins === TOTAL_GAMES ? incrementStreak() : resetStreak();
-      // Dynasty mode Rings: "Daily Challenge completion" is one of the
-      // named earn sources in docs/handoff/03-legacy-mode.md — the amount
-      // is a TODO_BALANCE placeholder, not confirmed game balance.
+
       if (mode === 'daily') {
-        earnRings(TODO_BALANCE_RINGS_SOURCES.dailyChallengeCompletion, 'daily_challenge_completion');
+        // The ticker's "1 attempt" claim wasn't actually enforced anywhere —
+        // replaying Daily kept re-minting Rings and re-counting streak/best-
+        // record for an identical (seeded) result. claimDailyChallenge()
+        // only returns true the first time this fires on a given day.
+        if (claimDailyChallenge()) {
+          recordResult(wins, TOTAL_GAMES);
+          wins === TOTAL_GAMES ? incrementStreak() : resetStreak();
+          // Dynasty mode Rings: "Daily Challenge completion" is one of the
+          // named earn sources in docs/handoff/03-legacy-mode.md — the
+          // amount is a TODO_BALANCE placeholder, not confirmed game balance.
+          earnRings(TODO_BALANCE_RINGS_SOURCES.dailyChallengeCompletion, 'daily_challenge_completion');
+        }
+      } else {
+        recordResult(wins, TOTAL_GAMES);
+        wins === TOTAL_GAMES ? incrementStreak() : resetStreak();
       }
       return;
     }
     const t = setTimeout(() => setRevealedCount((c) => c + 1), 220);
     return () => clearTimeout(t);
-  }, [results, revealedCount]);
+  }, [phase, results, revealedCount]);
 
   const wins = results.slice(0, revealedCount).filter(Boolean).length;
   const losses = revealedCount - wins;
-  const isPerfect = !animating && wins === TOTAL_GAMES;
+  const isPerfect = phase === 'done' && wins === TOTAL_GAMES;
   const record = `${wins}-${losses}`;
 
   function buildShareText() {
@@ -88,14 +111,35 @@ export function ResultScreen() {
     navigation.replace('Game');
   }
 
-  const recordSection = (
+  const teamCard = rosterEntries.length > 0 && (
+    <View style={styles.rosterCard}>
+      <View style={styles.rosterHeader}>
+        <Text style={styles.rosterLabel}>YOUR TEAM</Text>
+        <Text style={styles.ovrText}>OVR {avgRating}</Text>
+      </View>
+      {rosterEntries.map(([pos, player]) => (
+        <View key={pos} style={styles.rosterRow}>
+          <View style={styles.rosterLeft}>
+            <Text style={styles.rosterPos}>{pos}</Text>
+            <Text style={styles.rosterName}>{player?.name}</Text>
+          </View>
+          {player && <Text style={styles.rosterOvr}>{player.rating} OVR</Text>}
+        </View>
+      ))}
+      {phase === 'roster' && (
+        <Text style={styles.simSoonText}>Simulating season shortly…</Text>
+      )}
+    </View>
+  );
+
+  const recordSection = phase !== 'roster' && (
     <>
       <View style={styles.recordWrap}>
-        <Text style={styles.recordLabel}>{animating ? 'SIMULATING SEASON...' : 'FINAL RECORD'}</Text>
+        <Text style={styles.recordLabel}>{phase === 'simulating' ? 'SIMULATING SEASON...' : 'FINAL RECORD'}</Text>
         <Text style={[styles.record, { color: isPerfect ? Colors.win : losses > 4 ? Colors.loss : Colors.textPrimary }]}>
           {record}
         </Text>
-        {!animating && (
+        {phase === 'done' && (
           <Text style={[styles.verdict, { color: isPerfect ? Colors.win : Colors.textSecondary }]}>
             {isPerfect
               ? '🏆 PERFECT SEASON! YOU DID IT!'
@@ -137,41 +181,22 @@ export function ResultScreen() {
     </>
   );
 
-  const rosterSection = !animating && (
-    <>
-      {rosterEntries.length > 0 && (
-        <View style={styles.rosterCard}>
-          <View style={styles.rosterHeader}>
-            <Text style={styles.rosterLabel}>YOUR TEAM</Text>
-            <Text style={styles.ovrText}>OVR {avgRating}</Text>
-          </View>
-          {rosterEntries.map(([pos, player]) => (
-            <View key={pos} style={styles.rosterRow}>
-              <View style={styles.rosterLeft}>
-                <Text style={styles.rosterPos}>{pos}</Text>
-                <Text style={styles.rosterName}>{player?.name}</Text>
-              </View>
-              {player && (
-                <View style={[styles.tierBadge, { backgroundColor: TIER_COLORS[player.tier].bg }]}>
-                  <Text style={[styles.tierText, { color: TIER_COLORS[player.tier].text }]}>
-                    {player.tier}
-                  </Text>
-                </View>
-              )}
-            </View>
-          ))}
-        </View>
-      )}
-
-      <View style={styles.actions}>
-        <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.8}>
-          <Text style={styles.shareBtnText}>Share 📤</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.againBtn} onPress={handlePlayAgain} activeOpacity={0.85}>
-          <Text style={styles.againBtnText}>Play Again</Text>
-        </TouchableOpacity>
-      </View>
-    </>
+  const actionsRow = phase === 'done' && (
+    <View style={styles.actions}>
+      <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.8}>
+        <Text style={styles.shareBtnText}>↗ SHARE</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.againBtnWrap} onPress={handlePlayAgain} activeOpacity={0.85} accessibilityRole="button">
+        <LinearGradient
+          colors={['#A86A05', '#D4A017', '#F0CC50', '#D4A017', '#A86A05']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.againBtn}
+        >
+          <Text style={styles.againBtnText}>PLAY AGAIN →</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+    </View>
   );
 
   return (
@@ -187,15 +212,17 @@ export function ResultScreen() {
 
         {isWide ? (
           <View style={styles.wideRow}>
-            <View style={styles.wideColLeft}>{recordSection}</View>
-            <View style={styles.wideColRight}>{rosterSection}</View>
+            <View style={styles.wideColLeft}>{teamCard}</View>
+            <View style={styles.wideColRight}>{recordSection}</View>
           </View>
         ) : (
           <>
+            {teamCard}
             {recordSection}
-            {rosterSection}
           </>
         )}
+
+        {actionsRow}
       </ScrollView>
     </SafeAreaView>
   );
@@ -265,18 +292,22 @@ const styles = StyleSheet.create({
   rosterLeft: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   rosterPos: { fontSize: Typography.xs, color: Colors.textDim, minWidth: 36, fontFamily: Font.secondarySemiBold },
   rosterName: { fontSize: Typography.base, color: Colors.textPrimary, fontFamily: Font.secondaryMedium },
-  tierBadge: { borderRadius: Radius.sm, paddingHorizontal: 6, paddingVertical: 1 },
-  tierText: { fontSize: Typography.xs, fontFamily: Font.secondaryBold },
+  rosterOvr: { fontSize: Typography.sm, color: Colors.gold, fontFamily: Font.secondarySemiBold },
+  simSoonText: {
+    fontSize: Typography.sm, color: Colors.textMuted, fontFamily: Font.secondaryRegular,
+    textAlign: 'center', marginTop: 10,
+  },
 
-  actions: { flexDirection: 'row', gap: 10, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg },
+  actions: { flexDirection: 'row', gap: 10, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg, paddingTop: Spacing.sm },
   shareBtn: {
-    flex: 1, backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.borderMid,
-    borderRadius: Radius.lg, paddingVertical: 14, alignItems: 'center',
+    flex: 1, minHeight: 52, backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.borderMid,
+    borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center',
   },
   shareBtnText: { fontSize: Typography.md, color: Colors.textSecondary, fontFamily: Font.primaryBold, letterSpacing: 0.5 },
+  againBtnWrap: { flex: 1 },
   againBtn: {
-    flex: 1, backgroundColor: Colors.gold,
-    borderRadius: Radius.lg, paddingVertical: 14, alignItems: 'center',
+    minHeight: 52, borderRadius: Radius.md, borderWidth: 1, borderColor: '#F5DC7A',
+    alignItems: 'center', justifyContent: 'center',
   },
   againBtnText: { fontSize: Typography.md, color: Colors.bgDark, fontFamily: Font.primaryBold, letterSpacing: 0.5 },
 });

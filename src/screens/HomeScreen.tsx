@@ -21,6 +21,11 @@ import { ScoreBox } from '../components/ScoreBox';
 import { CallSheetPill } from '../components/CallSheetPill';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { SelectablePill } from '../components/SelectablePill';
+import { TopNav } from '../components/TopNav';
+import { HeroBand } from '../components/HeroBand';
+import { ModeCard } from '../components/ModeCard';
+import { LeaderboardTeaser } from '../components/LeaderboardTeaser';
+import { SiteFooter } from '../components/SiteFooter';
 import { useResponsive } from '../hooks/useResponsive';
 import { DYNASTY_ENABLED } from '../config/featureFlags';
 import { useDynastyStore } from '../store/dynastyStore';
@@ -61,10 +66,14 @@ export function HomeScreen() {
     ? `${lockedTeam.abbr} · Round ${positionIndex + 1}/${DRAFT_POSITIONS.length}`
     : `Round ${positionIndex + 1}/${DRAFT_POSITIONS.length}`;
 
+  // Doc 01 also lists a "players-today" stat here, but there's no real
+  // backing data for it (offline single-player app, no live player count)
+  // — omitted rather than fabricated, same principle as the Rank "—" rule.
   const tickerItems = [
     `${streak} DAY STREAK`,
     myRank ? `RANK #${myRank}` : 'RANK —',
     `RECORD ${bestRecord}`,
+    ...(DYNASTY_ENABLED ? [`DYNASTY LVL ${dynastyLevel}`] : []),
   ];
 
   const [setupVisible, setSetupVisible] = useState(false);
@@ -115,125 +124,232 @@ export function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.contentWrap, isWide && styles.contentWrapWide]}>
-          {/* ── HEADER ───────────────────────────────────────────────── */}
-          <View style={styles.header}>
-            <Text style={styles.headerWordmark}>UNDEFEATED</Text>
-            <TouchableOpacity
-              style={styles.gearBtn}
-              onPress={() => { /* navigate to settings */ }}
-              accessibilityLabel="Settings"
-              accessibilityRole="button"
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Text style={styles.gearIcon}>⚙</Text>
-            </TouchableOpacity>
-          </View>
+        {isWide ? (
+          <View style={styles.wideWrap}>
+            {/* ── TOP NAV ──────────────────────────────────────────────
+                 Wide-viewport-only persistent nav, scoped to HomeScreen
+                 (doc 04: not a shared shell — flagged back as a DECISION
+                 NEEDED for a future global shell). Replaces the reflowed
+                 mobile header at this breakpoint.                      */}
+            <TopNav
+              dynastyLevel={dynastyLevel}
+              rings={ringsBalance}
+              onDynastyPress={() => navigation.navigate('DynastyHome')}
+              onLeaderboardPress={() => navigation.navigate('Leaderboard')}
+              onSettingsPress={() => { /* navigate to settings */ }}
+            />
 
-          {/* ── DYNASTY BANNER ─────────────────────────────────────────────
-               Legacy mode (doc 03), renamed Dynasty — its own persistent-
-               save entry point, distinct from the one-and-done runs below.*/}
-          {DYNASTY_ENABLED && (
-            <TouchableOpacity
-              style={styles.dynastyBanner}
-              onPress={() => navigation.navigate('DynastyHome')}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.dynastyEyebrow}>YOUR DYNASTY</Text>
-              <Text style={styles.dynastyTitle}>Dynasty · Level {dynastyLevel}</Text>
-              <View style={styles.dynastyRow}>
-                <View style={styles.dynastyChip}>
-                  <Text style={styles.dynastyChipValue}>{dynastyAllTime.wins}-{dynastyAllTime.losses}</Text>
-                  <Text style={styles.dynastyChipLabel}>All-time</Text>
-                </View>
-                <View style={styles.dynastyChip}>
-                  <Text style={styles.dynastyChipValue}>{dynastyHOFCount}</Text>
-                  <Text style={styles.dynastyChipLabel}>HOF cards</Text>
-                </View>
-                <View style={styles.dynastyChip}>
-                  <Text style={styles.dynastyChipValue}>{dynastyPackCount}</Text>
-                  <Text style={styles.dynastyChipLabel}>Packs ready</Text>
-                </View>
-              </View>
-              <View style={styles.dynastyBtn}>
-                <Text style={styles.dynastyBtnText}>Enter dynasty</Text>
-              </View>
-            </TouchableOpacity>
-          )}
+            {/* ── HERO BAND ────────────────────────────────────────────
+                 Always "Today's Challenge" at wide — continue-run no
+                 longer competes for the hero slot (doc 04 point 4), it
+                 renders in the sidebar below instead.                  */}
+            <HeroBand
+              onPlayPress={() => startGame('daily')}
+              onViewRulesPress={() => { /* no rules screen yet */ }}
+            />
 
-          {/* ── HERO CALL PANEL + SCOREBOX ROW ────────────────────────────
-               Single contextual hero slot — continue-run beats today's-
-               challenge when both exist (see heroState above). On wide
-               viewports the hero and scorebox sit side by side instead of
-               stacked, with the scoreboxes forming a vertical column.    */}
-          <View style={[styles.heroRow, isWide && styles.heroRowWide]}>
-            <View style={[styles.heroPanel, isWide && styles.heroPanelWide]}>
-              <View style={styles.heroAccentBar} />
-              <View style={styles.heroContent}>
-                {heroState === 'continue' ? (
-                  <>
+            <View style={styles.wideGrid}>
+              {/* ── MAIN COLUMN ──────────────────────────────────────── */}
+              <View style={styles.mainCol}>
+                <Text style={styles.railLabel}>Call sheet</Text>
+                <View style={styles.modeGrid}>
+                  <ModeCard
+                    icon="🏈"
+                    title="Classic"
+                    description="Full stat readouts as you build your roster."
+                    tag="stats on"
+                    onPress={() => startGame('classic')}
+                  />
+                  <ModeCard
+                    icon="🧠"
+                    title="Gridiron IQ"
+                    description="Blind drafting — stats stay hidden until reveal."
+                    tag="stats off"
+                    onPress={() => startGame('iq')}
+                  />
+                  <ModeCard
+                    icon="⏱"
+                    title="Two-Minute Drill"
+                    description="Lock-it-in skill spin, racing the clock."
+                    tag="skill spin"
+                    accentColor={Colors.gridironBlue}
+                    onPress={() => startGame('timer')}
+                  />
+                  <ModeCard
+                    icon="🏆"
+                    title="Challenge"
+                    description="Compete against friends on the leaderboard."
+                    tag="vs friends"
+                    onPress={() => navigation.navigate('Leaderboard')}
+                  />
+                </View>
+
+                <LeaderboardTeaser
+                  leaderboard={leaderboard}
+                  onViewAll={() => navigation.navigate('Leaderboard')}
+                />
+              </View>
+
+              {/* ── SIDEBAR ──────────────────────────────────────────── */}
+              <View style={styles.sidebarCol}>
+                {hasInProgressRun && (
+                  <View style={styles.sidebarCard}>
                     <Text style={styles.heroLabel}>IN PROGRESS</Text>
                     <Text style={styles.heroTitle}>CONTINUE YOUR RUN</Text>
                     <Text style={styles.heroClock}>{continueSubtitle}</Text>
                     <TouchableOpacity style={styles.heroBtn} onPress={resumeRun} activeOpacity={0.85}>
                       <Text style={styles.heroBtnText}>RESUME</Text>
                     </TouchableOpacity>
-                  </>
-                ) : (
-                  <>
-                    <Text style={styles.heroLabel}>TODAY'S CHALLENGE</Text>
-                    <Text style={styles.heroTitle}>DAILY ROSTER BUILD</Text>
-                    <Text style={styles.heroClock}>RESETS --:--:--</Text>
-                    <TouchableOpacity style={styles.heroBtn} onPress={() => startGame('daily')} activeOpacity={0.85}>
-                      <Text style={styles.heroBtnText}>PLAY NOW</Text>
-                    </TouchableOpacity>
-                  </>
+                  </View>
                 )}
-              </View>
-            </View>
 
-            <View style={[styles.scoreRow, isWide && styles.scoreRowWide]}>
-              <ScoreBox value={String(streak).padStart(2, '0')} label="Streak" />
-              <ScoreBox value={myRank ? `#${myRank}` : '—'} label="Rank" />
-              <ScoreBox value={String(ringsBalance)} label="Rings" />
+                {DYNASTY_ENABLED && (
+                  <TouchableOpacity
+                    style={[styles.dynastyBanner, styles.dynastyBannerWide]}
+                    onPress={() => navigation.navigate('DynastyHome')}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.dynastyEyebrow}>YOUR DYNASTY</Text>
+                    <Text style={styles.dynastyTitle}>Dynasty · Level {dynastyLevel}</Text>
+                    <View style={styles.dynastyRow}>
+                      <View style={styles.dynastyChip}>
+                        <Text style={styles.dynastyChipValue}>{dynastyAllTime.wins}-{dynastyAllTime.losses}</Text>
+                        <Text style={styles.dynastyChipLabel}>All-time</Text>
+                      </View>
+                      <View style={styles.dynastyChip}>
+                        <Text style={styles.dynastyChipValue}>{dynastyHOFCount}</Text>
+                        <Text style={styles.dynastyChipLabel}>HOF cards</Text>
+                      </View>
+                      <View style={styles.dynastyChip}>
+                        <Text style={styles.dynastyChipValue}>{dynastyPackCount}</Text>
+                        <Text style={styles.dynastyChipLabel}>Packs ready</Text>
+                      </View>
+                    </View>
+                    <View style={styles.dynastyBtn}>
+                      <Text style={styles.dynastyBtnText}>ENTER DYNASTY</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                <View style={styles.sidebarScorePanel}>
+                  <ScoreBox value={String(streak).padStart(2, '0')} label="Streak" />
+                  <ScoreBox value={myRank ? `#${myRank}` : '—'} label="Rank" />
+                  <ScoreBox value={bestRecord} label="Best record" />
+                </View>
+              </View>
             </View>
           </View>
+        ) : (
+          <View style={styles.contentWrap}>
+            {/* ── HEADER ───────────────────────────────────────────────── */}
+            <View style={styles.header}>
+              <Text style={styles.headerWordmark}>UNDEFEATED</Text>
+              <TouchableOpacity
+                style={styles.gearBtn}
+                onPress={() => { /* navigate to settings */ }}
+                accessibilityLabel="Settings"
+                accessibilityRole="button"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.gearIcon}>⚙</Text>
+              </TouchableOpacity>
+            </View>
 
-          {/* ── CALL SHEET RAIL ───────────────────────────────────────────
-               If Today's Challenge got bumped out of the hero slot above,
-               it surfaces here as a normal (silver-accent) pill instead of
-               being lost. On wide viewports this wraps into a grid.      */}
-          <Text style={styles.railLabel}>Call sheet</Text>
-          <View style={[styles.rail, isWide && styles.railWide]}>
-            {showDailyPill && (
-              <View style={isWide && styles.railItemWide}>
-                <CallSheetPill title="Daily Challenge" tag="today only" onPress={() => startGame('daily')} />
-              </View>
+            {/* ── DYNASTY BANNER ─────────────────────────────────────────────
+                 Legacy mode (doc 03), renamed Dynasty — its own persistent-
+                 save entry point, distinct from the one-and-done runs below.*/}
+            {DYNASTY_ENABLED && (
+              <TouchableOpacity
+                style={styles.dynastyBanner}
+                onPress={() => navigation.navigate('DynastyHome')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.dynastyEyebrow}>YOUR DYNASTY</Text>
+                <Text style={styles.dynastyTitle}>Dynasty · Level {dynastyLevel}</Text>
+                <View style={styles.dynastyRow}>
+                  <View style={styles.dynastyChip}>
+                    <Text style={styles.dynastyChipValue}>{dynastyAllTime.wins}-{dynastyAllTime.losses}</Text>
+                    <Text style={styles.dynastyChipLabel}>All-time</Text>
+                  </View>
+                  <View style={styles.dynastyChip}>
+                    <Text style={styles.dynastyChipValue}>{dynastyHOFCount}</Text>
+                    <Text style={styles.dynastyChipLabel}>HOF cards</Text>
+                  </View>
+                  <View style={styles.dynastyChip}>
+                    <Text style={styles.dynastyChipValue}>{dynastyPackCount}</Text>
+                    <Text style={styles.dynastyChipLabel}>Packs ready</Text>
+                  </View>
+                </View>
+                <View style={styles.dynastyBtn}>
+                  <Text style={styles.dynastyBtnText}>ENTER DYNASTY</Text>
+                </View>
+              </TouchableOpacity>
             )}
-            <View style={isWide && styles.railItemWide}>
+
+            {/* ── HERO CALL PANEL + SCOREBOX ROW ────────────────────────────
+                 Single contextual hero slot — continue-run beats today's-
+                 challenge when both exist (see heroState above).        */}
+            <View style={styles.heroRow}>
+              <View style={styles.heroPanel}>
+                <View style={styles.heroAccentBar} />
+                <View style={styles.heroContent}>
+                  {heroState === 'continue' ? (
+                    <>
+                      <Text style={styles.heroLabel}>IN PROGRESS</Text>
+                      <Text style={styles.heroTitle}>CONTINUE YOUR RUN</Text>
+                      <Text style={styles.heroClock}>{continueSubtitle}</Text>
+                      <TouchableOpacity style={styles.heroBtn} onPress={resumeRun} activeOpacity={0.85}>
+                        <Text style={styles.heroBtnText}>RESUME</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.heroLabel}>TODAY'S CHALLENGE</Text>
+                      <Text style={styles.heroTitle}>DAILY ROSTER BUILD</Text>
+                      <Text style={styles.heroClock}>RESETS --:--:--</Text>
+                      <TouchableOpacity style={styles.heroBtn} onPress={() => startGame('daily')} activeOpacity={0.85}>
+                        <Text style={styles.heroBtnText}>PLAY NOW</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.scoreRow}>
+                <ScoreBox value={String(streak).padStart(2, '0')} label="Streak" />
+                <ScoreBox value={myRank ? `#${myRank}` : '—'} label="Rank" />
+                <ScoreBox value={String(ringsBalance)} label="Rings" />
+              </View>
+            </View>
+
+            {/* ── CALL SHEET RAIL ───────────────────────────────────────────
+                 If Today's Challenge got bumped out of the hero slot above,
+                 it surfaces here as a normal (silver-accent) pill instead of
+                 being lost.                                              */}
+            <Text style={styles.railLabel}>Call sheet</Text>
+            <View style={styles.rail}>
+              {showDailyPill && (
+                <CallSheetPill title="Daily Challenge" tag="today only" onPress={() => startGame('daily')} />
+              )}
               <CallSheetPill title="Classic" tag="stats on" onPress={() => startGame('classic')} />
-            </View>
-            <View style={isWide && styles.railItemWide}>
               <CallSheetPill title="Gridiron IQ" tag="stats off" onPress={() => startGame('iq')} />
-            </View>
-            <View style={isWide && styles.railItemWide}>
               <CallSheetPill
                 title="Two-Minute Drill"
                 tag="skill spin"
                 accentColor={Colors.gridironBlue}
                 onPress={() => startGame('timer')}
               />
-            </View>
-            <View style={isWide && styles.railItemWide}>
               <CallSheetPill title="Challenge" tag="vs friends" onPress={() => navigation.navigate('Leaderboard')} />
             </View>
-          </View>
 
-          {/* ── DISCLAIMER ─────────────────────────────────────────────── */}
-          <Text style={styles.disclaimer}>
-            Not affiliated with or endorsed by the NFL, NFLPA, or any team.
-          </Text>
-        </View>
+            {/* ── DISCLAIMER ─────────────────────────────────────────────── */}
+            <Text style={styles.disclaimer}>
+              Not affiliated with or endorsed by the NFL, NFLPA, or any team.
+            </Text>
+          </View>
+        )}
+
+        {isWide && <SiteFooter />}
       </ScrollView>
 
       {/* ── GAME SETUP MODAL ─────────────────────────────────────────────── */}
@@ -331,7 +447,49 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: Spacing.xl, width: '100%' },
   contentWrap: { width: '100%' },
-  contentWrapWide: { maxWidth: 1040, alignSelf: 'center' },
+
+  // ── WIDE LAYOUT (doc 04) — genuine two-column dashboard, not a reflow
+  // of the narrow stack. Superseded contentWrapWide/heroRowWide/
+  // scoreRowWide/railWide/railItemWide, which are gone.
+  wideWrap: {
+    width: '100%',
+    maxWidth: 1200,
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.xl,
+  },
+  wideGrid: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing['2xl'],
+  },
+  mainCol: {
+    flex: 2,
+  },
+  sidebarCol: {
+    flex: 1,
+    minWidth: 280,
+  },
+  modeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  sidebarCard: {
+    backgroundColor: '#1B140A',
+    borderWidth: 1,
+    borderColor: Colors.gold,
+    borderRadius: Radius.sharp,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  dynastyBannerWide: {
+    marginHorizontal: 0,
+  },
+  sidebarScorePanel: {
+    flexDirection: 'row',
+    gap: 8,
+  },
 
   // ── HEADER
   header: {
@@ -366,7 +524,7 @@ const styles = StyleSheet.create({
   dynastyBanner: {
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.lg,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.sharp,
     borderWidth: 1,
     borderColor: Colors.gold,
     backgroundColor: '#150F04',
@@ -380,10 +538,10 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   dynastyTitle: {
-    fontSize: 22,
+    fontSize: 20,
     color: Colors.textPrimary,
-    fontFamily: Font.primaryBold,
-    letterSpacing: 1,
+    fontFamily: Font.monoBold,
+    letterSpacing: 0.5,
     marginTop: 2,
     marginBottom: 10,
   },
@@ -395,7 +553,7 @@ const styles = StyleSheet.create({
   dynastyChip: {
     flex: 1,
     backgroundColor: '#00000033',
-    borderRadius: Radius.sm,
+    borderRadius: Radius.sharp,
     paddingVertical: 6,
     paddingHorizontal: 6,
     alignItems: 'center',
@@ -403,18 +561,19 @@ const styles = StyleSheet.create({
   dynastyChipValue: {
     fontSize: Typography.base,
     color: Colors.gold,
-    fontFamily: Font.secondarySemiBold,
+    fontFamily: Font.monoBold,
   },
   dynastyChipLabel: {
     fontSize: 9,
     color: Colors.textSecondary,
+    fontFamily: Font.mono,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginTop: 1,
   },
   dynastyBtn: {
     backgroundColor: Colors.gold,
-    borderRadius: Radius.md,
+    borderRadius: Radius.sharp,
     paddingVertical: 10,
     alignItems: 'center',
   },
@@ -425,13 +584,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // ── HERO CALL PANEL (+ scorebox row pairing on wide)
+  // ── HERO CALL PANEL (narrow only — wide uses <HeroBand>)
   heroRow: {},
-  heroRowWide: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: Spacing.lg,
-  },
   heroPanel: {
     flexDirection: 'row',
     marginHorizontal: Spacing.lg,
@@ -441,11 +595,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.gold,
     backgroundColor: '#1B140A',
     overflow: 'hidden',
-  },
-  heroPanelWide: {
-    flex: 3,
-    marginHorizontal: 0,
-    marginBottom: 0,
   },
   heroAccentBar: {
     width: 4,
@@ -490,21 +639,15 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
 
-  // ── SCOREBOX ROW
+  // ── SCOREBOX ROW (narrow only — wide uses sidebarScorePanel)
   scoreRow: {
     flexDirection: 'row',
     gap: 8,
     paddingHorizontal: Spacing.lg,
     marginBottom: Spacing.lg,
   },
-  scoreRowWide: {
-    flex: 2,
-    flexDirection: 'column',
-    paddingHorizontal: 0,
-    marginBottom: 0,
-  },
 
-  // ── CALL SHEET RAIL
+  // ── CALL SHEET RAIL (narrow only — wide uses modeGrid of <ModeCard>)
   railLabel: {
     fontSize: Typography.xs,
     color: Colors.textSecondary,
@@ -519,13 +662,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     marginBottom: Spacing.lg,
   },
-  railWide: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  railItemWide: {
-    width: '32%',
-  },
 
   // ── DISCLAIMER
   disclaimer: {
@@ -535,7 +671,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.lg,
-    fontFamily: Font.secondaryRegular,
+    fontFamily: Font.mono,
   },
 
   // ── MODAL / SHEET

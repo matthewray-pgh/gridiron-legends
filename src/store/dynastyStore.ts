@@ -22,6 +22,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Player, Position, ratingToTier } from '../data/players';
 import { pullPlayerPack, PackPlayer, PackRarity, TODO_BALANCE_DUPE_REFUND_RINGS } from '../data/packs';
 import { pullRandomPerk } from '../data/perks';
+import { simulateSeasonResults } from '../utils/seasonSim';
+import { todaySeedBase } from '../utils/seededRandom';
 
 export type DynastyRoster = Partial<Record<Position, Player>>;
 
@@ -56,6 +58,10 @@ export const TODO_BALANCE_PACK_COST_RINGS: Record<PackType, number> = {
   perk: 60,
 };
 
+// XP awarded for completing a Dynasty season, regardless of record — not
+// confirmed game balance (docs/handoff/05-game-loop-bugfixes.md, P0).
+export const TODO_BALANCE_DYNASTY_SEASON_XP = 250;
+
 // dynastyLevel / dynastyXP are part of the state shape the handoff doc
 // specifies, but the doc names no XP-earning source at all (only Rings
 // sources are discussed) — so nothing feeds XP yet rather than guessing a
@@ -73,6 +79,7 @@ interface DynastyState {
   hallOfFame: HallOfFameEntry[];
   ownedPacks: OwnedPack[];
   activePerks: string[];
+  lastDailyClaimDate: number | null;
 
   earnRings: (amount: number, source: string) => void;
   buyPack: (type: PackType) => boolean;
@@ -80,6 +87,11 @@ interface DynastyState {
   addPulledPlayerToRoster: (player: Player) => void;
   retirePlayer: (position: Position) => void;
   startNextSeason: () => void;
+  // Gate for Daily Challenge's Rings/stats reward — the ticker's "1 attempt"
+  // claim wasn't actually enforced anywhere, so replaying Daily kept
+  // re-minting Rings for an identical (seeded) result. Returns true the
+  // first time it's called on a given calendar day, false on any repeat.
+  claimDailyChallenge: () => boolean;
 }
 
 function toRosterPlayer(packPlayer: PackPlayer): Player {
@@ -112,12 +124,14 @@ const STORAGE_KEY = 'dynasty-store';
 // serializable and are re-created by `create` on every load.
 type PersistedDynastyState = Omit<
   DynastyState,
-  'earnRings' | 'buyPack' | 'openPack' | 'addPulledPlayerToRoster' | 'retirePlayer' | 'startNextSeason'
+  | 'earnRings' | 'buyPack' | 'openPack' | 'addPulledPlayerToRoster' | 'retirePlayer'
+  | 'startNextSeason' | 'claimDailyChallenge'
 >;
 
 const PERSISTED_KEYS: (keyof PersistedDynastyState)[] = [
   'dynastyLevel', 'dynastyXP', 'xpToNextLevel', 'rings', 'allTimeRecord',
   'currentSeason', 'roster', 'hallOfFame', 'ownedPacks', 'activePerks',
+  'lastDailyClaimDate',
 ];
 
 function pickPersistedState(state: DynastyState): PersistedDynastyState {
@@ -140,8 +154,16 @@ export const useDynastyStore = create<DynastyState>()(
       hallOfFame: [],
       ownedPacks: [],
       activePerks: [],
+      lastDailyClaimDate: null,
 
       earnRings: (amount) => set((s) => ({ rings: s.rings + amount })),
+
+      claimDailyChallenge: () => {
+        const today = todaySeedBase();
+        if (get().lastDailyClaimDate === today) return false;
+        set({ lastDailyClaimDate: today });
+        return true;
+      },
 
       buyPack: (type) => {
         const cost = TODO_BALANCE_PACK_COST_RINGS[type];
@@ -209,10 +231,52 @@ export const useDynastyStore = create<DynastyState>()(
 
       // Pure-accumulation model (confirmed): the roster carries over
       // completely untouched. Perks are season-scoped, so they clear here.
-      startNextSeason: () => set((s) => ({
-        currentSeason: s.currentSeason + 1,
-        activePerks: [],
-      })),
+      //
+      // Roster-carryover model (docs/handoff/05-game-loop-bugfixes.md, P0
+      // DECISION NEEDED — confirmed with the user): Dynasty has no draft
+      // step of its own. A "season" simulates games directly against the
+      // current pack-built roster, matching 03-legacy-mode.md's original
+      // description (roster grows only via packs) rather than routing
+      // through gameStore's Spin/Draft flow.
+      startNextSeason: () => {
+        const { roster, allTimeRecord, dynastyXP, xpToNextLevel, dynastyLevel } = get();
+        const rosterEntries = Object.values(roster).filter((p): p is Player => !!p);
+
+        if (rosterEntries.length === 0) {
+          // Nothing pulled from packs yet — nothing to simulate against,
+          // but the season counter and perk reset still advance.
+          set((s) => ({ currentSeason: s.currentSeason + 1, activePerks: [] }));
+          return;
+        }
+
+        // Mirrors ResultScreen.tsx's team-strength calc: average of filled
+        // slots only, unfilled positions don't drag the rating down.
+        const avgRating = Math.round(
+          rosterEntries.reduce((sum, p) => sum + p.rating, 0) / rosterEntries.length,
+        );
+        const results = simulateSeasonResults(avgRating);
+        const wins = results.filter(Boolean).length;
+        const losses = results.length - wins;
+
+        // xpToNextLevel scaling per level isn't specified in 03-legacy-mode.md
+        // or 05-game-loop-bugfixes.md — kept flat (never changes) rather than
+        // guessing a curve; revisit once product confirms a progression
+        // formula.
+        let nextXP = dynastyXP + TODO_BALANCE_DYNASTY_SEASON_XP;
+        let nextLevel = dynastyLevel;
+        while (nextXP >= xpToNextLevel) {
+          nextXP -= xpToNextLevel;
+          nextLevel += 1;
+        }
+
+        set((s) => ({
+          allTimeRecord: { wins: allTimeRecord.wins + wins, losses: allTimeRecord.losses + losses },
+          dynastyXP: nextXP,
+          dynastyLevel: nextLevel,
+          currentSeason: s.currentSeason + 1,
+          activePerks: [],
+        }));
+      },
   }),
 );
 
