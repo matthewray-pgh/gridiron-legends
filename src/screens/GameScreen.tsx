@@ -12,23 +12,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
-import { DRAFT_POSITIONS, Position } from '../data/players';
+import { DRAFT_POSITIONS, Player, Position } from '../data/players';
 import { useGameStore } from '../store/gameStore';
 import { useResponsive } from '../hooks/useResponsive';
 import { PlayerDetailPanel } from '../components/PlayerDetailPanel';
 import { InfoChip } from '../components/InfoChip';
-import { SegmentedControl } from '../components/SegmentedControl';
 import { SelectablePill } from '../components/SelectablePill';
+import { BrandBackground } from '../components/BrandBackground';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const OFFENSE_POSITIONS: Position[] = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'FLEX2'];
 const DEFENSE_POSITIONS: Position[] = ['EDGE', 'DT', 'LB', 'CB', 'S', 'D-FLEX'];
-const SLOT_FILTER_OPTIONS: { value: 'offense' | 'defense'; label: string }[] = [
-  { value: 'offense', label: 'OFF' },
-  { value: 'defense', label: 'DEF' },
-];
 const QB_STAT_DISPLAY_ORDER: Array<[string, string]> = [
   ['completions', 'COMP'],
   ['attempts', 'ATT'],
@@ -79,6 +75,37 @@ function getStatDisplayOrder(position: Position | undefined): Array<[string, str
   return DEFENSE_STAT_DISPLAY_ORDER;
 }
 
+// Compact row-card stat readout — the position's 3 most significant stats
+// only (not the full breakdown that PlayerDetailPanel's STATISTICS grid
+// shows), in the same big-number/small-label shape as that panel's stat
+// items.
+const ROW_STAT_COUNT = 3;
+
+function getRowStatMetrics(candidate: Player): Array<{ key: string; label: string; value: string }> {
+  const structured = getStatDisplayOrder(candidate.position)
+    .map(([key, label]) => {
+      const value = candidate.statValues?.[key];
+      if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return null;
+      return { key, label, value: formatChipValue(value) };
+    })
+    .filter((entry): entry is { key: string; label: string; value: string } => Boolean(entry))
+    .slice(0, ROW_STAT_COUNT);
+
+  if (structured.length > 0) return structured;
+
+  return candidate.stats
+    .split('•')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+    .slice(0, ROW_STAT_COUNT)
+    .map((entry) => {
+      const splitIndex = entry.indexOf(' ');
+      const value = splitIndex > 0 ? entry.slice(0, splitIndex) : entry;
+      const label = (splitIndex > 0 ? entry.slice(splitIndex + 1) : 'STAT').replace(/\s+/g, '').toUpperCase();
+      return { key: `${label}-${value}`, label, value };
+    });
+}
+
 function parseYear(playerYears: string): string {
   const match = playerYears.match(/(\d{4})/);
   return match ? match[1] : '--';
@@ -111,11 +138,14 @@ export function GameScreen() {
     rerollsRemaining,
   } = useGameStore();
 
-  // Gridiron IQ ("trust your instincts", docs/handoff/05-game-loop-bugfixes.md
-  // P1): hide OVR and the rating-derived tier badge everywhere in the draft
-  // screen — actual box-score stats stay visible, only the computed
-  // quality signal is hidden.
-  const hideRating = mode === 'iq';
+  // docs/handoff/05-game-loop-bugfixes.md P1 (resolved, full spec): OVR (and
+  // the rating-derived tier badge) is never shown by default in any mode
+  // here — it's a scouting tool gated behind the Dynasty-only Scouting
+  // Report perk, not a baseline draft-screen display. Classic/Daily/Timer
+  // ("stats visible") show the real per-position stat line instead; Gridiron
+  // IQ ("stats hidden") shows neither stats nor OVR — name/team/years/
+  // position badge only.
+  const showStats = mode !== 'iq';
   const spinRouteName = mode === 'timer' ? 'TwoMinuteDrillSpin' : 'Spin';
   const candidates = currentCandidates();
   const selectedPlayer = currentPlayer();
@@ -126,7 +156,6 @@ export function GameScreen() {
   const progressLabel = `${positionIndex + 1}/${DRAFT_POSITIONS.length}`;
   const positionTypeLabel = positionIndex <= 5 ? 'OFFENSE' : 'DEFENSE';
   const [statsModalVisible, setStatsModalVisible] = useState(false);
-  const [slotFilter, setSlotFilter] = useState<'offense' | 'defense'>('offense');
   const applicablePositions = positionIndex <= 5 ? OFFENSE_POSITIONS : DEFENSE_POSITIONS;
   const groupedCandidates = applicablePositions
     .map((position) => ({
@@ -146,7 +175,6 @@ export function GameScreen() {
         }),
     }))
     .filter((group) => group.entries.length > 0);
-  const filteredSlotPositions = (slotFilter === 'offense' ? OFFENSE_POSITIONS : DEFENSE_POSITIONS);
   const openOffenseSlots = OFFENSE_POSITIONS.filter((position) => !roster[position]);
   const openDefenseSlots = DEFENSE_POSITIONS.filter((position) => !roster[position]);
 
@@ -207,15 +235,6 @@ export function GameScreen() {
     setStatsModalVisible(false);
   }, [currentSpin]);
 
-  useEffect(() => {
-    if (positionIndex <= 5) {
-      setSlotFilter('offense');
-      return;
-    } else {
-      setSlotFilter('defense');
-    }
-  }, [positionIndex]);
-
   function handleAssign(position: Position) {
     if (!selectedPlayer) return;
     setStatsModalVisible(false);
@@ -250,12 +269,9 @@ export function GameScreen() {
   function renderAssignBlock(variantStyle?: object) {
     return (
       <View style={[styles.assignWrap, variantStyle]}>
-        <View style={styles.assignHeaderRow}>
-          <Text style={styles.assignLabel}>ASSIGN TO SLOT</Text>
-          <SegmentedControl compact options={SLOT_FILTER_OPTIONS} value={slotFilter} onChange={setSlotFilter} />
-        </View>
+        <Text style={styles.assignLabel}>ASSIGN TO SLOT</Text>
         <View style={styles.slotGrid}>
-          {filteredSlotPositions.map((position) => renderSlot(position))}
+          {applicablePositions.map((position) => renderSlot(position))}
         </View>
         {openSlots.length === 0 && <Text style={styles.assignHint}>Roster complete.</Text>}
       </View>
@@ -295,14 +311,20 @@ export function GameScreen() {
                           <Text style={styles.playerName}>{candidate.name}</Text>
                           <Text style={styles.playerMeta}>
                             {candidate.team} · {parseYear(candidate.years)}
-                            {!hideRating && candidate.tier ? <Text style={styles.playerMetaTier}> · {candidate.tier}</Text> : null}
                           </Text>
                         </View>
                       </View>
-                      {!hideRating && (
-                        <View style={styles.rowRight}>
-                          <Text style={styles.metricValue}>{candidate.rating}</Text>
-                          <Text style={styles.metricLabel}>OVR</Text>
+                      {showStats && (
+                        <View style={styles.rowStats}>
+                          {getRowStatMetrics(candidate).map((metric, i) => (
+                            <React.Fragment key={metric.key}>
+                              {i > 0 && <View style={styles.statDivider} />}
+                              <View style={styles.statItem}>
+                                <Text style={styles.statValue}>{metric.value}</Text>
+                                <Text style={styles.statLabel}>{metric.label}</Text>
+                              </View>
+                            </React.Fragment>
+                          ))}
                         </View>
                       )}
                     </TouchableOpacity>
@@ -317,8 +339,8 @@ export function GameScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.topBar}>
+    <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
+      <BrandBackground variant="header" style={styles.topBar}>
         <View style={styles.roundRow}>
           <TouchableOpacity onPress={() => { resetGame(); navigation.goBack(); }} style={styles.backBtn}>
             <Text style={styles.backText}>←</Text>
@@ -331,15 +353,15 @@ export function GameScreen() {
         <View style={styles.metaRow}>
           {!!currentSpin && (
             <>
-              <InfoChip label="TEAM" value={currentSpin.team.abbr} accentColor={Colors.gold} />
-              <InfoChip label="ERA" value={currentSpin.era} accentColor={Colors.gridironBlue} labelColor="#5C9BCF" />
+              <InfoChip style={styles.infoChipGrow} label="TEAM" value={currentSpin.team.abbr} accentColor={Colors.gold} />
+              <InfoChip style={styles.infoChipGrow} label="ERA" value={currentSpin.era} accentColor={Colors.gridironBlue} labelColor="#5C9BCF" />
             </>
           )}
           <View style={styles.rerollPillWrap}>
             <InfoChip label="REROLL" value={String(rerollsRemaining)} />
           </View>
         </View>
-      </View>
+      </BrandBackground>
 
       <Text style={styles.helper}>Tap a player for details, then assign from the bottom slots.</Text>
 
@@ -358,7 +380,7 @@ export function GameScreen() {
                 fallbackStatMetrics={fallbackStatMetrics}
                 quickAssignSlots={quickAssignSlots}
                 onAssign={handleAssign}
-                hideRating={hideRating}
+                hideStats={!showStats}
               />
             </ScrollView>
           </View>
@@ -384,7 +406,7 @@ export function GameScreen() {
               quickAssignSlots={quickAssignSlots}
               onAssign={handleAssign}
               onClose={() => setStatsModalVisible(false)}
-              hideRating={hideRating}
+              hideStats={!showStats}
             />
           </Pressable>
         </Pressable>
@@ -428,6 +450,10 @@ const styles = StyleSheet.create({
   },
   rerollPillWrap: {
     marginLeft: 'auto',
+  },
+  infoChipGrow: {
+    flex: 1,
+    alignItems: 'center',
   },
   helper: {
     color: Colors.textDim,
@@ -542,33 +568,38 @@ const styles = StyleSheet.create({
     fontFamily: Font.secondaryRegular,
     marginTop: 2
   },
-  playerMetaTier: {
-    color: Colors.gold,
-    fontFamily: Font.primarySemiBold,
+  rowStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
   },
-  rowRight: { alignItems: 'flex-end' },
-  metricValue: {
-    color: Colors.gold,
+  statDivider: {
+    width: 1,
+    height: 34,
+    marginHorizontal: 8,
+    backgroundColor: Colors.border,
+  },
+  statItem: {
+    alignItems: 'center',
+    minWidth: 48,
+  },
+  statValue: {
+    color: Colors.textPrimary,
+    fontSize: Typography['2xl'],
     fontFamily: Font.primaryBold,
-    fontSize: Typography.xl,
-    fontWeight: '800'
   },
-  metricLabel: {
+  statLabel: {
     color: Colors.textDim,
-    fontSize: Typography.md,
-    fontWeight: '700',
-    fontFamily: Font.primaryBold,
+    fontSize: Typography.sm,
+    fontFamily: Font.secondaryBold,
+    letterSpacing: 0.4,
+    marginTop: 1,
   },
   assignWrap: {
     marginTop: 6,
     marginBottom: 8,
     paddingVertical: 8,
     gap: 8,
-  },
-  assignHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
   },
   assignLabel: {
     color: Colors.textSecondary,

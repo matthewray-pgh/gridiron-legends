@@ -6,6 +6,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { TIER_COLORS } from '../data/players';
 import { useDynastyStore } from '../store/dynastyStore';
+import { BrandBackground } from '../components/BrandBackground';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -17,13 +18,13 @@ export function HallOfFameScreen() {
   const hallOfFame = useDynastyStore((s) => s.hallOfFame);
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.toolbar}>
+    <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
+      <BrandBackground variant="header" style={styles.toolbar}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.toolbarTitle}>HALL OF FAME</Text>
-      </View>
+      </BrandBackground>
 
       <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
         {hallOfFame.length === 0 ? (

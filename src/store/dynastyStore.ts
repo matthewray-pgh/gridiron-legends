@@ -92,7 +92,25 @@ interface DynastyState {
   // re-minting Rings for an identical (seeded) result. Returns true the
   // first time it's called on a given calendar day, false on any repeat.
   claimDailyChallenge: () => boolean;
+  // Wipes all Dynasty progress back to a fresh save (Level 1, no roster,
+  // no Rings). Dev/testing affordance for now — see DynastyHomeScreen's
+  // __DEV__-gated button — there's no player-facing confirmation UX yet.
+  resetDynasty: () => void;
 }
+
+const INITIAL_DYNASTY_STATE: PersistedDynastyState = {
+  dynastyLevel: 1,
+  dynastyXP: 0,
+  xpToNextLevel: XP_PER_LEVEL,
+  rings: 0,
+  allTimeRecord: { wins: 0, losses: 0 },
+  currentSeason: 1,
+  roster: {},
+  hallOfFame: [],
+  ownedPacks: [],
+  activePerks: [],
+  lastDailyClaimDate: null,
+};
 
 function toRosterPlayer(packPlayer: PackPlayer): Player {
   return {
@@ -125,7 +143,7 @@ const STORAGE_KEY = 'dynasty-store';
 type PersistedDynastyState = Omit<
   DynastyState,
   | 'earnRings' | 'buyPack' | 'openPack' | 'addPulledPlayerToRoster' | 'retirePlayer'
-  | 'startNextSeason' | 'claimDailyChallenge'
+  | 'startNextSeason' | 'claimDailyChallenge' | 'resetDynasty'
 >;
 
 const PERSISTED_KEYS: (keyof PersistedDynastyState)[] = [
@@ -144,19 +162,14 @@ function pickPersistedState(state: DynastyState): PersistedDynastyState {
 
 export const useDynastyStore = create<DynastyState>()(
   (set, get) => ({
-      dynastyLevel: 1,
-      dynastyXP: 0,
-      xpToNextLevel: XP_PER_LEVEL,
-      rings: 0,
-      allTimeRecord: { wins: 0, losses: 0 },
-      currentSeason: 1,
-      roster: {},
-      hallOfFame: [],
-      ownedPacks: [],
-      activePerks: [],
-      lastDailyClaimDate: null,
+      ...INITIAL_DYNASTY_STATE,
 
       earnRings: (amount) => set((s) => ({ rings: s.rings + amount })),
+
+      resetDynasty: () => {
+        set(INITIAL_DYNASTY_STATE);
+        AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
+      },
 
       claimDailyChallenge: () => {
         const today = todaySeedBase();

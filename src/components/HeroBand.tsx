@@ -1,9 +1,7 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ImageBackground, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
-
-const STADIUM_BG = require('../../assets/stadium-bg.png');
+import { BrandBackground } from './BrandBackground';
 
 interface HeroBandProps {
   onPlayPress: () => void;
@@ -15,11 +13,7 @@ interface HeroBandProps {
 // doc 01 only applies below WIDE_BREAKPOINT; see HomeScreen for the split).
 export function HeroBand({ onPlayPress, onViewRulesPress }: HeroBandProps) {
   return (
-    <ImageBackground source={STADIUM_BG} style={styles.wrap} imageStyle={styles.image}>
-      <LinearGradient
-        colors={['#070A0EF2', '#070A0EB8', '#070A0EF2']}
-        style={StyleSheet.absoluteFill}
-      />
+    <BrandBackground variant="header" style={styles.wrap}>
       <View style={styles.content}>
         <Text style={styles.eyebrow}>TODAY'S CHALLENGE</Text>
         <Text style={styles.title}>DAILY ROSTER BUILD</Text>
@@ -34,7 +28,7 @@ export function HeroBand({ onPlayPress, onViewRulesPress }: HeroBandProps) {
           </TouchableOpacity>
         </View>
       </View>
-    </ImageBackground>
+    </BrandBackground>
   );
 }
 
@@ -45,9 +39,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
     minHeight: 260,
     justifyContent: 'flex-end',
-  },
-  image: {
-    resizeMode: 'cover',
   },
   content: {
     padding: Spacing['2xl'],

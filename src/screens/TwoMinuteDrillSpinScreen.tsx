@@ -12,6 +12,7 @@ import {
   useGameStore,
 } from '../store/gameStore';
 import { useResponsive } from '../hooks/useResponsive';
+import { BrandBackground } from '../components/BrandBackground';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -116,13 +117,15 @@ export function TwoMinuteDrillSpinScreen() {
   ].filter(Boolean).join('   ');
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
       <View style={[styles.container, isWide && styles.containerWide]}>
-        <Text style={styles.roundLabel}>{roundLabel}</Text>
-        <Text style={styles.title}>LOCK IT IN</Text>
-        <Text style={styles.instructions}>
-          Tap LOCK while each bar sweeps.{'\n'}Land in the gold zone for a bonus.
-        </Text>
+        <BrandBackground variant="header" style={styles.topLabelWrap}>
+          <Text style={styles.roundLabel}>{roundLabel}</Text>
+          <Text style={styles.title}>LOCK IT IN</Text>
+          <Text style={styles.instructions}>
+            Tap LOCK while each bar sweeps.{'\n'}Land in the gold zone for a bonus.
+          </Text>
+        </BrandBackground>
 
         <LockTrack
           label="TEAM"
@@ -205,6 +208,11 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bgPrimary },
   container: { flex: 1, paddingHorizontal: Spacing.lg, paddingTop: 20 },
   containerWide: { width: '100%', maxWidth: 560, alignSelf: 'center' },
+  topLabelWrap: {
+    borderRadius: Radius.lg,
+    overflow: 'hidden',
+    paddingVertical: 10,
+  },
   roundLabel: {
     textAlign: 'center',
     color: Colors.gold,

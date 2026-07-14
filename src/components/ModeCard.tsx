@@ -1,9 +1,10 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 
 interface ModeCardProps {
-  icon: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
   title: string;
   description: string;
   tag?: string;
@@ -22,7 +23,7 @@ export function ModeCard({ icon, title, description, tag, accentColor = Colors.s
       activeOpacity={0.85}
     >
       <View style={styles.headerRow}>
-        <Text style={styles.icon}>{icon}</Text>
+        <MaterialCommunityIcons name={icon} size={22} color={accentColor} />
         {!!tag && <Text style={[styles.tag, { color: accentColor }]}>{tag}</Text>}
       </View>
       <Text style={styles.title}>{title}</Text>
@@ -46,9 +47,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: Spacing.sm,
-  },
-  icon: {
-    fontSize: 20,
   },
   tag: {
     fontSize: Typography.xs,

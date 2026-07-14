@@ -8,6 +8,7 @@ import { useStatsStore } from '../store/statsStore';
 import { useResponsive } from '../hooks/useResponsive';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { RankBadge } from '../components/RankBadge';
+import { BrandBackground } from '../components/BrandBackground';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -26,14 +27,14 @@ export function LeaderboardScreen() {
   const [activeTab, setActiveTab] = useState<Tab>('Daily');
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
       {/* Toolbar */}
-      <View style={styles.toolbar}>
+      <BrandBackground variant="header" style={styles.toolbar}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.toolbarTitle}>ALL-TIME GRIDIRON BOARD</Text>
-      </View>
+      </BrandBackground>
 
       {/* Tabs */}
       <View style={[styles.tabsWrap, isWide && styles.tabsWrapWide]}>

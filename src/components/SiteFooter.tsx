@@ -1,20 +1,14 @@
 import React from 'react';
-import { View, Text, ImageBackground, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, StyleSheet } from 'react-native';
 import { Colors, Font, Spacing, Typography } from '../theme/colors';
-
-const FIELD_BG = require('../../assets/field-bottom.png');
+import { BrandBackground } from './BrandBackground';
 
 // Wide-viewport-only footer (doc 04 point 6). About/Support/Terms have no
 // destinations yet, so they render visually present but inert rather than
 // linking to dead routes.
 export function SiteFooter() {
   return (
-    <ImageBackground source={FIELD_BG} style={styles.wrap} imageStyle={styles.image}>
-      <LinearGradient
-        colors={['#070A0EE0', '#070A0EF7']}
-        style={StyleSheet.absoluteFill}
-      />
+    <BrandBackground variant="footer" style={styles.wrap}>
       <View style={styles.content}>
         <Text style={styles.disclaimer}>
           Not affiliated with or endorsed by the NFL, NFLPA, or any team.
@@ -25,16 +19,13 @@ export function SiteFooter() {
           <Text style={styles.link}>Terms</Text>
         </View>
       </View>
-    </ImageBackground>
+    </BrandBackground>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: {
     marginTop: Spacing['2xl'],
-  },
-  image: {
-    resizeMode: 'cover',
   },
   content: {
     paddingVertical: Spacing.xl,

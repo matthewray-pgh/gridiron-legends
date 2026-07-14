@@ -20,12 +20,15 @@ interface PlayerDetailPanelProps {
   quickAssignSlots: Position[];
   onAssign: (position: Position) => void;
   onClose?: () => void;
-  // Gridiron IQ ("trust your instincts"): hide OVR and the rating-derived
-  // tier — box-score stats below stay visible either way.
-  hideRating?: boolean;
+  // docs/handoff/05-game-loop-bugfixes.md P1 (resolved): OVR is never shown
+  // by default here (it's gated behind the Dynasty-only Scouting Report
+  // perk, which doesn't reach this draft-screen panel). Gridiron IQ
+  // ("stats hidden") additionally hides the whole box-score breakdown —
+  // name/team/years only.
+  hideStats?: boolean;
 }
 
-export function PlayerDetailPanel({ player, fallbackStatMetrics, quickAssignSlots, onAssign, onClose, hideRating = false }: PlayerDetailPanelProps) {
+export function PlayerDetailPanel({ player, fallbackStatMetrics, quickAssignSlots, onAssign, onClose, hideStats = false }: PlayerDetailPanelProps) {
   if (!player) {
     return (
       <View style={styles.emptyWrap}>
@@ -41,31 +44,26 @@ export function PlayerDetailPanel({ player, fallbackStatMetrics, quickAssignSlot
           <Text style={styles.name}>{player.name}</Text>
           <Text style={styles.meta}>
             {player.team} · {parseYear(player.years)}
-            {!hideRating ? ` · ${player.tier}` : ''}
           </Text>
         </View>
-        {!hideRating && (
-          <View style={styles.ovrPill}>
-            <Text style={styles.ovrValue}>{player.rating}</Text>
-            <Text style={styles.ovrLabel}>OVR</Text>
-          </View>
-        )}
       </View>
 
-      <View style={styles.statsBox}>
-        <Text style={styles.statsLabel}>STATISTICS</Text>
-        <View style={styles.statGrid}>
-          {fallbackStatMetrics.map((metric) => (
-            <View key={metric.key} style={styles.statItem}>
-              <Text style={styles.statValue}>{metric.value}</Text>
-              <Text style={styles.statLabel}>{metric.label}</Text>
-            </View>
-          ))}
-          {fallbackStatMetrics.length === 0 && (
-            <Text style={styles.statsEmptyText}>No stat breakdown available.</Text>
-          )}
+      {!hideStats && (
+        <View style={styles.statsBox}>
+          <Text style={styles.statsLabel}>STATISTICS</Text>
+          <View style={styles.statGrid}>
+            {fallbackStatMetrics.map((metric) => (
+              <View key={metric.key} style={styles.statItem}>
+                <Text style={styles.statValue}>{metric.value}</Text>
+                <Text style={styles.statLabel}>{metric.label}</Text>
+              </View>
+            ))}
+            {fallbackStatMetrics.length === 0 && (
+              <Text style={styles.statsEmptyText}>No stat breakdown available.</Text>
+            )}
+          </View>
         </View>
-      </View>
+      )}
 
       <View style={styles.quickAssignWrap}>
         <Text style={styles.quickAssignLabel}>Quick Assign</Text>
@@ -127,26 +125,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontFamily: Font.secondaryMedium,
   },
-  ovrPill: {
-    backgroundColor: Colors.bgDark,
-    borderColor: Colors.borderMid,
-    borderWidth: 1,
-    borderRadius: Radius.md,
-    minWidth: 62,
-    paddingVertical: 6,
-    alignItems: 'center',
-  },
-  ovrValue: {
-    color: Colors.gold,
-    fontSize: Typography.xl,
-    fontFamily: Font.primaryBold,
-    lineHeight: Typography.xl + 2,
-  },
-  ovrLabel: {
-    color: Colors.textDim,
-    fontSize: Typography.sm,
-    fontFamily: Font.secondaryBold,
-  },
   statsBox: {
     backgroundColor: Colors.bgCardDeep,
     borderRadius: Radius.md,
@@ -201,20 +179,25 @@ const styles = StyleSheet.create({
   quickAssignGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
   },
   quickAssignBtn: {
     borderWidth: 1,
     borderColor: Colors.gold,
     backgroundColor: '#2A210F',
-    borderRadius: Radius.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderRadius: Radius.md,
+    paddingHorizontal: 22,
+    paddingVertical: 14,
+    minWidth: 72,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   quickAssignBtnText: {
     color: Colors.gold,
-    fontSize: Typography.sm,
+    fontSize: Typography.xl,
     fontFamily: Font.primaryBold,
+    letterSpacing: 0.5,
   },
   quickAssignEmpty: {
     color: Colors.textDim,

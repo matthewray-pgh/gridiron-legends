@@ -21,11 +21,11 @@ import { ScoreBox } from '../components/ScoreBox';
 import { CallSheetPill } from '../components/CallSheetPill';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { SelectablePill } from '../components/SelectablePill';
-import { TopNav } from '../components/TopNav';
 import { HeroBand } from '../components/HeroBand';
 import { ModeCard } from '../components/ModeCard';
 import { LeaderboardTeaser } from '../components/LeaderboardTeaser';
 import { SiteFooter } from '../components/SiteFooter';
+import { BrandBackground } from '../components/BrandBackground';
 import { useResponsive } from '../hooks/useResponsive';
 import { DYNASTY_ENABLED } from '../config/featureFlags';
 import { useDynastyStore } from '../store/dynastyStore';
@@ -115,8 +115,10 @@ export function HomeScreen() {
     navigation.navigate(pendingMode === 'timer' ? 'TwoMinuteDrillSpin' : 'Spin');
   }
 
+  // 'top' edge omitted — AppShell (rendered app-wide via AppNavigator's
+  // custom header) already reserves the top safe-area inset.
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.safe} edges={['left', 'right']}>
       <Ticker items={tickerItems} />
 
       <ScrollView
@@ -126,19 +128,6 @@ export function HomeScreen() {
       >
         {isWide ? (
           <View style={styles.wideWrap}>
-            {/* ── TOP NAV ──────────────────────────────────────────────
-                 Wide-viewport-only persistent nav, scoped to HomeScreen
-                 (doc 04: not a shared shell — flagged back as a DECISION
-                 NEEDED for a future global shell). Replaces the reflowed
-                 mobile header at this breakpoint.                      */}
-            <TopNav
-              dynastyLevel={dynastyLevel}
-              rings={ringsBalance}
-              onDynastyPress={() => navigation.navigate('DynastyHome')}
-              onLeaderboardPress={() => navigation.navigate('Leaderboard')}
-              onSettingsPress={() => { /* navigate to settings */ }}
-            />
-
             {/* ── HERO BAND ────────────────────────────────────────────
                  Always "Today's Challenge" at wide — continue-run no
                  longer competes for the hero slot (doc 04 point 4), it
@@ -154,21 +143,21 @@ export function HomeScreen() {
                 <Text style={styles.railLabel}>Call sheet</Text>
                 <View style={styles.modeGrid}>
                   <ModeCard
-                    icon="🏈"
+                    icon="football-helmet"
                     title="Classic"
                     description="Full stat readouts as you build your roster."
                     tag="stats on"
                     onPress={() => startGame('classic')}
                   />
                   <ModeCard
-                    icon="🧠"
+                    icon="brain"
                     title="Gridiron IQ"
                     description="Blind drafting — stats stay hidden until reveal."
                     tag="stats off"
                     onPress={() => startGame('iq')}
                   />
                   <ModeCard
-                    icon="⏱"
+                    icon="timer"
                     title="Two-Minute Drill"
                     description="Lock-it-in skill spin, racing the clock."
                     tag="skill spin"
@@ -176,7 +165,7 @@ export function HomeScreen() {
                     onPress={() => startGame('timer')}
                   />
                   <ModeCard
-                    icon="🏆"
+                    icon="trophy"
                     title="Challenge"
                     description="Compete against friends on the leaderboard."
                     tag="vs friends"
@@ -241,56 +230,23 @@ export function HomeScreen() {
           </View>
         ) : (
           <View style={styles.contentWrap}>
-            {/* ── HEADER ───────────────────────────────────────────────── */}
-            <View style={styles.header}>
-              <Text style={styles.headerWordmark}>UNDEFEATED</Text>
-              <TouchableOpacity
-                style={styles.gearBtn}
-                onPress={() => { /* navigate to settings */ }}
-                accessibilityLabel="Settings"
-                accessibilityRole="button"
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Text style={styles.gearIcon}>⚙</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* ── DYNASTY BANNER ─────────────────────────────────────────────
-                 Legacy mode (doc 03), renamed Dynasty — its own persistent-
-                 save entry point, distinct from the one-and-done runs below.*/}
-            {DYNASTY_ENABLED && (
-              <TouchableOpacity
-                style={styles.dynastyBanner}
-                onPress={() => navigation.navigate('DynastyHome')}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.dynastyEyebrow}>YOUR DYNASTY</Text>
-                <Text style={styles.dynastyTitle}>Dynasty · Level {dynastyLevel}</Text>
-                <View style={styles.dynastyRow}>
-                  <View style={styles.dynastyChip}>
-                    <Text style={styles.dynastyChipValue}>{dynastyAllTime.wins}-{dynastyAllTime.losses}</Text>
-                    <Text style={styles.dynastyChipLabel}>All-time</Text>
-                  </View>
-                  <View style={styles.dynastyChip}>
-                    <Text style={styles.dynastyChipValue}>{dynastyHOFCount}</Text>
-                    <Text style={styles.dynastyChipLabel}>HOF cards</Text>
-                  </View>
-                  <View style={styles.dynastyChip}>
-                    <Text style={styles.dynastyChipValue}>{dynastyPackCount}</Text>
-                    <Text style={styles.dynastyChipLabel}>Packs ready</Text>
-                  </View>
-                </View>
-                <View style={styles.dynastyBtn}>
-                  <Text style={styles.dynastyBtnText}>ENTER DYNASTY</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-
-            {/* ── HERO CALL PANEL + SCOREBOX ROW ────────────────────────────
+            <View style={styles.contentBody}>
+              {/* ── HERO CALL PANEL + SCOREBOX ROW ────────────────────────────
                  Single contextual hero slot — continue-run beats today's-
-                 challenge when both exist (see heroState above).        */}
+                 challenge when both exist (see heroState above). This is
+                 the primary focal point on mobile; Dynasty is a secondary,
+                 muted entry point below it rather than a second hero.
+                 BrandBackground renders stadium art *behind* this content
+                 (same pattern as the wide layout's <HeroBand />), not as a
+                 separate block pushing the content down.                 */}
             <View style={styles.heroRow}>
-              <View style={styles.heroPanel}>
+              <View style={styles.scoreRow}>
+                <ScoreBox value={String(streak).padStart(2, '0')} label="Streak" />
+                <ScoreBox value={myRank ? `#${myRank}` : '—'} label="Rank" />
+                <ScoreBox value={String(ringsBalance)} label="Rings" />
+              </View>
+
+              <BrandBackground variant="header" style={styles.heroPanel}>
                 <View style={styles.heroAccentBar} />
                 <View style={styles.heroContent}>
                   {heroState === 'continue' ? (
@@ -313,20 +269,48 @@ export function HomeScreen() {
                     </>
                   )}
                 </View>
-              </View>
-
-              <View style={styles.scoreRow}>
-                <ScoreBox value={String(streak).padStart(2, '0')} label="Streak" />
-                <ScoreBox value={myRank ? `#${myRank}` : '—'} label="Rank" />
-                <ScoreBox value={String(ringsBalance)} label="Rings" />
-              </View>
+              </BrandBackground>
             </View>
+
+            {/* ── DYNASTY ENTRY (compact) ─────────────────────────────────────
+                 Legacy mode (doc 03), renamed Dynasty — its own persistent-
+                 save entry point, distinct from the one-and-done runs above.
+                 Deliberately muted vs. the hero panel (neutral border/bg,
+                 smaller title, text-link CTA) so it reads as secondary
+                 instead of competing for the same visual weight.         */}
+            {DYNASTY_ENABLED && (
+              <TouchableOpacity
+                style={styles.dynastyCompact}
+                onPress={() => navigation.navigate('DynastyHome')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.dynastyCompactEyebrow}>YOUR DYNASTY</Text>
+                <Text style={styles.dynastyCompactTitle}>Dynasty · Level {dynastyLevel}</Text>
+                <View style={styles.dynastyRow}>
+                  <View style={styles.dynastyChip}>
+                    <Text style={[styles.dynastyChipValue, styles.dynastyChipValueMobile]}>{dynastyAllTime.wins}-{dynastyAllTime.losses}</Text>
+                    <Text style={[styles.dynastyChipLabel, styles.dynastyChipLabelMobile]}>All-time</Text>
+                  </View>
+                  <View style={styles.dynastyChip}>
+                    <Text style={[styles.dynastyChipValue, styles.dynastyChipValueMobile]}>{dynastyHOFCount}</Text>
+                    <Text style={[styles.dynastyChipLabel, styles.dynastyChipLabelMobile]}>HOF cards</Text>
+                  </View>
+                  <View style={styles.dynastyChip}>
+                    <Text style={[styles.dynastyChipValue, styles.dynastyChipValueMobile]}>{dynastyPackCount}</Text>
+                    <Text style={[styles.dynastyChipLabel, styles.dynastyChipLabelMobile]}>Packs ready</Text>
+                  </View>
+                </View>
+                <View style={styles.dynastyCompactBtn}>
+                  <Text style={styles.dynastyCompactBtnText}>View Dynasty ›</Text>
+                </View>
+              </TouchableOpacity>
+            )}
 
             {/* ── CALL SHEET RAIL ───────────────────────────────────────────
                  If Today's Challenge got bumped out of the hero slot above,
                  it surfaces here as a normal (silver-accent) pill instead of
                  being lost.                                              */}
-            <Text style={styles.railLabel}>Call sheet</Text>
+            <Text style={[styles.railLabel, styles.railLabelMobile]}>Call sheet</Text>
             <View style={styles.rail}>
               {showDailyPill && (
                 <CallSheetPill title="Daily Challenge" tag="today only" onPress={() => startGame('daily')} />
@@ -340,6 +324,7 @@ export function HomeScreen() {
                 onPress={() => startGame('timer')}
               />
               <CallSheetPill title="Challenge" tag="vs friends" onPress={() => navigation.navigate('Leaderboard')} />
+            </View>
             </View>
 
             {/* ── DISCLAIMER ─────────────────────────────────────────────── */}
@@ -361,8 +346,10 @@ export function HomeScreen() {
       >
         <Pressable style={styles.sheetBackdrop} onPress={() => setSetupVisible(false)}>
           <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.sheetIcon}>⚔︎✕</Text>
-            <Text style={styles.sheetTitle}>GAME SETUP</Text>
+            <BrandBackground variant="header" style={styles.sheetHeaderWrap}>
+              <Text style={styles.sheetIcon}>⚔︎✕</Text>
+              <Text style={styles.sheetTitle}>GAME SETUP</Text>
+            </BrandBackground>
             <Text style={styles.sheetHint}>Configure constraints for each round's team + era spin.</Text>
 
             <View style={styles.sheetSection}>
@@ -445,8 +432,9 @@ const styles = StyleSheet.create({
 
   // ── SCROLL
   scroll: { flex: 1 },
-  scrollContent: { paddingBottom: Spacing.xl, width: '100%' },
-  contentWrap: { width: '100%' },
+  scrollContent: { flexGrow: 1, paddingBottom: Spacing.xl, width: '100%' },
+  contentWrap: { flex: 1, width: '100%', justifyContent: 'space-between' },
+  contentBody: { paddingTop: Spacing.md },
 
   // ── WIDE LAYOUT (doc 04) — genuine two-column dashboard, not a reflow
   // of the narrow stack. Superseded contentWrapWide/heroRowWide/
@@ -489,35 +477,6 @@ const styles = StyleSheet.create({
   sidebarScorePanel: {
     flexDirection: 'row',
     gap: 8,
-  },
-
-  // ── HEADER
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
-  },
-  headerWordmark: {
-    fontSize: 20,
-    color: Colors.textPrimary,
-    fontFamily: Font.primaryBold,
-    letterSpacing: 1.5,
-  },
-  gearBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: Colors.steel,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gearIcon: {
-    fontSize: 14,
-    color: Colors.steel,
   },
 
   // ── DYNASTY BANNER
@@ -584,6 +543,54 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
+  // ── DYNASTY ENTRY, compact (narrow only) — deliberately muted vs.
+  // dynastyBanner/heroPanel so it reads as secondary, not a second hero.
+  dynastyCompact: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+    borderRadius: Radius.sharp,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.bgCard,
+    padding: Spacing.md,
+  },
+  dynastyCompactEyebrow: {
+    fontSize: Typography.sm,
+    color: Colors.textMuted,
+    fontFamily: Font.mono,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  dynastyCompactTitle: {
+    fontSize: Typography.lg,
+    color: Colors.textPrimary,
+    fontFamily: Font.primaryBold,
+    letterSpacing: 0.5,
+    marginTop: 2,
+    marginBottom: 10,
+  },
+  dynastyCompactBtn: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: Colors.steel,
+    borderRadius: Radius.sharp,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  dynastyCompactBtnText: {
+    color: Colors.steel,
+    fontFamily: Font.primarySemiBold,
+    fontSize: Typography.base,
+    letterSpacing: 0.5,
+  },
+  dynastyChipValueMobile: {
+    fontSize: Typography.md,
+  },
+  dynastyChipLabelMobile: {
+    fontSize: 10,
+  },
+
   // ── HERO CALL PANEL (narrow only — wide uses <HeroBand>)
   heroRow: {},
   heroPanel: {
@@ -593,7 +600,6 @@ const styles = StyleSheet.create({
     borderRadius: Radius.sharp,
     borderWidth: 1,
     borderColor: Colors.gold,
-    backgroundColor: '#1B140A',
     overflow: 'hidden',
   },
   heroAccentBar: {
@@ -605,14 +611,14 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   heroLabel: {
-    fontSize: Typography.xs,
+    fontSize: Typography.sm,
     color: Colors.gold,
     fontFamily: Font.mono,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
   },
   heroTitle: {
-    fontSize: 26,
+    fontSize: 30,
     color: Colors.textPrimary,
     fontFamily: Font.primaryBold,
     letterSpacing: 1,
@@ -620,7 +626,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   heroClock: {
-    fontSize: Typography.sm,
+    fontSize: Typography.base,
     color: Colors.textSecondary,
     fontFamily: Font.mono,
     marginBottom: 12,
@@ -633,7 +639,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   heroBtnText: {
-    fontSize: Typography.md,
+    fontSize: Typography.lg,
     color: Colors.bgDark,
     fontFamily: Font.primaryBold,
     letterSpacing: 1,
@@ -662,16 +668,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     marginBottom: Spacing.lg,
   },
+  railLabelMobile: {
+    fontSize: Typography.sm,
+  },
 
   // ── DISCLAIMER
   disclaimer: {
-    fontSize: Typography.md,
+    fontSize: Typography.lg,
     color: Colors.textDim,
     textAlign: 'center',
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.lg,
-    fontFamily: Font.mono,
+    fontFamily: Font.secondaryRegular,
   },
 
   // ── MODAL / SHEET
@@ -693,6 +702,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1.5,
     borderColor: '#8B6B2C',
+  },
+  sheetHeaderWrap: {
+    borderRadius: Radius.lg,
+    overflow: 'hidden',
+    paddingVertical: 10,
   },
   sheetIcon: {
     fontSize: 23,

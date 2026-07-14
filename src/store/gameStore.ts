@@ -153,7 +153,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   spinState: 'pre',
   currentSpin: null,
   positionIndex: 0,
-  playerIndex: 0,
+  playerIndex: -1, // -1 = no candidate selected (see setPlayerIndex)
   roster: {},
   isComplete: false,
 
@@ -174,7 +174,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       spinState: 'pre',
       currentSpin: null,
       positionIndex: 0,
-      playerIndex: 0,
+      playerIndex: -1, // -1 = no candidate selected (see setPlayerIndex)
       roster: {},
       isComplete: false,
       teamLockResult: 'pending',
@@ -202,7 +202,11 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({
       lockedTeam: picked.nextLockedTeam,
       currentSpin: picked.spin,
-      playerIndex: 0,
+      // playerIndex: 0, — disabled: this auto-selected (and visually
+      // highlighted) the pool's first candidate on every reveal, which
+      // — since candidates are sorted by rating descending — amounted to
+      // an unrequested "top rated player" suggestion. Selection is now
+      // only ever set by the user tapping a row (see setPlayerIndex).
       spinState: 'revealed',
     });
   },
@@ -275,7 +279,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       lockedTeam: drillPending.nextLockedTeam,
       currentSpin: drillPending.spin,
       drillPending: null,
-      playerIndex: 0,
+      // playerIndex: 0, — disabled, see rollSpin() above: no auto-selected
+      // "top rated player" on reveal, selection is user-tap-driven only.
       spinState: 'revealed',
       rerollsRemaining: get().rerollsRemaining + rerollBonus,
       drillOvrBonusPending: ovrBonus,
@@ -297,17 +302,22 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   currentPlayer: () => {
     const pool = get().currentCandidates();
-    if (pool.length === 0) return null;
-    return pool[get().playerIndex % pool.length];
+    const index = get().playerIndex;
+    if (pool.length === 0 || index < 0) return null;
+    return pool[index % pool.length];
   },
 
+  // index < 0 explicitly clears the selection (no candidate highlighted) —
+  // this is never called with a negative index automatically/on-reveal, only
+  // from the user tapping a row, so there's no auto-suggested "top rated
+  // player" default. Don't clamp negative values up to 0 here.
   setPlayerIndex: (index) => {
     const poolSize = get().currentCandidates().length;
-    if (poolSize <= 0) {
-      set({ playerIndex: 0 });
+    if (index < 0 || poolSize <= 0) {
+      set({ playerIndex: -1 });
       return;
     }
-    const clampedIndex = Math.max(0, Math.min(index, poolSize - 1));
+    const clampedIndex = Math.min(index, poolSize - 1);
     set({ playerIndex: clampedIndex });
   },
 
@@ -331,7 +341,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({
       roster: nextRoster,
       positionIndex: Math.min(draftedCount, DRAFT_POSITIONS.length - 1),
-      playerIndex: 0,
+      // playerIndex: 0, — disabled, see rollSpin() above: don't auto-select
+      // the next round's top-rated candidate either.
       currentSpin: null,
       drillOvrBonusPending: 0,
       spinState: isComplete ? 'picked' : 'pre',
@@ -348,7 +359,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       spinState: 'pre',
       currentSpin: null,
       positionIndex: 0,
-      playerIndex: 0,
+      playerIndex: -1, // -1 = no candidate selected (see setPlayerIndex)
       roster: {},
       isComplete: false,
       teamLockResult: 'pending',
