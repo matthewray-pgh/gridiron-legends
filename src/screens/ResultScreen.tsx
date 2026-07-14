@@ -13,6 +13,7 @@ import { TODO_BALANCE_RINGS_SOURCES, useDynastyStore } from '../store/dynastySto
 import { useResponsive } from '../hooks/useResponsive';
 import { dailyRandom } from '../utils/seededRandom';
 import { TOTAL_SEASON_GAMES, simulateSeasonResults } from '../utils/seasonSim';
+import { BrandBackground } from '../components/BrandBackground';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -200,15 +201,15 @@ export function ResultScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Toolbar */}
-        <View style={styles.toolbar}>
+        <BrandBackground variant="header" style={styles.toolbar}>
           <TouchableOpacity onPress={() => { resetGame(); navigation.navigate('Home'); }} style={styles.backBtn}>
             <Text style={styles.backText}>←</Text>
           </TouchableOpacity>
           <Text style={styles.toolbarTitle}>Season Results</Text>
-        </View>
+        </BrandBackground>
 
         {isWide ? (
           <View style={styles.wideRow}>

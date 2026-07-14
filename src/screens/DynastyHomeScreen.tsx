@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -7,6 +7,7 @@ import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { DRAFT_POSITIONS } from '../data/players';
 import { getPerkById } from '../data/perks';
 import { useDynastyStore } from '../store/dynastyStore';
+import { BrandBackground } from '../components/BrandBackground';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -34,6 +35,7 @@ export function DynastyHomeScreen() {
   const retirePlayer = useDynastyStore((s) => s.retirePlayer);
   const startNextSeason = useDynastyStore((s) => s.startNextSeason);
   const earnRings = useDynastyStore((s) => s.earnRings);
+  const resetDynasty = useDynastyStore((s) => s.resetDynasty);
 
   // Dev-only playtesting affordance: real Rings income is currently just
   // Daily Challenge completion (15/day), far below pack costs (100/60) —
@@ -42,6 +44,21 @@ export function DynastyHomeScreen() {
   const DEV_RINGS_GRANT = 500;
   function handleDevGrantRings() {
     earnRings(DEV_RINGS_GRANT, 'dev_grant');
+  }
+
+  // Dev-only playtesting affordance: wipes the local Dynasty save back to
+  // Level 1 so layout/flow changes can be checked against a fresh state
+  // without a reinstall. __DEV__ strips it from release builds; no
+  // player-facing reset UX exists yet.
+  function handleDevResetDynasty() {
+    Alert.alert(
+      'Reset Dynasty?',
+      'This clears your roster, Rings, record, and Hall of Fame back to Level 1. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Reset', style: 'destructive', onPress: resetDynasty },
+      ],
+    );
   }
 
   const filledSlots = DRAFT_POSITIONS.filter((pos) => roster[pos]);
@@ -164,8 +181,8 @@ export function DynastyHomeScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.toolbar}>
+    <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
+      <BrandBackground variant="header" style={styles.toolbar}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
@@ -175,10 +192,15 @@ export function DynastyHomeScreen() {
             <Text style={styles.devBtnText}>DEV +{DEV_RINGS_GRANT}</Text>
           </TouchableOpacity>
         )}
+        {__DEV__ && (
+          <TouchableOpacity style={styles.devBtn} onPress={handleDevResetDynasty} activeOpacity={0.7}>
+            <Text style={styles.devBtnText}>DEV RESET</Text>
+          </TouchableOpacity>
+        )}
         <View style={styles.ringsChip}>
           <Text style={styles.ringsText}>{rings} 💍</Text>
         </View>
-      </View>
+      </BrandBackground>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {tab === 'dynasty' && dynastyTab}

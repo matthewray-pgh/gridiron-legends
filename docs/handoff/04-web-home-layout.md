@@ -17,26 +17,36 @@ the narrow/mobile-width behavior in `01-home-screen.md` is unchanged.
 
 ## What's structurally new
 
-1. **Persistent top nav, replacing the reflowed header.** Currently
-   there's no persistent navigation at all — `AppNavigator.tsx` is a
-   bare `createNativeStackNavigator` with no tab bar or shell, so every
-   screen is just a stack push. At wide viewports, Home should render a
-   sticky top nav: logo, page links (Home / Dynasty / Leaderboard),
-   Rings chip, settings, and a profile avatar placeholder.
+1. **Persistent shell, app-wide — not a full nav bar.**
+   > **RESOLVED (confirmed with user):** don't build the mockup's full
+   > text-link nav bar. Instead: a minimal persistent shell — logo
+   > (always links to `Home`) plus 2 icon-only shortcuts (Leaderboard,
+   > Dynasty) — applied **app-wide**, not scoped to `HomeScreen`. This
+   > reflects that the underlying problem (zero persistent navigation
+   > anywhere in `AppNavigator.tsx` — every screen is a stack push with
+   > only a back arrow) exists at every screen, not just Home, and a
+   > heavier site-style nav would fight the app's actual hub-and-spoke
+   > shape (Home → mode → play → Result → back to Home) rather than
+   > serve it.
+   >
+   > Scope note: this decision came out of the desktop-web-layout
+   > discussion, but the shell should render at all viewport widths,
+   > not just wide ones — the "stuck without nav" problem isn't
+   > web-specific. The shell's visual treatment can adapt to width
+   > (e.g. more compact on narrow screens) but its presence shouldn't
+   > be conditional on `isWide`.
+   >
+   > Implementation note, not a product decision: React Navigation's
+   > native-stack doesn't have a built-in persistent-shell concept —
+   > this needs either a custom shared header via `screenOptions.header`
+   > on the `Stack.Navigator`, or a wrapping layout component that every
+   > screen renders inside of. Either is fine; pick whichever fits the
+   > existing `SafeAreaView`-per-screen pattern more cleanly, Claude
+   > Code's call.
 
-   > DECISION NEEDED: should this nav be scoped to just `HomeScreen`
-   > (simplest, matches this doc's stated scope), or does it belong in
-   > a shared layout wrapping every screen at wide viewports (a proper
-   > web app shell)? The mockup implies the latter eventually, but
-   > that's a bigger architectural change than "redesign the home
-   > page" — don't build a global nav shell unprompted. Implement it
-   > local to `HomeScreen` for now and flag the shell question back.
-
-   Nav links: only link to routes that actually exist
-   (`Home`, `DynastyHome`, `Leaderboard`). The mockup shows a
-   "History" link with no corresponding screen in
-   `RootStackParamList` — omit it, don't link to a route that doesn't
-   exist yet.
+   Icon shortcuts: only link to routes that actually exist
+   (`Home`, `DynastyHome`, `Leaderboard`). The mockup's "History" link
+   has no corresponding screen in `RootStackParamList` — omit it.
 
 2. **Hero band using real background art.** `assets/stadium-bg.png`
    (plus its `@2x`/`@3x` variants) already exists in the repo and is
@@ -104,8 +114,9 @@ the narrow/mobile-width behavior in `01-home-screen.md` is unchanged.
 
 ## Components to build
 
-- `<TopNav />` — wide-viewport only, scoped to `HomeScreen` per the
-  decision above
+- `<AppShell />` — app-wide persistent shell (logo + Leaderboard/Dynasty
+  icon shortcuts), replaces the earlier Home-scoped `<TopNav />` concept.
+  Renders at every screen, all viewport widths.
 - `<HeroBand />` — wide-viewport variant of the existing hero panel;
   narrow viewports keep the current `heroPanel` implementation
   unchanged
@@ -120,8 +131,11 @@ the narrow/mobile-width behavior in `01-home-screen.md` is unchanged.
 - [ ] Below `WIDE_BREAKPOINT` (900px), `HomeScreen` behaves exactly as
       specified in `01-home-screen.md` — no regressions to the mobile
       layout or its hero-slot priority logic
-- [ ] At/above `WIDE_BREAKPOINT`, nav links only point at routes that
-      exist in `RootStackParamList`
+- [ ] Nav shortcuts only point at routes that exist in
+      `RootStackParamList`, at any viewport width
+- [ ] The persistent shell renders on every screen, not just Home —
+      confirm this by checking `GameScreen`, `SpinScreen`, etc., not
+      just the screen this doc was originally scoped to
 - [ ] `assets/stadium-bg.png` is actually rendered in the hero band at
       wide viewports, with a gradient overlay — never bare text on the
       raw photo

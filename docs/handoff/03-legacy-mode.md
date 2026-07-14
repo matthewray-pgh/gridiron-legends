@@ -123,7 +123,11 @@ interface Perk {
 Candidates: extra reroll every round for the season ("Two-a-Days"), a
 sim win-probability boost for N games ("Homefield Advantage"), immunity
 to one forced low-OVR pick per season ("Iron Man"), reveal hidden OVR
-in a Gridiron IQ-style Legacy run ("Scouting Report"), protect one
+in a Gridiron IQ-style Legacy run ("Scouting Report" — scope expanded
+by `05-game-loop-bugfixes.md`: OVR is hidden by default in *every*
+mode now, not just Gridiron IQ, so this perk's actual value is reveal-
+ing OVR during a Dynasty season regardless of which underlying mode
+it's paired with), protect one
 roster slot from downgrade on a bad spin ("Cap Insurance").
 
 > DECISION NEEDED: full perk list and each perk's mechanical effect

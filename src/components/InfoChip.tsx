@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { Colors, Font, Radius, Typography } from '../theme/colors';
 
 interface InfoChipProps {
@@ -8,11 +8,12 @@ interface InfoChipProps {
   /** Border color; also used as the label color unless labelColor is given. Defaults to the subtle low-contrast border used for non-emphasized chips. */
   accentColor?: string;
   labelColor?: string;
+  style?: StyleProp<ViewStyle>;
 }
 
-export function InfoChip({ label, value, accentColor = Colors.borderMid, labelColor }: InfoChipProps) {
+export function InfoChip({ label, value, accentColor = Colors.borderMid, labelColor, style }: InfoChipProps) {
   return (
-    <View style={[styles.chip, { borderColor: accentColor }]}>
+    <View style={[styles.chip, { borderColor: accentColor }, style]}>
       <Text style={[styles.label, { color: labelColor ?? accentColor }]}>{label}</Text>
       <Text style={styles.value}>{value}</Text>
     </View>

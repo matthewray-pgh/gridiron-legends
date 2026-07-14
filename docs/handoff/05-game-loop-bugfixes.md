@@ -80,13 +80,19 @@ further, there's no route from playing a season to Dynasty at all yet.
   once at store initialization (`1`, `0`, `{0, 0}`) and never change
   again, no matter how many seasons get played or packs opened.
 
-**Fix approach:**
+**Fix approach — superseded by the resolved decision above; kept here
+for history.** The original plan assumed a Dynasty season would route
+through an actual draft/spin session (steps 1-2 below). That's not the
+model that was implemented — `startNextSeason()` computes results
+directly from the standing pack-built roster with no draft step. Steps
+3 (write results back to `dynastyStore`) is the part that's actually
+relevant and is now done.
 
-1. Add `'dynasty'` to `GameMode` in `gameStore.ts`.
-2. `DynastyHomeScreen`'s "Start season N+1" button should call
-   `startNextSeason()` **and** navigate into the draft flow with
-   `mode: 'dynasty'` (`setMode('dynasty')` then route to `Spin`,
-   mirroring how other modes kick off from `HomeScreen`'s `startGame()`).
+1. ~~Add `'dynasty'` to `GameMode` in `gameStore.ts`.~~ Not needed —
+   Dynasty seasons don't go through `gameStore` at all.
+2. ~~`DynastyHomeScreen`'s "Start season N+1" button should... route to
+   `Spin`.~~ Not needed, same reason. It correctly just calls
+   `startNextSeason()` directly.
 3. In `ResultScreen.tsx`, when `mode === 'dynasty'`:
    - Write the season's win/loss record into
      `useDynastyStore`'s `allTimeRecord` (add wins/losses, don't
@@ -105,23 +111,23 @@ further, there's no route from playing a season to Dynasty at all yet.
      `addPulledPlayerToRoster` or similar), or whether the persistent
      Dynasty roster is *only* built through packs, and a Dynasty
      "season" is a separate draft-and-sim run scored against your
-     standing roster. This is a real product question, not an
-     implementation detail — the original Legacy mode concept
-     (`03-legacy-mode.md`) describes the drafted roster *as* the
-     persistent one, but the current separate `gameStore.roster` vs.
-     `dynastyStore.roster` split suggests these may have diverged.
-     > DECISION NEEDED: confirm which model is intended before wiring
-     > this up — it changes what `startNextSeason` should actually do
-     > with the just-completed `gameStore.roster`.
+     standing roster.
+     > **RESOLVED (confirmed with user, implemented):** persistent
+     > roster is built via packs only. A Dynasty "season" has no draft
+     > step of its own — `startNextSeason()` simulates games directly
+     > against the current pack-built roster's average rating. This
+     > matches `03-legacy-mode.md`'s original description. See
+     > `dynastyStore.ts`'s `startNextSeason()` implementation and its
+     > inline comment for the authoritative record of this decision.
 
-### Acceptance criteria
-- [ ] `'dynasty'` added as a `GameMode`
-- [ ] "Start season N+1" actually routes into a playable draft session
-- [ ] Completing a Dynasty-mode season updates `allTimeRecord` and
-      `dynastyXP`/`dynastyLevel` in `dynastyStore`
-- [ ] Roster-carryover model (drafted roster IS the dynasty roster, vs.
-      pack-built roster is separate from season runs) is confirmed with
-      the user before implementation, not assumed
+### Acceptance criteria — updated to match the resolved model
+- [x] Roster-carryover model confirmed with the user: pack-built roster
+      only, no draft step for Dynasty seasons
+- [x] Completing a Dynasty season (`startNextSeason()`) updates
+      `allTimeRecord` and `dynastyXP`/`dynastyLevel` in `dynastyStore`
+- [ ] `xpToNextLevel` scaling curve is still a flat placeholder
+      (`TODO_BALANCE_DYNASTY_SEASON_XP`) — confirm a real progression
+      formula when ready, not urgent
 
 ---
 
@@ -129,37 +135,64 @@ further, there's no route from playing a season to Dynasty at all yet.
 
 **Claim** (Home screen copy): *"Stats hidden"*
 
-**Reality:** `hideStats` is implemented as a prop on `PlayerCard.tsx`,
-but that component is never imported or rendered anywhere in the app —
-it's dead code left over from an earlier draft-screen implementation.
-The live draft screen, `GameScreen.tsx`, always renders
-`candidate.rating` directly in the player list (`metricValue` /
-`metricLabel` in the row card) with no mode check at all. Selecting
-Gridiron IQ currently produces a draft screen visually and functionally
-identical to Classic.
+**Reality:** `hideStats` was implemented as a prop on the now-deleted
+`PlayerCard.tsx` and never reached the live draft screen. The live
+`GameScreen.tsx` always renders `candidate.rating` (OVR) as the
+prominent metric in every row, regardless of mode.
+
+> **RESOLVED — full spec (confirmed with user):** this turned out to be
+> bigger than "hide OVR in IQ mode." New rule, all modes:
+>
+> - **OVR is no longer shown by default anywhere.** It becomes a
+>   scouting tool revealed only through a perk (see below), not a
+>   baseline display.
+> - **Classic / Daily / Timer ("stats visible")** show real
+>   **position-specific stats** instead of OVR. This data already
+>   exists — `formatStats()` in `src/data/players.ts` builds a real,
+>   per-position stat line from actual career numbers (completions/
+>   pass yards/pass TD/INT/rush yards for QB; rush yards/TD/receptions
+>   for RB; receptions/targets/rec yards/rec TD/YAC for WR/TE/FLEX;
+>   tackles/sacks/TFL/QB hits for EDGE/DT; tackles/TFL/sacks/INT for
+>   LB; tackles/INT/PD/FF/DEF TD/sacks for CB/S/D-FLEX). This is
+>   already computed onto `Player.stats` for every candidate — it's
+>   just not the *emphasized* number in the row card today (OVR is,
+>   in `metricValue`/`metricLabel`). No new per-position stat design
+>   work is needed; this is a display-priority swap, not new data
+>   plumbing.
+> - **Gridiron IQ ("stats hidden")** shows none of the above — no
+>   `.stats` line, no OVR. Name, team, years, position badge only.
+> - **OVR reveal mechanic:** this is the same "Scouting Report" perk
+>   already proposed in `03-legacy-mode.md` (originally scoped as
+>   "reveals hidden OVR in a Gridiron IQ-style Legacy run") — extend
+>   its scope to apply in any mode, not just IQ. Don't design a second,
+>   separate OVR-reveal mechanic; this is one feature.
 
 **Fix approach:**
 
-- In `GameScreen.tsx`, read `mode` from `useGameStore()` (already
-  destructured, just currently unused for this purpose) and
-  conditionally hide the OVR display — both in the row card
-  (`metricValue`/`metricLabel`) and in `PlayerDetailPanel` (check that
-  component too, it likely also surfaces rating).
-- Decide what Gridiron IQ shows *instead* of OVR — nothing, a vague
-  qualitative tag (e.g. "Starter" / "Depth"), or era/team info only.
-  The original design says "trust your instincts," which implies
-  showing nothing rating-related, but confirm before assuming.
-  > DECISION NEEDED: exact IQ-mode fallback display.
-- `PlayerCard.tsx` — once `GameScreen.tsx` has its own inline hideStats
-  handling, decide whether to delete `PlayerCard.tsx` entirely (if
-  confirmed dead) or actually adopt it as the real row component (see
-  next section, this may be the same decision).
+- In `GameScreen.tsx`'s row card, swap the `metricValue`/`metricLabel`
+  slot: default state shows `candidate.stats` (already computed, just
+  change which field renders there) instead of `candidate.rating`/`OVR`.
+- Add a mode check: when `mode === 'iq'`, render neither `.stats` nor
+  `.rating` in that slot — omit it entirely rather than showing an
+  empty state.
+- `PlayerDetailPanel.tsx` — check whether it separately surfaces
+  `.rating` anywhere and apply the same default-hidden rule there too.
+- OVR reveal via the Scouting Report perk is a Dynasty-mode-only
+  concern for now (perks are scoped to Dynasty seasons per
+  `03-legacy-mode.md`) — Classic/Daily/Timer/IQ outside of Dynasty
+  simply never show OVR going forward, full stop, no reveal path. If a
+  non-Dynasty OVR-reveal path is wanted later, that's a new scope, not
+  assumed here.
 
 ### Acceptance criteria
-- [ ] Gridiron IQ mode visibly and functionally differs from Classic in
-      the draft screen — OVR is not shown
-- [ ] `PlayerDetailPanel` also respects the mode's hideStats rule, not
-      just the list row
+- [ ] Classic/Daily/Timer show the real per-position `.stats` line
+      where OVR used to be
+- [ ] Gridiron IQ shows neither `.stats` nor OVR — visibly and
+      functionally different from the other three modes
+- [ ] OVR is not shown anywhere by default, in any mode, outside of the
+      Scouting Report perk's effect during a Dynasty season
+- [ ] `PlayerDetailPanel.tsx` follows the same rule, not just the list
+      row card
 
 ---
 

@@ -7,6 +7,7 @@ import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { getPerkById } from '../data/perks';
 import { PackRarity } from '../data/packs';
 import { PackPullResult, PackType, TODO_BALANCE_PACK_COST_RINGS, useDynastyStore } from '../store/dynastyStore';
+import { BrandBackground } from '../components/BrandBackground';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -60,8 +61,8 @@ export function PackOpeningScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.toolbar}>
+    <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
+      <BrandBackground variant="header" style={styles.toolbar}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
@@ -69,7 +70,7 @@ export function PackOpeningScreen() {
         <View style={styles.ringsChip}>
           <Text style={styles.ringsText}>{rings} 💍</Text>
         </View>
-      </View>
+      </BrandBackground>
 
       <View style={styles.selectRow}>
         <TouchableOpacity

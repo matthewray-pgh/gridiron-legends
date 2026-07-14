@@ -8,6 +8,7 @@ import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { ERA_OPTIONS, FRANCHISES, useGameStore } from '../store/gameStore';
 import { DRAFT_POSITIONS } from '../data/players';
 import { SpinCard, ChamferButtonBackground } from '../components/SpinOrnaments';
+import { BrandBackground } from '../components/BrandBackground';
 import { useResponsive } from '../hooks/useResponsive';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -126,14 +127,15 @@ export function SpinScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
       <Pressable
         style={[styles.container, isWide && styles.containerWide]}
         onPress={() => (canAdvance ? handleAdvance() : triggerSpin())}
       >
-        <Text style={styles.roundLabel}>{roundLabel}</Text>
-
-        <Text style={styles.roundPositionLabel}>{roundPositionType}</Text>
+        <BrandBackground variant="header" style={styles.topLabelWrap}>
+          <Text style={styles.roundLabel}>{roundLabel}</Text>
+          <Text style={styles.roundPositionLabel}>{roundPositionType}</Text>
+        </BrandBackground>
 
         <View style={styles.dividerRow}>
           <LinearGradient
@@ -203,6 +205,11 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bgPrimary },
   container: { flex: 1, paddingHorizontal: Spacing.lg, paddingTop: 20 },
   containerWide: { width: '100%', maxWidth: 560, alignSelf: 'center' },
+  topLabelWrap: {
+    borderRadius: Radius.lg,
+    overflow: 'hidden',
+    paddingVertical: 10,
+  },
   roundLabel: {
     textAlign: 'center',
     color: Colors.gold,

@@ -10,6 +10,7 @@ import { LeaderboardScreen } from '../screens/LeaderboardScreen';
 import { DynastyHomeScreen } from '../screens/DynastyHomeScreen';
 import { PackOpeningScreen } from '../screens/PackOpeningScreen';
 import { HallOfFameScreen } from '../screens/HallOfFameScreen';
+import { AppShell } from '../components/AppShell';
 import type { RootStackParamList } from './types';
 import { Colors } from '../theme/colors';
 
@@ -21,7 +22,7 @@ export function AppNavigator() {
       <Stack.Navigator
         initialRouteName="Home"
         screenOptions={{
-          headerShown: false,
+          header: () => <AppShell />,
           animation: 'slide_from_right',
           contentStyle: { backgroundColor: Colors.bgPrimary },
         }}
