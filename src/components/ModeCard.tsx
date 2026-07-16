@@ -12,9 +12,13 @@ interface ModeCardProps {
   onPress: () => void;
 }
 
-// Wide-viewport 2x2 grid card (doc 04 point 3) — richer than the narrow
+// Wide-viewport grid card (doc 04 point 3) — richer than the narrow
 // <CallSheetPill>, with room for a one-line description. Not a replacement
-// for CallSheetPill, which mobile keeps using.
+// for CallSheetPill, which mobile keeps using. Sized for 3 side-by-side
+// (Classic / Gridiron IQ / Two-Minute Drill, with Challenge currently
+// pulled per LEADERBOARD_ENABLED) — flexBasis leaves headroom for the
+// modeGrid gap the same way the old 2-column '48%' did, so re-enabling a
+// 4th card wraps to 2+2 instead of breaking the row.
 export function ModeCard({ icon, title, description, tag, accentColor = Colors.steel, onPress }: ModeCardProps) {
   return (
     <TouchableOpacity
@@ -23,7 +27,7 @@ export function ModeCard({ icon, title, description, tag, accentColor = Colors.s
       activeOpacity={0.85}
     >
       <View style={styles.headerRow}>
-        <MaterialCommunityIcons name={icon} size={22} color={accentColor} />
+        <MaterialCommunityIcons name={icon} size={30} color={accentColor} />
         {!!tag && <Text style={[styles.tag, { color: accentColor }]}>{tag}</Text>}
       </View>
       <Text style={styles.title}>{title}</Text>
@@ -34,12 +38,13 @@ export function ModeCard({ icon, title, description, tag, accentColor = Colors.s
 
 const styles = StyleSheet.create({
   card: {
-    flexBasis: '48%',
+    flexBasis: '31%',
+    alignSelf: 'stretch',
     backgroundColor: Colors.bgCard,
     borderWidth: 1,
     borderColor: Colors.border,
     borderTopWidth: 3,
-    borderRadius: Radius.sharp,
+    borderRadius: Radius.lg,
     padding: Spacing.lg,
   },
   headerRow: {
@@ -50,7 +55,7 @@ const styles = StyleSheet.create({
   },
   tag: {
     fontSize: Typography.xs,
-    fontFamily: Font.mono,
+    fontFamily: Font.secondarySemiBold,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -62,9 +67,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   description: {
-    fontSize: Typography.sm,
+    fontSize: Typography.md,
     color: Colors.textMuted,
-    fontFamily: Font.mono,
-    lineHeight: 18,
+    fontFamily: Font.secondaryRegular,
+    lineHeight: 20,
   },
 });

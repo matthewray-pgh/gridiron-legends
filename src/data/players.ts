@@ -119,6 +119,11 @@ export const GENERATED_RECORDS = (generatedData.records ?? []).filter((record): 
   );
 });
 
+export function parseYear(playerYears: string): string {
+  const match = playerYears.match(/(\d{4})/);
+  return match ? match[1] : '--';
+}
+
 export function ratingToTier(rating: number): Tier {
   if (rating >= 95) return 'GOAT';
   if (rating >= 85) return 'Legend';
@@ -133,12 +138,14 @@ function formatStatValue(value: number): string {
   return value.toFixed(1);
 }
 
+export const NO_SEASON_STATS = 'Season snapshot unavailable';
+
 function joinStatParts(parts: Array<string | null>): string {
   const visibleParts = parts.filter((part): part is string => Boolean(part));
-  return visibleParts.length > 0 ? visibleParts.join(' • ') : 'Season snapshot unavailable';
+  return visibleParts.length > 0 ? visibleParts.join(' • ') : NO_SEASON_STATS;
 }
 
-function formatStats(record: GeneratedPlayerRecord, draftPosition: Position): string {
+export function formatStats(record: GeneratedPlayerRecord, draftPosition: Position): string {
   const { stats } = record;
 
   switch (draftPosition) {
@@ -199,7 +206,7 @@ function formatStats(record: GeneratedPlayerRecord, draftPosition: Position): st
         stats.sacks > 0 ? `${formatStatValue(stats.sacks)} sacks` : null,
       ]);
     default:
-      return 'Season snapshot unavailable';
+      return NO_SEASON_STATS;
   }
 }
 
@@ -236,6 +243,7 @@ function toPlayerWithEligiblePositions(
 
   const player = toPlayer(record, eligiblePositions[0]);
   if (!player.name) return null;
+  if (player.stats === NO_SEASON_STATS) return null;
 
   return {
     ...player,
@@ -269,7 +277,7 @@ export function getPlayersForSpin(
 
   return matchingRecords
     .map((record) => toPlayer(record, draftPosition))
-    .filter((player) => player.name.length > 0);
+    .filter((player) => player.name.length > 0 && player.stats !== NO_SEASON_STATS);
 }
 
 export function getAllPlayersForSpin(
@@ -292,7 +300,8 @@ export function hasPlayersForSpin(draftPosition: Position, teamAbbr: string, era
   return GENERATED_RECORDS.some((record) => {
     return record.team === teamAbbr
       && record.era === era
-      && generatedPositions.includes(record.position as GeneratedPosition);
+      && generatedPositions.includes(record.position as GeneratedPosition)
+      && formatStats(record, draftPosition) !== NO_SEASON_STATS;
   });
 }
 

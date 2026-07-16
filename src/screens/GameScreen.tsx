@@ -12,10 +12,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
-import { DRAFT_POSITIONS, Player, Position } from '../data/players';
+import { DRAFT_POSITIONS, Player, Position, parseYear } from '../data/players';
 import { useGameStore } from '../store/gameStore';
 import { useResponsive } from '../hooks/useResponsive';
 import { PlayerDetailPanel } from '../components/PlayerDetailPanel';
+import { PlayerRow } from '../components/PlayerRow';
 import { InfoChip } from '../components/InfoChip';
 import { SelectablePill } from '../components/SelectablePill';
 import { BrandBackground } from '../components/BrandBackground';
@@ -25,54 +26,116 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const OFFENSE_POSITIONS: Position[] = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'FLEX2'];
 const DEFENSE_POSITIONS: Position[] = ['EDGE', 'DT', 'LB', 'CB', 'S', 'D-FLEX'];
+// Row-card top 3 (ROW_STAT_COUNT below) — order matters, the first 3 fields
+// with a non-zero value win the slot, so the position's headline stats go
+// first, deeper box-score fields after for the full detail-panel breakdown.
 const QB_STAT_DISPLAY_ORDER: Array<[string, string]> = [
-  ['completions', 'COMP'],
-  ['attempts', 'ATT'],
   ['passingYards', 'PASSYDS'],
   ['passingTD', 'PASSTD'],
   ['interceptions', 'INT'],
-  // ['passingAirYards', 'PASSAIR'],
-  // ['passingYardsAfterCatch', 'PASSYAC'],
-  // ['passingFirstDowns', 'PASS1D'],
+  ['completions', 'COMP'],
+  ['attempts', 'ATT'],
   ['rushingYards', 'RUYDS'],
   ['rushingTD', 'RUTD'],
-  // ['rushingFirstDowns', 'RU1D'],
-  // ['rushingFumbles', 'RFUM'],
-  // ['rushingFumblesLost', 'RFUML'],
 ];
 
-const SKILL_STAT_DISPLAY_ORDER: Array<[string, string]> = [
+const RB_STAT_DISPLAY_ORDER: Array<[string, string]> = [
   ['rushingYards', 'RUYDS'],
   ['rushingTD', 'RUTD'],
-  // ['rushingFirstDowns', 'RU1D'],
-  // ['rushingFumbles', 'RFUM'],
-  // ['rushingFumblesLost', 'RFUML'],
+  ['receivingYards', 'RECYDS'],
   ['receptions', 'REC'],
-  // ['targets', 'TGT'],
+  ['receivingTD', 'RECTD'],
+];
+
+const RECEIVER_STAT_DISPLAY_ORDER: Array<[string, string]> = [
+  ['receptions', 'REC'],
   ['receivingYards', 'RECYDS'],
   ['receivingTD', 'RECTD'],
-  // ['receivingAirYards', 'RECAIR'],
   ['receivingYardsAfterCatch', 'RECYAC'],
-  // ['receivingFirstDowns', 'REC1D'],
-  // ['receivingFumbles', 'CFUM'],
-  // ['receivingFumblesLost', 'CFUML'],
+  ['rushingYards', 'RUYDS'],
 ];
 
-const DEFENSE_STAT_DISPLAY_ORDER: Array<[string, string]> = [
+// FLEX/FLEX2 candidates can be a native RB, WR, or TE (see
+// GENERATED_POSITION_MAP), so unlike RB/WR/TE above this stays a broad
+// combined list rather than committing to a rushing- or receiving-first
+// headline.
+const FLEX_STAT_DISPLAY_ORDER: Array<[string, string]> = [
+  ['rushingYards', 'RUYDS'],
+  ['rushingTD', 'RUTD'],
+  ['receptions', 'REC'],
+  ['receivingYards', 'RECYDS'],
+  ['receivingTD', 'RECTD'],
+  ['receivingYardsAfterCatch', 'RECYAC'],
+];
+
+const EDGE_STAT_DISPLAY_ORDER: Array<[string, string]> = [
+  ['tackles', 'TKL'],
+  ['sacks', 'SACKS'],
+  ['qbHits', 'QBHITS'],
+  ['tfl', 'TFL'],
+  ['forcedFumbles', 'FF'],
+];
+
+const DT_STAT_DISPLAY_ORDER: Array<[string, string]> = [
   ['tackles', 'TKL'],
   ['sacks', 'SACKS'],
   ['tfl', 'TFL'],
   ['qbHits', 'QBHITS'],
   ['forcedFumbles', 'FF'],
+];
+
+const LB_STAT_DISPLAY_ORDER: Array<[string, string]> = [
+  ['tackles', 'TKL'],
+  ['sacks', 'SACKS'],
+  ['tfl', 'TFL'],
+  ['interceptions', 'INT'],
+  ['forcedFumbles', 'FF'],
+];
+
+const CB_STAT_DISPLAY_ORDER: Array<[string, string]> = [
+  ['tackles', 'TKL'],
+  ['interceptions', 'INT'],
   ['passesDefended', 'PD'],
-  // ['defTD', 'DEFTD'],
+  ['forcedFumbles', 'FF'],
+  ['sacks', 'SACKS'],
+];
+
+const S_STAT_DISPLAY_ORDER: Array<[string, string]> = [
+  ['tackles', 'TKL'],
+  ['interceptions', 'INT'],
+  ['forcedFumbles', 'FF'],
+  ['passesDefended', 'PD'],
+  ['tfl', 'TFL'],
+];
+
+// D-FLEX can be any defensive position, so — like FLEX/FLEX2 — it stays a
+// broad combined list rather than one position's headline stats.
+const D_FLEX_STAT_DISPLAY_ORDER: Array<[string, string]> = [
+  ['tackles', 'TKL'],
+  ['sacks', 'SACKS'],
+  ['interceptions', 'INT'],
+  ['tfl', 'TFL'],
+  ['qbHits', 'QBHITS'],
+  ['forcedFumbles', 'FF'],
+  ['passesDefended', 'PD'],
 ];
 
 function getStatDisplayOrder(position: Position | undefined): Array<[string, string]> {
-  if (!position) return [];
-  if (position === 'QB') return QB_STAT_DISPLAY_ORDER;
-  if (OFFENSE_POSITIONS.includes(position)) return SKILL_STAT_DISPLAY_ORDER;
-  return DEFENSE_STAT_DISPLAY_ORDER;
+  switch (position) {
+    case 'QB': return QB_STAT_DISPLAY_ORDER;
+    case 'RB': return RB_STAT_DISPLAY_ORDER;
+    case 'WR':
+    case 'TE': return RECEIVER_STAT_DISPLAY_ORDER;
+    case 'FLEX':
+    case 'FLEX2': return FLEX_STAT_DISPLAY_ORDER;
+    case 'EDGE': return EDGE_STAT_DISPLAY_ORDER;
+    case 'DT': return DT_STAT_DISPLAY_ORDER;
+    case 'LB': return LB_STAT_DISPLAY_ORDER;
+    case 'CB': return CB_STAT_DISPLAY_ORDER;
+    case 'S': return S_STAT_DISPLAY_ORDER;
+    case 'D-FLEX': return D_FLEX_STAT_DISPLAY_ORDER;
+    default: return [];
+  }
 }
 
 // Compact row-card stat readout — the position's 3 most significant stats
@@ -104,11 +167,6 @@ function getRowStatMetrics(candidate: Player): Array<{ key: string; label: strin
       const label = (splitIndex > 0 ? entry.slice(splitIndex + 1) : 'STAT').replace(/\s+/g, '').toUpperCase();
       return { key: `${label}-${value}`, label, value };
     });
-}
-
-function parseYear(playerYears: string): string {
-  const match = playerYears.match(/(\d{4})/);
-  return match ? match[1] : '--';
 }
 
 function formatChipValue(value: number): string {
@@ -297,24 +355,14 @@ export function GameScreen() {
                 {group.entries.map(({ candidate, index }) => {
                   const selected = candidate.id === selectedCandidateId;
                   return (
-                    <TouchableOpacity
+                    <PlayerRow
                       key={candidate.id}
-                      style={[styles.rowCard, selected && styles.rowCardSelected]}
+                      position={candidate.position}
+                      name={candidate.name}
+                      meta={`${candidate.team} · ${parseYear(candidate.years)}`}
+                      selected={selected}
                       onPress={() => handleSelectPlayer(index)}
-                      activeOpacity={0.9}
-                    >
-                      <View style={styles.rowLeft}>
-                        <View style={styles.posBadge}>
-                          <Text style={styles.posBadgeText}>{candidate.position}</Text>
-                        </View>
-                        <View style={styles.nameWrap}>
-                          <Text style={styles.playerName}>{candidate.name}</Text>
-                          <Text style={styles.playerMeta}>
-                            {candidate.team} · {parseYear(candidate.years)}
-                          </Text>
-                        </View>
-                      </View>
-                      {showStats && (
+                      right={showStats ? (
                         <View style={styles.rowStats}>
                           {getRowStatMetrics(candidate).map((metric, i) => (
                             <React.Fragment key={metric.key}>
@@ -326,8 +374,8 @@ export function GameScreen() {
                             </React.Fragment>
                           ))}
                         </View>
-                      )}
-                    </TouchableOpacity>
+                      ) : undefined}
+                    />
                   );
                 })}
               </View>
@@ -523,50 +571,6 @@ const styles = StyleSheet.create({
     fontFamily: Font.primaryBold,
     fontSize: Typography.lg,
     fontWeight: '800',
-  },
-  rowCard: {
-    backgroundColor: Colors.bgCardDeep,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.lg,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  rowCardSelected: {
-    borderColor: Colors.gold,
-  },
-  rowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flexShrink: 1,
-  },
-  nameWrap: { flexShrink: 1 },
-  posBadge: {
-    backgroundColor: Colors.bgCard,
-    borderRadius: Radius.sm,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  posBadgeText: {
-    color: Colors.textSecondary,
-    fontSize: Typography.xl,
-    fontWeight: '700',
-    fontFamily: Font.primaryBold,
-  },
-  playerName: {
-    color: Colors.textPrimary,
-    fontSize: Typography['2xl'],
-    fontFamily: Font.primaryBold,
-  },
-  playerMeta: {
-    color: Colors.textDim,
-    fontSize: Typography.lg,
-    fontFamily: Font.secondaryRegular,
-    marginTop: 2
   },
   rowStats: {
     flexDirection: 'row',

@@ -2,32 +2,27 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Modal,
-  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { LinearGradient } from 'expo-linear-gradient';
-import { DRAFT_POSITIONS, getViableTeamAbbrs } from '../data/players';
+import { DRAFT_POSITIONS } from '../data/players';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { useStatsStore } from '../store/statsStore';
-import { ERA_OPTIONS, EraToken, TeamScope, useGameStore } from '../store/gameStore';
-import { Ticker } from '../components/Ticker';
+import { EraToken, TeamScope, useGameStore } from '../store/gameStore';
 import { ScoreBox } from '../components/ScoreBox';
 import { CallSheetPill } from '../components/CallSheetPill';
-import { SegmentedControl } from '../components/SegmentedControl';
-import { SelectablePill } from '../components/SelectablePill';
 import { HeroBand } from '../components/HeroBand';
 import { ModeCard } from '../components/ModeCard';
 import { LeaderboardTeaser } from '../components/LeaderboardTeaser';
 import { SiteFooter } from '../components/SiteFooter';
 import { BrandBackground } from '../components/BrandBackground';
+import { GameSetupModal } from '../components/GameSetupModal';
+import { PrimaryButton } from '../components/PrimaryButton';
 import { useResponsive } from '../hooks/useResponsive';
-import { DYNASTY_ENABLED } from '../config/featureFlags';
+import { DYNASTY_ENABLED, LEADERBOARD_ENABLED } from '../config/featureFlags';
 import { useDynastyStore } from '../store/dynastyStore';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -50,11 +45,9 @@ export function HomeScreen() {
   const dynastyRings      = useDynastyStore((s) => s.rings);
   const dynastyAllTime    = useDynastyStore((s) => s.allTimeRecord);
   const dynastyHOFCount   = useDynastyStore((s) => s.hallOfFame.length);
-  const dynastyPackCount  = useDynastyStore((s) => s.ownedPacks.length);
+  const dynastyPackCount  = useDynastyStore((s) => s.ownedPacks);
 
-  const myRank = leaderboard.find((entry) => entry.isMe)?.rank;
   const hasInProgressRun = Object.keys(roster).length > 0 && !isComplete;
-  const ringsBalance = dynastyRings;
 
   // Hero call panel is a single contextual slot (doc 01, rule 3): an
   // in-progress run wins over Today's Challenge when both exist. In that
@@ -66,26 +59,8 @@ export function HomeScreen() {
     ? `${lockedTeam.abbr} · Round ${positionIndex + 1}/${DRAFT_POSITIONS.length}`
     : `Round ${positionIndex + 1}/${DRAFT_POSITIONS.length}`;
 
-  // Doc 01 also lists a "players-today" stat here, but there's no real
-  // backing data for it (offline single-player app, no live player count)
-  // — omitted rather than fabricated, same principle as the Rank "—" rule.
-  const tickerItems = [
-    `${streak} DAY STREAK`,
-    myRank ? `RANK #${myRank}` : 'RANK —',
-    `RECORD ${bestRecord}`,
-    ...(DYNASTY_ENABLED ? [`DYNASTY LVL ${dynastyLevel}`] : []),
-  ];
-
   const [setupVisible, setSetupVisible] = useState(false);
   const [pendingMode,  setPendingMode]  = useState<'daily' | 'classic' | 'iq' | 'timer'>('classic');
-  const [teamScope,    setTeamScope]    = useState<TeamScope>('all');
-  const [selectedEras, setSelectedEras] = useState<EraToken[]>(ERA_OPTIONS);
-
-  const viableSingleTeamCount = getViableTeamAbbrs(
-    ['PIT', 'DAL', 'NE', 'SF', 'GB', 'BAL', 'MIA', 'KC', 'BUF', 'DEN', 'CHI', 'NYG'],
-    selectedEras,
-  ).length;
-  const canStart = selectedEras.length > 0 && (teamScope === 'all' || viableSingleTeamCount > 0);
 
   function startGame(mode: 'daily' | 'classic' | 'iq' | 'timer') {
     setPendingMode(mode);
@@ -96,18 +71,17 @@ export function HomeScreen() {
     navigation.navigate('Game');
   }
 
-  function toggleEra(era: EraToken) {
-    setSelectedEras((cur) => cur.includes(era) ? cur.filter((e) => e !== era) : [...cur, era]);
+  // Dynasty's home screen is always the landing spot now, roster or not —
+  // DynastyHomeScreen itself offers the "Start Your Dynasty" draft entry
+  // point when there's no roster yet, rather than HomeScreen intercepting
+  // and routing straight into the Spin/Draft setup flow.
+  function handleEnterDynasty() {
+    navigation.navigate('DynastyHome');
   }
 
-  function toggleSelectAllEras() {
-    setSelectedEras((cur) => cur.length === 0 ? ERA_OPTIONS : []);
-  }
-
-  function handleStartFromSetup() {
-    if (!canStart) return;
+  function handleStartFromSetup(params: { teamScope: TeamScope; selectedEras: EraToken[] }) {
     setMode(pendingMode);
-    beginDraftSession({ teamScope, selectedEras });
+    beginDraftSession(params);
     setSetupVisible(false);
     // Two-Minute Drill carries the Lock It In mechanic and gets its own
     // screen (doc 02) — every other mode, including Daily, keeps the
@@ -119,8 +93,6 @@ export function HomeScreen() {
   // custom header) already reserves the top safe-area inset.
   return (
     <SafeAreaView style={styles.safe} edges={['left', 'right']}>
-      <Ticker items={tickerItems} />
-
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -161,22 +133,25 @@ export function HomeScreen() {
                     title="Two-Minute Drill"
                     description="Lock-it-in skill spin, racing the clock."
                     tag="skill spin"
-                    accentColor={Colors.gridironBlue}
                     onPress={() => startGame('timer')}
                   />
-                  <ModeCard
-                    icon="trophy"
-                    title="Challenge"
-                    description="Compete against friends on the leaderboard."
-                    tag="vs friends"
-                    onPress={() => navigation.navigate('Leaderboard')}
-                  />
+                  {LEADERBOARD_ENABLED && (
+                    <ModeCard
+                      icon="trophy"
+                      title="Challenge"
+                      description="Compete against friends on the leaderboard."
+                      tag="vs friends"
+                      onPress={() => navigation.navigate('Leaderboard')}
+                    />
+                  )}
                 </View>
 
-                <LeaderboardTeaser
-                  leaderboard={leaderboard}
-                  onViewAll={() => navigation.navigate('Leaderboard')}
-                />
+                {LEADERBOARD_ENABLED && (
+                  <LeaderboardTeaser
+                    leaderboard={leaderboard}
+                    onViewAll={() => navigation.navigate('Leaderboard')}
+                  />
+                )}
               </View>
 
               {/* ── SIDEBAR ──────────────────────────────────────────── */}
@@ -186,18 +161,12 @@ export function HomeScreen() {
                     <Text style={styles.heroLabel}>IN PROGRESS</Text>
                     <Text style={styles.heroTitle}>CONTINUE YOUR RUN</Text>
                     <Text style={styles.heroClock}>{continueSubtitle}</Text>
-                    <TouchableOpacity style={styles.heroBtn} onPress={resumeRun} activeOpacity={0.85}>
-                      <Text style={styles.heroBtnText}>RESUME</Text>
-                    </TouchableOpacity>
+                    <PrimaryButton label="RESUME" onPress={resumeRun} style={styles.heroBtn} />
                   </View>
                 )}
 
                 {DYNASTY_ENABLED && (
-                  <TouchableOpacity
-                    style={[styles.dynastyBanner, styles.dynastyBannerWide]}
-                    onPress={() => navigation.navigate('DynastyHome')}
-                    activeOpacity={0.85}
-                  >
+                  <View style={[styles.dynastyBanner, styles.dynastyBannerWide]}>
                     <Text style={styles.dynastyEyebrow}>YOUR DYNASTY</Text>
                     <Text style={styles.dynastyTitle}>Dynasty · Level {dynastyLevel}</Text>
                     <View style={styles.dynastyRow}>
@@ -207,22 +176,23 @@ export function HomeScreen() {
                       </View>
                       <View style={styles.dynastyChip}>
                         <Text style={styles.dynastyChipValue}>{dynastyHOFCount}</Text>
-                        <Text style={styles.dynastyChipLabel}>HOF cards</Text>
+                        <Text style={styles.dynastyChipLabel}>HOF</Text>
                       </View>
                       <View style={styles.dynastyChip}>
                         <Text style={styles.dynastyChipValue}>{dynastyPackCount}</Text>
-                        <Text style={styles.dynastyChipLabel}>Packs ready</Text>
+                        <Text style={styles.dynastyChipLabel}>Packs</Text>
+                      </View>
+                      <View style={styles.dynastyChip}>
+                        <Text style={styles.dynastyChipValue}>{dynastyRings}</Text>
+                        <Text style={styles.dynastyChipLabel}>Rings</Text>
                       </View>
                     </View>
-                    <View style={styles.dynastyBtn}>
-                      <Text style={styles.dynastyBtnText}>ENTER DYNASTY</Text>
-                    </View>
-                  </TouchableOpacity>
+                    <PrimaryButton label="ENTER DYNASTY" onPress={handleEnterDynasty} />
+                  </View>
                 )}
 
                 <View style={styles.sidebarScorePanel}>
                   <ScoreBox value={String(streak).padStart(2, '0')} label="Streak" />
-                  <ScoreBox value={myRank ? `#${myRank}` : '—'} label="Rank" />
                   <ScoreBox value={bestRecord} label="Best record" />
                 </View>
               </View>
@@ -242,8 +212,7 @@ export function HomeScreen() {
             <View style={styles.heroRow}>
               <View style={styles.scoreRow}>
                 <ScoreBox value={String(streak).padStart(2, '0')} label="Streak" />
-                <ScoreBox value={myRank ? `#${myRank}` : '—'} label="Rank" />
-                <ScoreBox value={String(ringsBalance)} label="Rings" />
+                <ScoreBox value={bestRecord} label="Best record" />
               </View>
 
               <BrandBackground variant="header" style={styles.heroPanel}>
@@ -254,56 +223,51 @@ export function HomeScreen() {
                       <Text style={styles.heroLabel}>IN PROGRESS</Text>
                       <Text style={styles.heroTitle}>CONTINUE YOUR RUN</Text>
                       <Text style={styles.heroClock}>{continueSubtitle}</Text>
-                      <TouchableOpacity style={styles.heroBtn} onPress={resumeRun} activeOpacity={0.85}>
-                        <Text style={styles.heroBtnText}>RESUME</Text>
-                      </TouchableOpacity>
+                      <PrimaryButton label="RESUME" onPress={resumeRun} style={styles.heroBtn} />
                     </>
                   ) : (
                     <>
                       <Text style={styles.heroLabel}>TODAY'S CHALLENGE</Text>
                       <Text style={styles.heroTitle}>DAILY ROSTER BUILD</Text>
                       <Text style={styles.heroClock}>RESETS --:--:--</Text>
-                      <TouchableOpacity style={styles.heroBtn} onPress={() => startGame('daily')} activeOpacity={0.85}>
-                        <Text style={styles.heroBtnText}>PLAY NOW</Text>
-                      </TouchableOpacity>
+                      <PrimaryButton label="PLAY NOW" onPress={() => startGame('daily')} style={styles.heroBtn} />
                     </>
                   )}
                 </View>
               </BrandBackground>
             </View>
 
-            {/* ── DYNASTY ENTRY (compact) ─────────────────────────────────────
+            {/* ── DYNASTY ENTRY ─────────────────────────────────────────────
                  Legacy mode (doc 03), renamed Dynasty — its own persistent-
                  save entry point, distinct from the one-and-done runs above.
-                 Deliberately muted vs. the hero panel (neutral border/bg,
-                 smaller title, text-link CTA) so it reads as secondary
-                 instead of competing for the same visual weight.         */}
+                 Same gold-accent visual weight as the wide sidebar's
+                 dynastyBanner (no longer a muted secondary treatment) —
+                 confirmed with the user, Dynasty earned more attention here
+                 given how much it's grown.                               */}
             {DYNASTY_ENABLED && (
-              <TouchableOpacity
-                style={styles.dynastyCompact}
-                onPress={() => navigation.navigate('DynastyHome')}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.dynastyCompactEyebrow}>YOUR DYNASTY</Text>
-                <Text style={styles.dynastyCompactTitle}>Dynasty · Level {dynastyLevel}</Text>
+              <View style={styles.dynastyBanner}>
+                <Text style={styles.dynastyEyebrow}>YOUR DYNASTY</Text>
+                <Text style={styles.dynastyTitle}>Dynasty · Level {dynastyLevel}</Text>
                 <View style={styles.dynastyRow}>
                   <View style={styles.dynastyChip}>
-                    <Text style={[styles.dynastyChipValue, styles.dynastyChipValueMobile]}>{dynastyAllTime.wins}-{dynastyAllTime.losses}</Text>
-                    <Text style={[styles.dynastyChipLabel, styles.dynastyChipLabelMobile]}>All-time</Text>
+                    <Text style={styles.dynastyChipValue}>{dynastyAllTime.wins}-{dynastyAllTime.losses}</Text>
+                    <Text style={styles.dynastyChipLabel}>All-time</Text>
                   </View>
                   <View style={styles.dynastyChip}>
-                    <Text style={[styles.dynastyChipValue, styles.dynastyChipValueMobile]}>{dynastyHOFCount}</Text>
-                    <Text style={[styles.dynastyChipLabel, styles.dynastyChipLabelMobile]}>HOF cards</Text>
+                    <Text style={styles.dynastyChipValue}>{dynastyHOFCount}</Text>
+                    <Text style={styles.dynastyChipLabel}>HOF</Text>
                   </View>
                   <View style={styles.dynastyChip}>
-                    <Text style={[styles.dynastyChipValue, styles.dynastyChipValueMobile]}>{dynastyPackCount}</Text>
-                    <Text style={[styles.dynastyChipLabel, styles.dynastyChipLabelMobile]}>Packs ready</Text>
+                    <Text style={styles.dynastyChipValue}>{dynastyPackCount}</Text>
+                    <Text style={styles.dynastyChipLabel}>Packs</Text>
+                  </View>
+                  <View style={styles.dynastyChip}>
+                    <Text style={styles.dynastyChipValue}>{dynastyRings}</Text>
+                    <Text style={styles.dynastyChipLabel}>Rings</Text>
                   </View>
                 </View>
-                <View style={styles.dynastyCompactBtn}>
-                  <Text style={styles.dynastyCompactBtnText}>View Dynasty ›</Text>
-                </View>
-              </TouchableOpacity>
+                <PrimaryButton label="ENTER DYNASTY" onPress={handleEnterDynasty} />
+              </View>
             )}
 
             {/* ── CALL SHEET RAIL ───────────────────────────────────────────
@@ -320,10 +284,11 @@ export function HomeScreen() {
               <CallSheetPill
                 title="Two-Minute Drill"
                 tag="skill spin"
-                accentColor={Colors.gridironBlue}
                 onPress={() => startGame('timer')}
               />
-              <CallSheetPill title="Challenge" tag="vs friends" onPress={() => navigation.navigate('Leaderboard')} />
+              {LEADERBOARD_ENABLED && (
+                <CallSheetPill title="Challenge" tag="vs friends" onPress={() => navigation.navigate('Leaderboard')} />
+              )}
             </View>
             </View>
 
@@ -338,88 +303,11 @@ export function HomeScreen() {
       </ScrollView>
 
       {/* ── GAME SETUP MODAL ─────────────────────────────────────────────── */}
-      <Modal
+      <GameSetupModal
         visible={setupVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSetupVisible(false)}
-      >
-        <Pressable style={styles.sheetBackdrop} onPress={() => setSetupVisible(false)}>
-          <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
-            <BrandBackground variant="header" style={styles.sheetHeaderWrap}>
-              <Text style={styles.sheetIcon}>⚔︎✕</Text>
-              <Text style={styles.sheetTitle}>GAME SETUP</Text>
-            </BrandBackground>
-            <Text style={styles.sheetHint}>Configure constraints for each round's team + era spin.</Text>
-
-            <View style={styles.sheetSection}>
-              <Text style={styles.sheetLabel}>TEAMS</Text>
-              <SegmentedControl
-                options={[{ value: 'all', label: 'All teams' }, { value: 'single', label: 'One team' }]}
-                value={teamScope}
-                onChange={setTeamScope}
-              />
-              {teamScope === 'single' && (
-                <Text style={styles.noteText}>
-                  {viableSingleTeamCount > 0
-                    ? 'A viable franchise will be randomly assigned on Round 1 spin.'
-                    : 'No supported franchise can cover every draft slot for this era mix.'}
-                </Text>
-              )}
-            </View>
-
-            <View style={styles.sheetSection}>
-              <View style={styles.sheetSectionHeader}>
-                <Text style={styles.sheetLabel}>ERAS</Text>
-                <TouchableOpacity onPress={toggleSelectAllEras}>
-                  <Text style={styles.clearText}>{selectedEras.length === 0 ? 'Select all' : 'Clear all'}</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.chipsWrap}>
-                {ERA_OPTIONS.map((era) => (
-                  <SelectablePill
-                    key={era}
-                    label={era}
-                    selected={selectedEras.includes(era)}
-                    showCheck
-                    onPress={() => toggleEra(era)}
-                    style={styles.eraChip}
-                  />
-                ))}
-              </View>
-              {!canStart && (
-                <Text style={styles.warningText}>
-                  {selectedEras.length === 0
-                    ? 'Select at least one era to continue'
-                    : 'Switch to all teams or add more eras to start a one-team run'}
-                </Text>
-              )}
-            </View>
-
-            <View style={styles.sheetActions}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setSetupVisible(false)} activeOpacity={0.85}>
-                <Text style={styles.cancelText}>CANCEL</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handleStartFromSetup}
-                activeOpacity={0.85}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                accessibilityRole="button"
-                disabled={!canStart}
-              >
-                <LinearGradient
-                  colors={['#A86A05', '#D4A017', '#F0CC50', '#D4A017', '#A86A05']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.startBtn}>
-                  <Text style={styles.startBtnText}>Start Game</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+        onClose={() => setSetupVisible(false)}
+        onStart={handleStartFromSetup}
+      />
     </SafeAreaView>
   );
 }
@@ -447,7 +335,7 @@ const styles = StyleSheet.create({
   },
   wideGrid: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'stretch',
     gap: Spacing['2xl'],
   },
   mainCol: {
@@ -458,8 +346,10 @@ const styles = StyleSheet.create({
     minWidth: 280,
   },
   modeGrid: {
+    flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
+    alignItems: 'stretch',
     gap: Spacing.md,
     marginBottom: Spacing.lg,
   },
@@ -467,7 +357,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1B140A',
     borderWidth: 1,
     borderColor: Colors.gold,
-    borderRadius: Radius.sharp,
+    borderRadius: Radius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
   },
@@ -483,7 +373,7 @@ const styles = StyleSheet.create({
   dynastyBanner: {
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.lg,
-    borderRadius: Radius.sharp,
+    borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: Colors.gold,
     backgroundColor: '#150F04',
@@ -492,14 +382,14 @@ const styles = StyleSheet.create({
   dynastyEyebrow: {
     fontSize: Typography.xs,
     color: Colors.gold,
-    fontFamily: Font.mono,
+    fontFamily: Font.secondarySemiBold,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
   },
   dynastyTitle: {
     fontSize: 20,
     color: Colors.textPrimary,
-    fontFamily: Font.monoBold,
+    fontFamily: Font.primaryBold,
     letterSpacing: 0.5,
     marginTop: 2,
     marginBottom: 10,
@@ -512,7 +402,7 @@ const styles = StyleSheet.create({
   dynastyChip: {
     flex: 1,
     backgroundColor: '#00000033',
-    borderRadius: Radius.sharp,
+    borderRadius: Radius.md,
     paddingVertical: 6,
     paddingHorizontal: 6,
     alignItems: 'center',
@@ -520,75 +410,15 @@ const styles = StyleSheet.create({
   dynastyChipValue: {
     fontSize: Typography.base,
     color: Colors.gold,
-    fontFamily: Font.monoBold,
+    fontFamily: Font.primaryBold,
   },
   dynastyChipLabel: {
     fontSize: 9,
     color: Colors.textSecondary,
-    fontFamily: Font.mono,
+    fontFamily: Font.secondarySemiBold,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginTop: 1,
-  },
-  dynastyBtn: {
-    backgroundColor: Colors.gold,
-    borderRadius: Radius.sharp,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  dynastyBtnText: {
-    color: Colors.bgDark,
-    fontFamily: Font.primarySemiBold,
-    fontSize: Typography.base,
-    letterSpacing: 0.5,
-  },
-
-  // ── DYNASTY ENTRY, compact (narrow only) — deliberately muted vs.
-  // dynastyBanner/heroPanel so it reads as secondary, not a second hero.
-  dynastyCompact: {
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.lg,
-    borderRadius: Radius.sharp,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.bgCard,
-    padding: Spacing.md,
-  },
-  dynastyCompactEyebrow: {
-    fontSize: Typography.sm,
-    color: Colors.textMuted,
-    fontFamily: Font.mono,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-  },
-  dynastyCompactTitle: {
-    fontSize: Typography.lg,
-    color: Colors.textPrimary,
-    fontFamily: Font.primaryBold,
-    letterSpacing: 0.5,
-    marginTop: 2,
-    marginBottom: 10,
-  },
-  dynastyCompactBtn: {
-    marginTop: 10,
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: Colors.steel,
-    borderRadius: Radius.sharp,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  dynastyCompactBtnText: {
-    color: Colors.steel,
-    fontFamily: Font.primarySemiBold,
-    fontSize: Typography.base,
-    letterSpacing: 0.5,
-  },
-  dynastyChipValueMobile: {
-    fontSize: Typography.md,
-  },
-  dynastyChipLabelMobile: {
-    fontSize: 10,
   },
 
   // ── HERO CALL PANEL (narrow only — wide uses <HeroBand>)
@@ -597,7 +427,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.lg,
-    borderRadius: Radius.sharp,
+    borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: Colors.gold,
     overflow: 'hidden',
@@ -613,7 +443,7 @@ const styles = StyleSheet.create({
   heroLabel: {
     fontSize: Typography.sm,
     color: Colors.gold,
-    fontFamily: Font.mono,
+    fontFamily: Font.secondarySemiBold,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
   },
@@ -628,21 +458,11 @@ const styles = StyleSheet.create({
   heroClock: {
     fontSize: Typography.base,
     color: Colors.textSecondary,
-    fontFamily: Font.mono,
+    fontFamily: Font.secondaryRegular,
     marginBottom: 12,
   },
   heroBtn: {
     alignSelf: 'flex-start',
-    backgroundColor: Colors.gold,
-    borderRadius: Radius.sharp,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  heroBtnText: {
-    fontSize: Typography.lg,
-    color: Colors.bgDark,
-    fontFamily: Font.primaryBold,
-    letterSpacing: 1,
   },
 
   // ── SCOREBOX ROW (narrow only — wide uses sidebarScorePanel)
@@ -657,7 +477,7 @@ const styles = StyleSheet.create({
   railLabel: {
     fontSize: Typography.xs,
     color: Colors.textSecondary,
-    fontFamily: Font.mono,
+    fontFamily: Font.secondarySemiBold,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
     paddingHorizontal: Spacing.lg,
@@ -681,146 +501,5 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.lg,
     fontFamily: Font.secondaryRegular,
-  },
-
-  // ── MODAL / SHEET
-  sheetBackdrop: {
-    flex: 1,
-    backgroundColor: '#000000A8',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: '#0B121BDD',
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    borderBottomLeftRadius: 18,
-    borderBottomRightRadius: 18,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: 20,
-    paddingBottom: 18,
-    marginHorizontal: 10,
-    marginBottom: 10,
-    borderWidth: 1.5,
-    borderColor: '#8B6B2C',
-  },
-  sheetHeaderWrap: {
-    borderRadius: Radius.lg,
-    overflow: 'hidden',
-    paddingVertical: 10,
-  },
-  sheetIcon: {
-    fontSize: 23,
-    color: Colors.gold,
-    textAlign: 'center',
-    fontFamily: Font.primaryBold,
-    letterSpacing: 1,
-  },
-  sheetTitle: {
-    fontSize: 34,
-    color: Colors.textPrimary,
-    textAlign: 'center',
-    marginTop: 6,
-    fontFamily: Font.primaryBold,
-    letterSpacing: 1.1,
-    lineHeight: 36,
-  },
-  sheetHint: {
-    fontSize: Typography.base,
-    color: Colors.textSecondary,
-    marginTop: 6,
-    marginBottom: 6,
-    textAlign: 'center',
-    fontFamily: Font.secondaryRegular,
-    lineHeight: 22,
-  },
-  sheetSection: {
-    marginTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#1F2D3B',
-    paddingTop: 12,
-  },
-  sheetSectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  sheetLabel: {
-    color: Colors.gold,
-    fontSize: Typography.md,
-    letterSpacing: 1.4,
-    fontFamily: Font.primaryMedium,
-  },
-  clearText: {
-    color: Colors.gold,
-    fontSize: Typography.md,
-    fontFamily: Font.primarySemiBold,
-    letterSpacing: 1,
-  },
-  noteText: {
-    color: Colors.textMuted,
-    fontSize: Typography.sm,
-    marginTop: 8,
-    fontFamily: Font.secondaryRegular,
-  },
-  chipsWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    justifyContent: 'space-between',
-  },
-  eraChip: {
-    width: '48.5%',
-    minHeight: 62,
-  },
-  warningText: {
-    color: Colors.gold,
-    fontSize: Typography.sm,
-    marginTop: 8,
-    fontFamily: Font.secondarySemiBold,
-  },
-  sheetActions: {
-    marginTop: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#1F2D3B',
-    paddingTop: 12,
-  },
-  cancelBtn: {
-    flex: 1,
-    minHeight: 52,
-    backgroundColor: '#121A24',
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: '#3A4754',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelText: {
-    color: Colors.textSecondary,
-    fontSize: Typography.lg,
-    fontFamily: Font.primaryBold,
-    letterSpacing: 1,
-  },
-  startBtn: {
-    flex: 1.5,
-    minHeight: 52,
-    backgroundColor: Colors.gold,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: '#F5DC7A',
-    paddingHorizontal: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  startBtnDisabled: { opacity: 0.45 },
-  startBtnText: {
-    color: Colors.bgDark,
-    fontSize: Typography.xl,
-    fontFamily: Font.primaryBold,
-    letterSpacing: 1,
   },
 });

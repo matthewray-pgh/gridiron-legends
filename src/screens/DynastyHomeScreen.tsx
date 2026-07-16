@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
-import { DRAFT_POSITIONS } from '../data/players';
-import { getPerkById } from '../data/perks';
-import { useDynastyStore } from '../store/dynastyStore';
+import { DRAFT_POSITIONS, parseYear } from '../data/players';
+import { PACK_CARD_COUNT } from '../data/packs';
+import { BENCH_CAPACITY, useDynastyStore } from '../store/dynastyStore';
+import { EraToken, TeamScope, useGameStore } from '../store/gameStore';
+import { PlayerRow } from '../components/PlayerRow';
+import { PrimaryButton } from '../components/PrimaryButton';
+import { SecondaryButton } from '../components/SecondaryButton';
+import { GameSetupModal } from '../components/GameSetupModal';
 import { BrandBackground } from '../components/BrandBackground';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -29,16 +34,21 @@ export function DynastyHomeScreen() {
   const allTimeRecord = useDynastyStore((s) => s.allTimeRecord);
   const currentSeason = useDynastyStore((s) => s.currentSeason);
   const roster = useDynastyStore((s) => s.roster);
+  const bench = useDynastyStore((s) => s.bench);
   const hallOfFame = useDynastyStore((s) => s.hallOfFame);
   const ownedPacks = useDynastyStore((s) => s.ownedPacks);
-  const activePerks = useDynastyStore((s) => s.activePerks);
   const retirePlayer = useDynastyStore((s) => s.retirePlayer);
-  const startNextSeason = useDynastyStore((s) => s.startNextSeason);
+  const swapStarterWithBench = useDynastyStore((s) => s.swapStarterWithBench);
+  const releaseFromBench = useDynastyStore((s) => s.releaseFromBench);
+  const setGameMode = useGameStore((s) => s.setMode);
+  const beginDraftSession = useGameStore((s) => s.beginDraftSession);
   const earnRings = useDynastyStore((s) => s.earnRings);
   const resetDynasty = useDynastyStore((s) => s.resetDynasty);
 
+  const [setupVisible, setSetupVisible] = useState(false);
+
   // Dev-only playtesting affordance: real Rings income is currently just
-  // Daily Challenge completion (15/day), far below pack costs (100/60) —
+  // Daily Challenge completion (15/day), far below the pack cost (100) —
   // this exists to unblock testing the pack/roster/HOF loop without
   // grinding Daily for a week. __DEV__ strips it from release builds.
   const DEV_RINGS_GRANT = 500;
@@ -46,14 +56,24 @@ export function DynastyHomeScreen() {
     earnRings(DEV_RINGS_GRANT, 'dev_grant');
   }
 
-  // Dev-only playtesting affordance: wipes the local Dynasty save back to
-  // Level 1 so layout/flow changes can be checked against a fresh state
-  // without a reinstall. __DEV__ strips it from release builds; no
-  // player-facing reset UX exists yet.
-  function handleDevResetDynasty() {
+  // Player-facing "start over" — also reused by the __DEV__-gated toolbar
+  // shortcut below (same action, just a faster path for testing without
+  // scrolling to the Dynasty tab).
+  //
+  // react-native-web's Alert.alert() is a hard no-op (see
+  // node_modules/react-native-web/src/exports/Alert — `static alert() {}`),
+  // so on web this confirmation never appeared and Reset never fired.
+  // window.confirm() is the standard web-platform substitute for exactly
+  // this case; native platforms keep the real Alert.
+  const RESET_MESSAGE = 'This clears your roster, bench, Rings, record, and Hall of Fame back to Level 1. This cannot be undone.';
+  function handleResetDynasty() {
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Reset Dynasty?\n\n${RESET_MESSAGE}`)) resetDynasty();
+      return;
+    }
     Alert.alert(
       'Reset Dynasty?',
-      'This clears your roster, Rings, record, and Hall of Fame back to Level 1. This cannot be undone.',
+      RESET_MESSAGE,
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Reset', style: 'destructive', onPress: resetDynasty },
@@ -62,9 +82,29 @@ export function DynastyHomeScreen() {
   }
 
   const filledSlots = DRAFT_POSITIONS.filter((pos) => roster[pos]);
+  const hasRoster = filledSlots.length > 0;
   const progressPct = xpToNextLevel > 0 ? Math.min(1, dynastyXP / xpToNextLevel) : 0;
-  const playerPackCount = ownedPacks.filter((p) => p.type === 'player').length;
-  const perkPackCount = ownedPacks.filter((p) => p.type === 'perk').length;
+
+  // "Start season" now runs the same simulate-and-reveal flow ResultScreen
+  // already uses for the initial draft, instead of instantly updating the
+  // record with no visual — mode must be set here since this flow never
+  // touches gameStore's draft machinery, so gameStore.mode could otherwise
+  // be stale from an unrelated earlier run.
+  function handleStartSeason() {
+    setGameMode('dynasty');
+    navigation.navigate('Result', { dynastyContinuation: true });
+  }
+
+  // Entering Dynasty with no roster yet now always lands here first (rather
+  // than HomeScreen routing straight into the draft) — this is the one-time
+  // initial draft's real entry point, reusing the same Spin → Draft setup
+  // flow every other mode uses.
+  function handleStartFromSetup(params: { teamScope: TeamScope; selectedEras: EraToken[] }) {
+    setGameMode('dynasty');
+    beginDraftSession(params);
+    setSetupVisible(false);
+    navigation.navigate('Spin');
+  }
 
   function handleTabPress(next: Tab | 'hof') {
     if (next === 'hof') {
@@ -87,22 +127,9 @@ export function DynastyHomeScreen() {
         <Text style={styles.progressCaption}>{dynastyXP} / {xpToNextLevel} XP to level {dynastyLevel + 1}</Text>
       </View>
 
-      {activePerks.length > 0 && (
-        <>
-          <Text style={styles.sectionLabel}>Active perks this season</Text>
-          <View style={styles.perkRow}>
-            {activePerks.map((perkId) => (
-              <View key={perkId} style={styles.perkChip}>
-                <Text style={styles.perkChipText}>{getPerkById(perkId)?.name ?? perkId}</Text>
-              </View>
-            ))}
-          </View>
-        </>
-      )}
-
       <Text style={styles.sectionLabel}>Current roster</Text>
-      {filledSlots.length === 0 ? (
-        <Text style={styles.emptyText}>No players yet — open a player pack to start building your dynasty roster.</Text>
+      {!hasRoster ? (
+        <Text style={styles.emptyText}>No roster yet — start your Dynasty draft to build your first 12 starters.</Text>
       ) : (
         <View style={styles.rosterStrip}>
           {filledSlots.map((pos) => (
@@ -122,17 +149,21 @@ export function DynastyHomeScreen() {
         <Text style={styles.hofArrow}>›</Text>
       </TouchableOpacity>
 
-      <View style={styles.ctaRow}>
-        <TouchableOpacity style={styles.ctaSecondary} onPress={() => navigation.navigate('PackOpening')} activeOpacity={0.85}>
-          <Text style={styles.ctaSecondaryText}>Open packs</Text>
-          {ownedPacks.length > 0 && (
-            <View style={styles.packCount}><Text style={styles.packCountText}>{ownedPacks.length}</Text></View>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.ctaPrimary} onPress={startNextSeason} activeOpacity={0.85}>
-          <Text style={styles.ctaPrimaryText}>Start season {currentSeason + 1}</Text>
-        </TouchableOpacity>
-      </View>
+      {hasRoster ? (
+        <View style={styles.ctaRow}>
+          <SecondaryButton label="Open packs" badge={ownedPacks} onPress={() => navigation.navigate('PackOpening')} style={styles.ctaSecondary} />
+          <PrimaryButton label={`Start season ${currentSeason}`} onPress={handleStartSeason} style={styles.ctaPrimary} />
+        </View>
+      ) : (
+        <PrimaryButton label="Draft Team" onPress={() => setSetupVisible(true)} style={styles.startDynastyBtn} />
+      )}
+
+      <SecondaryButton
+        label="Reset Dynasty & start over"
+        onPress={handleResetDynasty}
+        labelColor={Colors.loss}
+        style={styles.resetBtn}
+      />
     </>
   );
 
@@ -140,24 +171,65 @@ export function DynastyHomeScreen() {
     <>
       <Text style={styles.sectionLabel}>Full roster</Text>
       {DRAFT_POSITIONS.map((pos) => {
-        const player = roster[pos];
-        return (
-          <View key={pos} style={styles.rosterRow}>
-            <View style={styles.rosterRowLeft}>
-              <Text style={styles.rosterRowPos}>{pos}</Text>
-              <Text style={styles.rosterRowName}>{player ? player.name : 'Empty'}</Text>
-            </View>
-            {player && (
+        const starter = roster[pos];
+        return starter ? (
+          <PlayerRow
+            key={pos}
+            position={pos}
+            name={starter.name}
+            meta={`${starter.team} · ${parseYear(starter.years)}`}
+            style={styles.rosterRow}
+            right={
               <View style={styles.rosterRowRight}>
-                <Text style={styles.rosterRowOvr}>{player.rating} OVR</Text>
+                <Text style={styles.rosterRowOvr}>{starter.rating} OVR</Text>
                 <TouchableOpacity onPress={() => retirePlayer(pos)} activeOpacity={0.7}>
                   <Text style={styles.retireText}>Retire</Text>
                 </TouchableOpacity>
               </View>
-            )}
-          </View>
+            }
+          />
+        ) : (
+          <PlayerRow key={pos} position={pos} name="Empty" meta="No starter drafted" style={styles.rosterRow} />
         );
       })}
+
+      <Text style={[styles.sectionLabel, styles.benchSectionLabel]}>Bench ({bench.length}/{BENCH_CAPACITY})</Text>
+      {bench.length === 0 ? (
+        <Text style={styles.emptyText}>Bench is empty — pack pulls can go here instead of starting.</Text>
+      ) : (
+        bench
+          .slice()
+          .sort((a, b) => b.rating - a.rating)
+          .map((player) => {
+            const starter = roster[player.position];
+            const delta = player.rating - (starter?.rating ?? player.rating);
+            return (
+              <PlayerRow
+                key={player.id}
+                position={player.position}
+                name={player.name}
+                meta={`${player.team} · ${parseYear(player.years)}`}
+                style={styles.rosterRow}
+                right={
+                  <View style={styles.rosterRowRight}>
+                    {starter && (
+                      <Text style={[styles.deltaText, delta >= 0 ? styles.deltaPositive : styles.deltaNegative]}>
+                        {delta >= 0 ? `+${delta}` : delta}
+                      </Text>
+                    )}
+                    <Text style={styles.rosterRowOvr}>{player.rating} OVR</Text>
+                    <TouchableOpacity onPress={() => swapStarterWithBench(player.position, player.id)} activeOpacity={0.7}>
+                      <Text style={styles.swapText}>Start</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => releaseFromBench(player.id)} activeOpacity={0.7}>
+                      <Text style={styles.retireText}>Release</Text>
+                    </TouchableOpacity>
+                  </View>
+                }
+              />
+            );
+          })
+      )}
     </>
   );
 
@@ -166,17 +238,11 @@ export function DynastyHomeScreen() {
       <Text style={styles.sectionLabel}>Owned packs</Text>
       <View style={styles.packsRow}>
         <View style={styles.packsCard}>
-          <Text style={styles.packsCardTitle}>Player packs</Text>
-          <Text style={styles.packsCardCount}>{playerPackCount}</Text>
-        </View>
-        <View style={styles.packsCard}>
-          <Text style={styles.packsCardTitle}>Perk packs</Text>
-          <Text style={styles.packsCardCount}>{perkPackCount}</Text>
+          <Text style={styles.packsCardTitle}>Packs · {PACK_CARD_COUNT} cards each</Text>
+          <Text style={styles.packsCardCount}>{ownedPacks}</Text>
         </View>
       </View>
-      <TouchableOpacity style={styles.ctaPrimary} onPress={() => navigation.navigate('PackOpening')} activeOpacity={0.85}>
-        <Text style={styles.ctaPrimaryText}>Open / buy packs</Text>
-      </TouchableOpacity>
+      <PrimaryButton label="Open / buy packs" onPress={() => navigation.navigate('PackOpening')} />
     </>
   );
 
@@ -193,7 +259,7 @@ export function DynastyHomeScreen() {
           </TouchableOpacity>
         )}
         {__DEV__ && (
-          <TouchableOpacity style={styles.devBtn} onPress={handleDevResetDynasty} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.devBtn} onPress={handleResetDynasty} activeOpacity={0.7}>
             <Text style={styles.devBtnText}>DEV RESET</Text>
           </TouchableOpacity>
         )}
@@ -218,6 +284,12 @@ export function DynastyHomeScreen() {
           <Text style={styles.tabItemText}>HOF</Text>
         </TouchableOpacity>
       </View>
+
+      <GameSetupModal
+        visible={setupVisible}
+        onClose={() => setSetupVisible(false)}
+        onStart={handleStartFromSetup}
+      />
     </SafeAreaView>
   );
 }
@@ -252,10 +324,6 @@ const styles = StyleSheet.create({
   },
   emptyText: { color: Colors.textMuted, fontSize: Typography.base, fontFamily: Font.secondaryRegular, marginBottom: Spacing.lg, lineHeight: 20 },
 
-  perkRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: Spacing.lg },
-  perkChip: { backgroundColor: Colors.gridironBlue, borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 5 },
-  perkChipText: { color: Colors.textPrimary, fontSize: Typography.xs, fontFamily: Font.secondarySemiBold },
-
   rosterStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: Spacing.lg },
   rosterSlot: {
     minWidth: 56, backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
@@ -273,30 +341,21 @@ const styles = StyleSheet.create({
   hofArrow: { color: Colors.textMuted, fontSize: Typography.xl },
 
   ctaRow: { flexDirection: 'row', gap: 8, marginBottom: Spacing.md },
-  ctaSecondary: {
-    flex: 1, borderWidth: 1, borderColor: Colors.gold, borderRadius: Radius.md,
-    paddingVertical: 12, alignItems: 'center', justifyContent: 'center', position: 'relative',
-  },
-  ctaSecondaryText: { color: Colors.gold, fontFamily: Font.secondarySemiBold, fontSize: Typography.base },
-  packCount: {
-    position: 'absolute', top: -6, right: -6, backgroundColor: Colors.gold, borderRadius: Radius.full,
-    minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
-  },
-  packCountText: { color: Colors.bgDark, fontSize: Typography.xs, fontFamily: Font.secondaryBold },
-  ctaPrimary: { flex: 1.4, backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
-  ctaPrimaryText: { color: Colors.bgDark, fontFamily: Font.primaryBold, fontSize: Typography.base, letterSpacing: 0.5 },
+  ctaSecondary: { flex: 1 },
+  ctaPrimary: { flex: 1.4 },
+  startDynastyBtn: { marginBottom: Spacing.md },
+  resetBtn: { marginTop: Spacing.sm },
 
-  rosterRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: Colors.bgCardDeep, borderWidth: 1, borderColor: Colors.border,
-    borderRadius: Radius.md, padding: 10, marginBottom: 6,
-  },
-  rosterRowLeft: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  rosterRowPos: { color: Colors.textDim, fontSize: Typography.xs, minWidth: 36, fontFamily: Font.secondarySemiBold },
-  rosterRowName: { color: Colors.textPrimary, fontSize: Typography.base, fontFamily: Font.secondaryMedium },
+  rosterRow: { marginBottom: 6 },
+  benchSectionLabel: { marginTop: Spacing.md },
+  deltaText: { fontSize: Typography.xs, fontFamily: Font.secondarySemiBold },
+  deltaPositive: { color: Colors.win },
+  deltaNegative: { color: Colors.loss },
+
   rosterRowRight: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   rosterRowOvr: { color: Colors.gold, fontSize: Typography.sm, fontFamily: Font.secondarySemiBold },
   retireText: { color: Colors.loss, fontSize: Typography.sm, fontFamily: Font.secondarySemiBold },
+  swapText: { color: Colors.gold, fontSize: Typography.sm, fontFamily: Font.secondarySemiBold },
 
   packsRow: { flexDirection: 'row', gap: 8, marginBottom: Spacing.lg },
   packsCard: {

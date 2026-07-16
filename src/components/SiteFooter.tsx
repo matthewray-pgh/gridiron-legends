@@ -36,7 +36,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.md,
     color: Colors.textDim,
     textAlign: 'center',
-    fontFamily: Font.mono,
+    fontFamily: Font.secondaryRegular,
     marginBottom: Spacing.md,
   },
   links: {
@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
   link: {
     fontSize: Typography.sm,
     color: Colors.textDim,
-    fontFamily: Font.mono,
+    fontFamily: Font.secondaryRegular,
     letterSpacing: 0.5,
     opacity: 0.6,
   },

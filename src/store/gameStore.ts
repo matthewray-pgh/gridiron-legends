@@ -10,7 +10,7 @@ import {
 } from '../data/players';
 import { dailyRandom } from '../utils/seededRandom';
 
-export type GameMode = 'daily' | 'classic' | 'iq' | 'timer';
+export type GameMode = 'daily' | 'classic' | 'iq' | 'timer' | 'dynasty';
 export type TeamScope = 'all' | 'single';
 export type SpinState = 'pre' | 'spinning' | 'revealed' | 'picked';
 export type LockResult = 'pending' | 'hit' | 'miss';

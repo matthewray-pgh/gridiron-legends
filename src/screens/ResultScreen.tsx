@@ -3,9 +3,9 @@ import {
   View, Text, TouchableOpacity, ScrollView, Share, StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { GameMode, useGameStore } from '../store/gameStore';
 import { useStatsStore } from '../store/statsStore';
@@ -14,9 +14,12 @@ import { useResponsive } from '../hooks/useResponsive';
 import { dailyRandom } from '../utils/seededRandom';
 import { TOTAL_SEASON_GAMES, simulateSeasonResults } from '../utils/seasonSim';
 import { BrandBackground } from '../components/BrandBackground';
+import { PrimaryButton } from '../components/PrimaryButton';
+import { SecondaryButton } from '../components/SecondaryButton';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+type ResultRouteProp = RouteProp<RootStackParamList, 'Result'>;
 
 const TOTAL_GAMES = TOTAL_SEASON_GAMES;
 
@@ -36,11 +39,26 @@ type Phase = 'roster' | 'simulating' | 'done';
 
 export function ResultScreen() {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<ResultRouteProp>();
   const { isWide } = useResponsive();
-  const { mode, roster, resetGame } = useGameStore();
+  const { mode, roster: gameRoster, resetGame } = useGameStore();
   const { incrementStreak, resetStreak, recordResult } = useStatsStore();
   const earnRings = useDynastyStore((s) => s.earnRings);
   const claimDailyChallenge = useDynastyStore((s) => s.claimDailyChallenge);
+  const completeInitialDraft = useDynastyStore((s) => s.completeInitialDraft);
+  const applyNextSeasonResults = useDynastyStore((s) => s.applyNextSeasonResults);
+  const dynastyRoster = useDynastyStore((s) => s.roster);
+
+  // Two different Dynasty flows land here (docs/handoff/08, point 1 + the
+  // ongoing-season follow-up): the one-time initial draft (roster comes
+  // from gameStore, completing the reveal writes it into dynastyStore) vs.
+  // every season after that, triggered by DynastyHomeScreen's "Start
+  // season" button with no draft involved (roster already lives in
+  // dynastyStore). `dynastyContinuation` is a route param rather than
+  // inferred from roster emptiness, which would be ambiguous once a
+  // Dynasty roster can go back to empty (e.g. every starter retired).
+  const isDynastyContinuation = mode === 'dynasty' && !!route.params?.dynastyContinuation;
+  const roster = isDynastyContinuation ? dynastyRoster : gameRoster;
 
   const [phase, setPhase] = useState<Phase>('roster');
   const [revealedCount, setRevealedCount] = useState(0);
@@ -68,7 +86,22 @@ export function ResultScreen() {
       setPhase('done');
       const wins = results.filter(Boolean).length;
 
-      if (mode === 'daily') {
+      if (mode === 'dynasty') {
+        // docs/handoff/08-dynasty-gameplay-redesign.md, point 1: completing
+        // the initial draft *is* playing season 1 — write the drafted 12
+        // into dynastyStore's persistent roster and apply this same
+        // already-simulated `results` array as its outcome (award XP/packs,
+        // advance the season counter). Every season after that reuses the
+        // same simulate-and-reveal flow but skips the roster write (it's
+        // already in dynastyStore, untouched since the last season). Either
+        // way this is a persistent-save event, not a per-run stat, so it
+        // doesn't touch statsStore's streak/bestRecord.
+        if (isDynastyContinuation) {
+          applyNextSeasonResults(results);
+        } else {
+          completeInitialDraft(roster, results);
+        }
+      } else if (mode === 'daily') {
         // The ticker's "1 attempt" claim wasn't actually enforced anywhere —
         // replaying Daily kept re-minting Rings and re-counting streak/best-
         // record for an identical (seeded) result. claimDailyChallenge()
@@ -109,6 +142,12 @@ export function ResultScreen() {
 
   function handlePlayAgain() {
     resetGame();
+    if (mode === 'dynasty') {
+      // No "play again" for the one-time initial draft — the roster is now
+      // persistent, so the natural next step is the Dynasty home screen.
+      navigation.replace('DynastyHome');
+      return;
+    }
     navigation.replace('Game');
   }
 
@@ -184,19 +223,12 @@ export function ResultScreen() {
 
   const actionsRow = phase === 'done' && (
     <View style={styles.actions}>
-      <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.8}>
-        <Text style={styles.shareBtnText}>↗ SHARE</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.againBtnWrap} onPress={handlePlayAgain} activeOpacity={0.85} accessibilityRole="button">
-        <LinearGradient
-          colors={['#A86A05', '#D4A017', '#F0CC50', '#D4A017', '#A86A05']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.againBtn}
-        >
-          <Text style={styles.againBtnText}>PLAY AGAIN →</Text>
-        </LinearGradient>
-      </TouchableOpacity>
+      <SecondaryButton label="↗ SHARE" onPress={handleShare} style={styles.shareBtn} />
+      <PrimaryButton
+        label={mode === 'dynasty' ? 'ENTER DYNASTY →' : 'PLAY AGAIN →'}
+        onPress={handlePlayAgain}
+        style={styles.againBtnWrap}
+      />
     </View>
   );
 
@@ -300,15 +332,6 @@ const styles = StyleSheet.create({
   },
 
   actions: { flexDirection: 'row', gap: 10, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg, paddingTop: Spacing.sm },
-  shareBtn: {
-    flex: 1, minHeight: 52, backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.borderMid,
-    borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center',
-  },
-  shareBtnText: { fontSize: Typography.md, color: Colors.textSecondary, fontFamily: Font.primaryBold, letterSpacing: 0.5 },
+  shareBtn: { flex: 1 },
   againBtnWrap: { flex: 1 },
-  againBtn: {
-    minHeight: 52, borderRadius: Radius.md, borderWidth: 1, borderColor: '#F5DC7A',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  againBtnText: { fontSize: Typography.md, color: Colors.bgDark, fontFamily: Font.primaryBold, letterSpacing: 0.5 },
 });

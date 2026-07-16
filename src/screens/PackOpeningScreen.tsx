@@ -1,63 +1,82 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
-import { getPerkById } from '../data/perks';
-import { PackRarity } from '../data/packs';
-import { PackPullResult, PackType, TODO_BALANCE_PACK_COST_RINGS, useDynastyStore } from '../store/dynastyStore';
+import { PACK_CARD_COUNT } from '../data/packs';
+import { DRAFT_POSITIONS, parseYear } from '../data/players';
+import { BENCH_CAPACITY, PackPlacement, PackPullResult, PackResolution, TODO_BALANCE_PACK_COST_RINGS, useDynastyStore } from '../store/dynastyStore';
+import { PackPlayerCard } from '../components/PackPlayerCard';
+import { PlayerRow } from '../components/PlayerRow';
+import { PrimaryButton } from '../components/PrimaryButton';
+import { SecondaryButton } from '../components/SecondaryButton';
 import { BrandBackground } from '../components/BrandBackground';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const RARITY_LABEL: Record<PackRarity, string> = {
-  common: 'COMMON', rare: 'RARE', elite: 'ELITE', legend: 'LEGEND',
-};
-const RARITY_COLOR: Record<PackRarity, string> = {
-  common: Colors.rarityCommon, rare: Colors.rarityRare, elite: Colors.rarityElite, legend: Colors.rarityLegend,
-};
-
+// A pack opens PACK_CARD_COUNT cards at once (perk packs are retired for
+// now). Confirmed with the user: cards are laid out top-half/bottom-half —
+// the pulled cards up top, the current roster (starters + bench) scrollable
+// underneath as reference while deciding — rather than a sequential
+// reveal-then-decide chain per card. Tapping a card just toggles "keep it"
+// (green border + check overlay); there's no separate Start/Bench choice —
+// each kept card is auto-placed (starts if its slot is open, otherwise
+// benches, same full-bench-auto-release behavior as before) once "Add
+// Selected to Roster" is pressed. That button only enables once at least
+// one card is checked, so it can't be pressed with nothing selected and
+// silently do nothing.
 export function PackOpeningScreen() {
   const navigation = useNavigation<Nav>();
   const rings = useDynastyStore((s) => s.rings);
   const ownedPacks = useDynastyStore((s) => s.ownedPacks);
+  const roster = useDynastyStore((s) => s.roster);
+  const bench = useDynastyStore((s) => s.bench);
   const buyPack = useDynastyStore((s) => s.buyPack);
   const openPack = useDynastyStore((s) => s.openPack);
-  const addPulledPlayerToRoster = useDynastyStore((s) => s.addPulledPlayerToRoster);
+  const resolvePackPulls = useDynastyStore((s) => s.resolvePackPulls);
 
-  const [selectedType, setSelectedType] = useState<PackType>('player');
-  const [reveal, setReveal] = useState<PackPullResult | null>(null);
+  const [pulls, setPulls] = useState<PackPullResult[] | null>(null);
+  const [checked, setChecked] = useState<Record<number, boolean>>({});
 
-  const packsOfType = ownedPacks.filter((p) => p.type === selectedType);
-  const playerPackCount = ownedPacks.filter((p) => p.type === 'player').length;
-  const perkPackCount = ownedPacks.filter((p) => p.type === 'perk').length;
-
-  function handleSelectType(type: PackType) {
-    setSelectedType(type);
-    setReveal(null);
-  }
+  const checkedCount = Object.values(checked).filter(Boolean).length;
+  const totalRingsRefund = (pulls ?? []).reduce((sum, card) => sum + (card.duplicate ? card.ringsRefund : 0), 0);
 
   function handleOpen() {
-    const nextPack = packsOfType[0];
-    if (!nextPack) return;
-    setReveal(openPack(nextPack.id));
+    const result = openPack();
+    if (!result) return;
+    setPulls(result);
+    setChecked({});
   }
 
   function handleBuy() {
-    buyPack(selectedType);
+    buyPack();
   }
 
-  function handleAddToRoster() {
-    if (reveal?.type === 'player' && !reveal.duplicate) {
-      addPulledPlayerToRoster(reveal.player);
-    }
-    setReveal(null);
+  function toggleChecked(index: number) {
+    setChecked((prev) => ({ ...prev, [index]: !prev[index] }));
   }
 
-  function handleOpenAnother() {
-    setReveal(null);
+  function closeReveal() {
+    setPulls(null);
+    setChecked({});
+  }
+
+  function handleAddSelected() {
+    if (!pulls || checkedCount === 0) return;
+
+    const resolutions: PackResolution[] = pulls
+      .map((card, i) => ({ card, i }))
+      .filter(({ card, i }) => !card.duplicate && checked[i])
+      .map(({ card }) => {
+        const player = (card as Extract<PackPullResult, { duplicate: false }>).player;
+        const placement: PackPlacement = roster[player.position] ? 'bench' : 'start';
+        return { player, placement };
+      });
+
+    resolvePackPulls(resolutions);
+    closeReveal();
   }
 
   return (
@@ -72,80 +91,100 @@ export function PackOpeningScreen() {
         </View>
       </BrandBackground>
 
-      <View style={styles.selectRow}>
-        <TouchableOpacity
-          style={[styles.selectCard, selectedType === 'player' && styles.selectCardActive]}
-          onPress={() => handleSelectType('player')}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.selectTitle}>Player pack</Text>
-          <Text style={styles.selectCount}>{playerPackCount} owned</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.selectCard, selectedType === 'perk' && styles.selectCardActive]}
-          onPress={() => handleSelectType('perk')}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.selectTitle}>Perk pack</Text>
-          <Text style={styles.selectCount}>{perkPackCount} owned</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.stage}>
-        {!reveal ? (
-          packsOfType.length > 0 ? (
+      {!pulls ? (
+        <View style={styles.stage}>
+          {ownedPacks > 0 ? (
             <>
               <TouchableOpacity style={styles.packVisual} onPress={handleOpen} activeOpacity={0.9}>
                 <Text style={styles.packVisualText}>TAP TO{'\n'}OPEN</Text>
               </TouchableOpacity>
-              <Text style={styles.hint}>{selectedType === 'player' ? 'Player pack' : 'Perk pack'} · {packsOfType.length} available</Text>
+              <Text style={styles.hint}>{ownedPacks} pack{ownedPacks === 1 ? '' : 's'} available · {PACK_CARD_COUNT} cards each</Text>
             </>
           ) : (
             <>
-              <Text style={styles.emptyText}>No {selectedType} packs owned.</Text>
-              <TouchableOpacity
-                style={[styles.buyBtn, rings < TODO_BALANCE_PACK_COST_RINGS[selectedType] && styles.buyBtnDisabled]}
+              <Text style={styles.emptyText}>No packs owned.</Text>
+              <PrimaryButton
+                label={`Buy for ${TODO_BALANCE_PACK_COST_RINGS} 💍`}
                 onPress={handleBuy}
-                disabled={rings < TODO_BALANCE_PACK_COST_RINGS[selectedType]}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.buyBtnText}>Buy for {TODO_BALANCE_PACK_COST_RINGS[selectedType]} 💍</Text>
-              </TouchableOpacity>
+                disabled={rings < TODO_BALANCE_PACK_COST_RINGS}
+              />
             </>
-          )
-        ) : reveal.type === 'perk' ? (
-          <View style={[styles.revealCard, { borderColor: Colors.gridironBlue }]}>
-            <Text style={styles.revealRarity}>PERK</Text>
-            <Text style={styles.revealName}>{reveal.perkName}</Text>
-            <Text style={styles.revealSub}>{getPerkById(reveal.perkId)?.description}</Text>
-          </View>
-        ) : reveal.duplicate ? (
-          <View style={[styles.revealCard, { borderColor: RARITY_COLOR[reveal.rarity] }]}>
-            <Text style={[styles.revealRarity, { color: RARITY_COLOR[reveal.rarity] }]}>{RARITY_LABEL[reveal.rarity]} · DUPLICATE</Text>
-            <Text style={styles.revealName}>Already on your roster</Text>
-            <Text style={styles.revealSub}>Converted to +{reveal.ringsRefund} Rings</Text>
-          </View>
-        ) : (
-          <View style={[styles.revealCard, { borderColor: RARITY_COLOR[reveal.rarity] }]}>
-            <Text style={[styles.revealRarity, { color: RARITY_COLOR[reveal.rarity] }]}>{RARITY_LABEL[reveal.rarity]}</Text>
-            <Text style={styles.revealName}>{reveal.player.name}</Text>
-            <Text style={styles.revealSub}>{reveal.player.position} · {reveal.player.years} · {reveal.player.team}</Text>
-            <Text style={styles.revealOvr}>{reveal.player.rating} OVR</Text>
-          </View>
-        )}
-      </View>
-
-      {reveal && (
-        <View style={styles.actionsRow}>
-          <TouchableOpacity style={styles.ghostBtn} onPress={handleOpenAnother} activeOpacity={0.85}>
-            <Text style={styles.ghostBtnText}>{packsOfType.length > 1 ? 'Open another' : 'Done'}</Text>
-          </TouchableOpacity>
-          {reveal.type === 'player' && !reveal.duplicate && (
-            <TouchableOpacity style={styles.primaryBtn} onPress={handleAddToRoster} activeOpacity={0.85}>
-              <Text style={styles.primaryBtnText}>Add to roster</Text>
-            </TouchableOpacity>
           )}
         </View>
+      ) : (
+        <>
+          <View style={styles.topHalf}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.cardRow}
+            >
+              {pulls.map((card, i) => (
+                <PackPlayerCard
+                  key={i}
+                  card={card}
+                  selected={!!checked[i]}
+                  onPress={card.duplicate ? undefined : () => toggleChecked(i)}
+                />
+              ))}
+            </ScrollView>
+          </View>
+
+          <View style={styles.bottomHalf}>
+            <Text style={styles.sectionLabel}>Current roster</Text>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.rosterRefList}>
+              {DRAFT_POSITIONS.map((pos) => {
+                const starter = roster[pos];
+                return starter ? (
+                  <PlayerRow
+                    key={pos}
+                    position={pos}
+                    name={starter.name}
+                    meta={`${starter.team} · ${parseYear(starter.years)}`}
+                    style={styles.rosterRefRow}
+                    right={<Text style={styles.rosterRefOvr}>{starter.rating} OVR</Text>}
+                  />
+                ) : (
+                  <PlayerRow key={pos} position={pos} name="Empty" meta="No starter drafted" style={styles.rosterRefRow} />
+                );
+              })}
+
+              <Text style={[styles.sectionLabel, styles.benchRefLabel]}>Bench ({bench.length}/{BENCH_CAPACITY})</Text>
+              {bench.length === 0 ? (
+                <Text style={styles.emptyText}>Bench is empty.</Text>
+              ) : (
+                bench.map((player) => (
+                  <PlayerRow
+                    key={player.id}
+                    position={player.position}
+                    name={player.name}
+                    meta={`${player.team} · ${parseYear(player.years)}`}
+                    style={styles.rosterRefRow}
+                    right={<Text style={styles.rosterRefOvr}>{player.rating} OVR</Text>}
+                  />
+                ))
+              )}
+            </ScrollView>
+          </View>
+
+          <View style={styles.actionsRow}>
+            {totalRingsRefund > 0 && (
+              <Text style={styles.refundHint}>+{totalRingsRefund} 💍 from duplicates</Text>
+            )}
+            <View style={styles.actionsButtonRow}>
+              <SecondaryButton label="Close" onPress={closeReveal} style={styles.ghostBtn} />
+              <PrimaryButton
+                label="Add Selected to Roster"
+                onPress={handleAddSelected}
+                disabled={checkedCount === 0}
+                style={styles.primaryBtn}
+              />
+            </View>
+            {checkedCount === 0 && (
+              <Text style={styles.disabledHint}>Select at least one card</Text>
+            )}
+          </View>
+        </>
       )}
     </SafeAreaView>
   );
@@ -166,15 +205,6 @@ const styles = StyleSheet.create({
   },
   ringsText: { color: Colors.gold, fontSize: Typography.sm, fontFamily: Font.secondarySemiBold },
 
-  selectRow: { flexDirection: 'row', gap: 8, paddingHorizontal: Spacing.lg, marginBottom: Spacing.lg },
-  selectCard: {
-    flex: 1, backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
-    borderRadius: Radius.md, paddingVertical: 10, alignItems: 'center',
-  },
-  selectCardActive: { borderColor: Colors.gold },
-  selectTitle: { color: Colors.textPrimary, fontSize: Typography.base, fontFamily: Font.secondarySemiBold },
-  selectCount: { color: Colors.textMuted, fontSize: Typography.xs, marginTop: 2, fontFamily: Font.secondaryRegular },
-
   stage: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, paddingHorizontal: Spacing.lg },
   packVisual: {
     width: 150, height: 190, borderRadius: Radius.lg, borderWidth: 2, borderColor: Colors.gold,
@@ -186,25 +216,27 @@ const styles = StyleSheet.create({
   },
   hint: { color: Colors.textMuted, fontSize: Typography.sm, fontFamily: Font.secondaryRegular },
   emptyText: { color: Colors.textMuted, fontSize: Typography.base, fontFamily: Font.secondaryRegular, textAlign: 'center' },
-  buyBtn: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: 12, paddingHorizontal: 24 },
-  buyBtnDisabled: { opacity: 0.4 },
-  buyBtnText: { color: Colors.bgDark, fontFamily: Font.primaryBold, fontSize: Typography.md },
 
-  revealCard: {
-    width: 180, borderRadius: Radius.lg, borderWidth: 2, padding: 16, alignItems: 'center',
-    backgroundColor: Colors.bgCardDeep,
-  },
-  revealRarity: { fontSize: Typography.sm, fontFamily: Font.secondaryBold, letterSpacing: 1, marginBottom: 8 },
-  revealName: { color: Colors.textPrimary, fontFamily: Font.primarySemiBold, fontSize: Typography.lg, textAlign: 'center' },
-  revealSub: { color: Colors.textMuted, fontSize: Typography.sm, marginTop: 4, textAlign: 'center', fontFamily: Font.secondaryRegular },
-  revealOvr: { color: Colors.textPrimary, fontFamily: Font.primaryBold, fontSize: 30, marginTop: 10 },
+  topHalf: { flex: 1, justifyContent: 'center', paddingTop: Spacing.md },
+  cardRow: { flexDirection: 'row', gap: 12, paddingHorizontal: Spacing.lg },
 
-  actionsRow: { flexDirection: 'row', gap: 10, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg },
-  ghostBtn: {
-    flex: 1, backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.borderMid,
-    borderRadius: Radius.lg, paddingVertical: 14, alignItems: 'center',
+  bottomHalf: {
+    flex: 1, borderTopWidth: 1, borderTopColor: Colors.border,
+    paddingHorizontal: Spacing.lg, paddingTop: Spacing.md,
   },
-  ghostBtnText: { color: Colors.textSecondary, fontFamily: Font.primaryBold, fontSize: Typography.md, letterSpacing: 0.5 },
-  primaryBtn: { flex: 1, backgroundColor: Colors.gold, borderRadius: Radius.lg, paddingVertical: 14, alignItems: 'center' },
-  primaryBtnText: { color: Colors.bgDark, fontFamily: Font.primaryBold, fontSize: Typography.md, letterSpacing: 0.5 },
+  sectionLabel: {
+    fontSize: Typography.xs, color: Colors.textSecondary, fontFamily: Font.mono,
+    letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8,
+  },
+  benchRefLabel: { marginTop: Spacing.md },
+  rosterRefList: { paddingBottom: Spacing.md },
+  rosterRefRow: { marginBottom: 6 },
+  rosterRefOvr: { color: Colors.gold, fontSize: Typography.sm, fontFamily: Font.secondarySemiBold },
+
+  actionsRow: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg, paddingTop: Spacing.sm, gap: 6 },
+  actionsButtonRow: { flexDirection: 'row', gap: 10 },
+  refundHint: { color: Colors.gold, fontSize: Typography.sm, textAlign: 'center', fontFamily: Font.secondarySemiBold },
+  disabledHint: { color: Colors.textMuted, fontSize: Typography.xs, textAlign: 'center', fontFamily: Font.secondaryRegular },
+  ghostBtn: { flex: 1 },
+  primaryBtn: { flex: 2 },
 });

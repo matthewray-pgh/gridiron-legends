@@ -42,7 +42,7 @@ export function LeaderboardTeaser({ leaderboard, onViewAll }: LeaderboardTeaserP
 const styles = StyleSheet.create({
   wrap: {
     backgroundColor: Colors.bgCard,
-    borderRadius: Radius.sharp,
+    borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: Colors.border,
     padding: Spacing.lg,
@@ -56,14 +56,14 @@ const styles = StyleSheet.create({
   header: {
     fontSize: Typography.xs,
     color: Colors.textSecondary,
-    fontFamily: Font.mono,
+    fontFamily: Font.secondarySemiBold,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
   },
   viewAll: {
     fontSize: Typography.sm,
     color: Colors.gold,
-    fontFamily: Font.mono,
+    fontFamily: Font.secondarySemiBold,
   },
   row: {
     flexDirection: 'row',
@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 6,
     backgroundColor: Colors.bgCardDeep,
-    borderRadius: Radius.sharp,
+    borderRadius: Radius.md,
     borderWidth: 1,
     borderColor: Colors.border,
   },
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   record: {
     fontSize: Typography.md,
     color: Colors.textSecondary,
-    fontFamily: Font.monoBold,
+    fontFamily: Font.primaryBold,
   },
   recordMe: { color: Colors.gold },
 });
