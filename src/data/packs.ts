@@ -1,7 +1,9 @@
 // Dynasty mode pack pull logic (docs/handoff/03-legacy-mode.md, section 3
-// "Packs"). Player packs and Perk packs stay as distinct types here rather
-// than one generic "Pack" — their pull tables are unrelated.
-import { GENERATED_RECORDS, GeneratedEra, Position } from './players';
+// "Packs"). Perk packs have been retired (for now) — every pack is a player
+// pack that opens PACK_CARD_COUNT cards at once.
+import { formatStats, GENERATED_RECORDS, GeneratedEra, Position } from './players';
+
+export const PACK_CARD_COUNT = 4;
 
 export type PackRarity = 'common' | 'rare' | 'elite' | 'legend';
 
@@ -15,6 +17,10 @@ export interface PackPlayer {
   rating: number;
   rarity: PackRarity;
   position: Position;
+  // Same per-position season-snapshot formatting as the draft flow's
+  // player cards (data/players.ts formatStats()) — reused here rather than
+  // forked so a pack pull shows the same stat line the draft would.
+  stats: string;
 }
 
 // Same generated-position -> draft-slot mapping used for the spin draft
@@ -69,6 +75,7 @@ const PACK_PLAYER_POOL: PackPlayer[] = GENERATED_RECORDS
       rating,
       rarity: ratingToRarity(rating),
       position,
+      stats: formatStats(record, position),
     };
     return player;
   })
@@ -84,13 +91,29 @@ function rollRarity(): PackRarity {
   return PACK_RARITIES[PACK_RARITIES.length - 1];
 }
 
-// Pulls a random player at a weighted-random rarity tier. Falls back to any
-// pool player if the rolled tier has no candidates (small eras can be thin).
-export function pullPlayerPack(): PackPlayer | null {
-  if (PACK_PLAYER_POOL.length === 0) return null;
+// Pulls `count` distinct players (no repeats within the same pack), each at
+// an independently weighted-random rarity tier. Falls back to any
+// not-yet-pulled pool player if a rolled tier has no candidates left (small
+// eras can be thin); returns fewer than `count` only if the whole pool is
+// smaller than `count`, which the real dataset never hits.
+export function pullPlayerPack(count: number = PACK_CARD_COUNT): PackPlayer[] {
+  if (PACK_PLAYER_POOL.length === 0) return [];
 
-  const rarity = rollRarity();
-  const candidates = PACK_PLAYER_POOL.filter((player) => player.rarity === rarity);
-  const pool = candidates.length > 0 ? candidates : PACK_PLAYER_POOL;
-  return pool[Math.floor(Math.random() * pool.length)];
+  const pulled: PackPlayer[] = [];
+  const usedIds = new Set<string>();
+
+  while (pulled.length < count) {
+    const rarity = rollRarity();
+    const candidates = PACK_PLAYER_POOL.filter((player) => player.rarity === rarity && !usedIds.has(player.id));
+    const pool = candidates.length > 0
+      ? candidates
+      : PACK_PLAYER_POOL.filter((player) => !usedIds.has(player.id));
+    if (pool.length === 0) break;
+
+    const picked = pool[Math.floor(Math.random() * pool.length)];
+    usedIds.add(picked.id);
+    pulled.push(picked);
+  }
+
+  return pulled;
 }

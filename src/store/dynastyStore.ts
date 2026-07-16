@@ -21,8 +21,6 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Player, Position, ratingToTier } from '../data/players';
 import { pullPlayerPack, PackPlayer, PackRarity, TODO_BALANCE_DUPE_REFUND_RINGS } from '../data/packs';
-import { pullRandomPerk } from '../data/perks';
-import { simulateSeasonResults } from '../utils/seasonSim';
 import { todaySeedBase } from '../utils/seededRandom';
 
 export type DynastyRoster = Partial<Record<Position, Player>>;
@@ -33,17 +31,18 @@ export interface HallOfFameEntry {
   careerRecord: string;
 }
 
-export type PackType = 'player' | 'perk';
-
-export interface OwnedPack {
-  id: string;
-  type: PackType;
-}
-
+// Perk packs are retired for now — every pack is a player pack, so
+// ownedPacks is just a fungible count rather than an array of typed
+// objects (nothing distinguishes one pack from another anymore).
 export type PackPullResult =
-  | { type: 'player'; player: Player; rarity: PackRarity; duplicate: false }
-  | { type: 'player'; rarity: PackRarity; duplicate: true; ringsRefund: number }
-  | { type: 'perk'; perkId: string; perkName: string };
+  | { player: Player; rarity: PackRarity; duplicate: false }
+  | { rarity: PackRarity; duplicate: true; ringsRefund: number };
+
+export type PackPlacement = 'start' | 'bench';
+export interface PackResolution {
+  player: Player;
+  placement: PackPlacement;
+}
 
 // TODO_BALANCE: none of the amounts below are confirmed game balance — see
 // docs/handoff/03-legacy-mode.md > DECISION NEEDED ("Rings currency",
@@ -53,14 +52,28 @@ export const TODO_BALANCE_RINGS_SOURCES = {
   dailyChallengeCompletion: 15,
 } as const;
 
-export const TODO_BALANCE_PACK_COST_RINGS: Record<PackType, number> = {
-  player: 100,
-  perk: 60,
-};
+export const TODO_BALANCE_PACK_COST_RINGS = 100;
 
 // XP awarded for completing a Dynasty season, regardless of record — not
 // confirmed game balance (docs/handoff/05-game-loop-bugfixes.md, P0).
 export const TODO_BALANCE_DYNASTY_SEASON_XP = 250;
+
+// docs/handoff/08-dynasty-gameplay-redesign.md > point 3: shared pool, any
+// position, 5-6 slots — exact count wasn't locked beyond "5-6", picked 6.
+export const BENCH_CAPACITY = 6;
+
+// docs/handoff/08-dynasty-gameplay-redesign.md > point 4: exact reward
+// wasn't locked down beyond "one or two packs" — named constant, easy to
+// retune once product signs off. Each pack now opens PACK_CARD_COUNT cards
+// (data/packs.ts), so this is packs, not individual cards.
+export const TODO_BALANCE_SEASON_END_PACKS = 1;
+
+// Confirmed with the user: completing the one-time initial draft awards
+// more packs than a normal season-end (2 vs. 1) since the fresh 12-player
+// roster has no bench depth at all yet and packs are the only way to build
+// it. Replaces, not adds to, the normal per-season pack award for season 1
+// specifically — see completeInitialDraft().
+export const TODO_BALANCE_INITIAL_DRAFT_BONUS_PACKS = 2;
 
 // dynastyLevel / dynastyXP are part of the state shape the handoff doc
 // specifies, but the doc names no XP-earning source at all (only Rings
@@ -76,17 +89,43 @@ interface DynastyState {
   allTimeRecord: { wins: number; losses: number };
   currentSeason: number;
   roster: DynastyRoster;
+  bench: Player[];
   hallOfFame: HallOfFameEntry[];
-  ownedPacks: OwnedPack[];
-  activePerks: string[];
+  ownedPacks: number;
   lastDailyClaimDate: number | null;
 
   earnRings: (amount: number, source: string) => void;
-  buyPack: (type: PackType) => boolean;
-  openPack: (packId: string) => PackPullResult | null;
-  addPulledPlayerToRoster: (player: Player) => void;
+  buyPack: () => boolean;
+  // Opens one pack, returning its PACK_CARD_COUNT card results (or null if
+  // no pack is owned). Duplicate cards are auto-resolved into Rings here;
+  // non-duplicate cards are placed via resolvePackPulls() once the player
+  // has chosen start-or-bench for each.
+  openPack: () => PackPullResult[] | null;
   retirePlayer: (position: Position) => void;
-  startNextSeason: () => void;
+  // One-time initial-draft completion (docs/handoff/08, point 1): writes the
+  // full 12-slot drafted roster in one shot (replacing whatever pack-only
+  // roster existed, which for a fresh save is nothing), then immediately
+  // applies season 1's outcome using the results ResultScreen.tsx already
+  // simulated — not a second simulation pass.
+  completeInitialDraft: (roster: DynastyRoster, results: boolean[]) => void;
+  // Applies an already-simulated season's outcome for every season after
+  // the first — ResultScreen.tsx now runs the same simulate-and-reveal flow
+  // for "Start season N" as it does for the initial draft (confirmed with
+  // the user), computing `results` itself from the current roster and
+  // handing them here rather than this store simulating a second time.
+  applyNextSeasonResults: (results: boolean[]) => void;
+  // Bench management (docs/handoff/08, point 3) — available any time from
+  // the roster tab, not just at pack-pull time.
+  swapStarterWithBench: (position: Position, benchPlayerId: string) => void;
+  releaseFromBench: (playerId: string) => void;
+  // Batch-applies a whole pack's worth of start/bench choices in one shot
+  // (confirmed with the user: all cards from a pack are shown together with
+  // a forced choice per card + a single "save" commit, not a sequential
+  // per-card decision chain). A "start" that displaces a current starter
+  // auto-benches the displaced player; if the bench is already full (either
+  // from that displacement or a "bench" placement), the lowest-rated bench
+  // occupant is auto-released to Hall of Fame to make room.
+  resolvePackPulls: (resolutions: PackResolution[]) => void;
   // Gate for Daily Challenge's Rings/stats reward — the ticker's "1 attempt"
   // claim wasn't actually enforced anywhere, so replaying Daily kept
   // re-minting Rings for an identical (seeded) result. Returns true the
@@ -106,9 +145,9 @@ const INITIAL_DYNASTY_STATE: PersistedDynastyState = {
   allTimeRecord: { wins: 0, losses: 0 },
   currentSeason: 1,
   roster: {},
+  bench: [],
   hallOfFame: [],
-  ownedPacks: [],
-  activePerks: [],
+  ownedPacks: 0,
   lastDailyClaimDate: null,
 };
 
@@ -118,7 +157,7 @@ function toRosterPlayer(packPlayer: PackPlayer): Player {
     name: packPlayer.name,
     team: packPlayer.team,
     years: packPlayer.era,
-    stats: '',
+    stats: packPlayer.stats,
     rating: packPlayer.rating,
     tier: ratingToTier(packPlayer.rating),
     position: packPlayer.position,
@@ -126,14 +165,84 @@ function toRosterPlayer(packPlayer: PackPlayer): Player {
   };
 }
 
-function isDuplicate(roster: DynastyRoster, hallOfFame: HallOfFameEntry[], playerId: string): boolean {
+// Duplicate-check now also covers the bench, not just starters + Hall of
+// Fame (docs/handoff/08, point 5).
+function isDuplicate(roster: DynastyRoster, bench: Player[], hallOfFame: HallOfFameEntry[], playerId: string): boolean {
   const inRoster = Object.values(roster).some((player) => player?.id === playerId);
+  const inBench = bench.some((player) => player.id === playerId);
   const inHallOfFame = hallOfFame.some((entry) => entry.player.id === playerId);
-  return inRoster || inHallOfFame;
+  return inRoster || inBench || inHallOfFame;
 }
 
-function makePackId(type: PackType): string {
-  return `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+function makeHallOfFameEntry(
+  player: Player,
+  currentSeason: number,
+  allTimeRecord: { wins: number; losses: number },
+): HallOfFameEntry {
+  return {
+    player,
+    retiredAtSeason: currentSeason,
+    careerRecord: `${allTimeRecord.wins}-${allTimeRecord.losses}`,
+  };
+}
+
+// Shared by applyNextSeasonResults() and completeInitialDraft()
+// (docs/handoff/08, acceptance criteria) so win/XP/pack bookkeeping only
+// lives in one place — callers (ResultScreen.tsx, for every season) are
+// responsible for producing `results` via simulateSeasonResults, this only
+// applies the outcome. `packAward` defaults to the normal per-season amount;
+// completeInitialDraft() passes the larger one-time draft bonus instead.
+function applySeasonOutcome(
+  state: Pick<DynastyState, 'allTimeRecord' | 'dynastyXP' | 'dynastyLevel' | 'xpToNextLevel' | 'currentSeason' | 'ownedPacks'>,
+  results: boolean[],
+  packAward: number = TODO_BALANCE_SEASON_END_PACKS,
+): Pick<DynastyState, 'allTimeRecord' | 'dynastyXP' | 'dynastyLevel' | 'currentSeason' | 'ownedPacks'> {
+  const wins = results.filter(Boolean).length;
+  const losses = results.length - wins;
+
+  // xpToNextLevel scaling per level isn't specified in 03-legacy-mode.md or
+  // 05-game-loop-bugfixes.md — kept flat (never changes) rather than
+  // guessing a curve; revisit once product confirms a progression formula.
+  let nextXP = state.dynastyXP + TODO_BALANCE_DYNASTY_SEASON_XP;
+  let nextLevel = state.dynastyLevel;
+  while (nextXP >= state.xpToNextLevel) {
+    nextXP -= state.xpToNextLevel;
+    nextLevel += 1;
+  }
+
+  return {
+    allTimeRecord: {
+      wins: state.allTimeRecord.wins + wins,
+      losses: state.allTimeRecord.losses + losses,
+    },
+    dynastyXP: nextXP,
+    dynastyLevel: nextLevel,
+    currentSeason: state.currentSeason + 1,
+    ownedPacks: state.ownedPacks + packAward,
+  };
+}
+
+// Bench is full — auto-release the lowest-rated occupant to make room
+// rather than blocking the incoming player or asking a separate question
+// per card (confirmed with the user: pack resolution is a single batched
+// choice, not a sequential decision chain).
+function makeRoomOnBench(
+  bench: Player[],
+  hallOfFame: HallOfFameEntry[],
+  currentSeason: number,
+  allTimeRecord: { wins: number; losses: number },
+  incoming: Player,
+): { bench: Player[]; hallOfFame: HallOfFameEntry[] } {
+  if (bench.length < BENCH_CAPACITY) {
+    return { bench: [...bench, incoming], hallOfFame };
+  }
+  let lowestIndex = 0;
+  bench.forEach((player, i) => {
+    if (player.rating < bench[lowestIndex].rating) lowestIndex = i;
+  });
+  const released = bench[lowestIndex];
+  const nextBench = [...bench.slice(0, lowestIndex), ...bench.slice(lowestIndex + 1), incoming];
+  return { bench: nextBench, hallOfFame: [...hallOfFame, makeHallOfFameEntry(released, currentSeason, allTimeRecord)] };
 }
 
 const STORAGE_KEY = 'dynasty-store';
@@ -142,13 +251,14 @@ const STORAGE_KEY = 'dynasty-store';
 // serializable and are re-created by `create` on every load.
 type PersistedDynastyState = Omit<
   DynastyState,
-  | 'earnRings' | 'buyPack' | 'openPack' | 'addPulledPlayerToRoster' | 'retirePlayer'
-  | 'startNextSeason' | 'claimDailyChallenge' | 'resetDynasty'
+  | 'earnRings' | 'buyPack' | 'openPack' | 'retirePlayer'
+  | 'applyNextSeasonResults' | 'claimDailyChallenge' | 'resetDynasty' | 'completeInitialDraft'
+  | 'swapStarterWithBench' | 'releaseFromBench' | 'resolvePackPulls'
 >;
 
 const PERSISTED_KEYS: (keyof PersistedDynastyState)[] = [
   'dynastyLevel', 'dynastyXP', 'xpToNextLevel', 'rings', 'allTimeRecord',
-  'currentSeason', 'roster', 'hallOfFame', 'ownedPacks', 'activePerks',
+  'currentSeason', 'roster', 'bench', 'hallOfFame', 'ownedPacks',
   'lastDailyClaimDate',
 ];
 
@@ -178,48 +288,28 @@ export const useDynastyStore = create<DynastyState>()(
         return true;
       },
 
-      buyPack: (type) => {
-        const cost = TODO_BALANCE_PACK_COST_RINGS[type];
-        const { rings } = get();
-        if (rings < cost) return false;
-        set({ rings: rings - cost, ownedPacks: [...get().ownedPacks, { id: makePackId(type), type }] });
+      buyPack: () => {
+        const { rings, ownedPacks } = get();
+        if (rings < TODO_BALANCE_PACK_COST_RINGS) return false;
+        set({ rings: rings - TODO_BALANCE_PACK_COST_RINGS, ownedPacks: ownedPacks + 1 });
         return true;
       },
 
-      openPack: (packId) => {
-        const pack = get().ownedPacks.find((p) => p.id === packId);
-        if (!pack) return null;
-
-        const remainingPacks = get().ownedPacks.filter((p) => p.id !== packId);
-
-        if (pack.type === 'perk') {
-          const perk = pullRandomPerk();
-          set((s) => ({
-            ownedPacks: remainingPacks,
-            activePerks: s.activePerks.includes(perk.id) ? s.activePerks : [...s.activePerks, perk.id],
-          }));
-          return { type: 'perk', perkId: perk.id, perkName: perk.name };
-        }
+      openPack: () => {
+        const { ownedPacks, roster, bench, hallOfFame } = get();
+        if (ownedPacks <= 0) return null;
 
         const pulled = pullPlayerPack();
-        if (!pulled) {
-          set({ ownedPacks: remainingPacks });
-          return null;
-        }
+        const results: PackPullResult[] = pulled.map((card) =>
+          isDuplicate(roster, bench, hallOfFame, card.id)
+            ? { rarity: card.rarity, duplicate: true, ringsRefund: TODO_BALANCE_DUPE_REFUND_RINGS }
+            : { player: toRosterPlayer(card), rarity: card.rarity, duplicate: false },
+        );
+        const ringsRefund = results.reduce((sum, r) => sum + (r.duplicate ? r.ringsRefund : 0), 0);
 
-        const { roster, hallOfFame } = get();
-        if (isDuplicate(roster, hallOfFame, pulled.id)) {
-          set((s) => ({ ownedPacks: remainingPacks, rings: s.rings + TODO_BALANCE_DUPE_REFUND_RINGS }));
-          return { type: 'player', rarity: pulled.rarity, duplicate: true, ringsRefund: TODO_BALANCE_DUPE_REFUND_RINGS };
-        }
-
-        set({ ownedPacks: remainingPacks });
-        return { type: 'player', player: toRosterPlayer(pulled), rarity: pulled.rarity, duplicate: false };
+        set((s) => ({ ownedPacks: s.ownedPacks - 1, rings: s.rings + ringsRefund }));
+        return results;
       },
-
-      addPulledPlayerToRoster: (player) => set((s) => ({
-        roster: { ...s.roster, [player.position]: player },
-      })),
 
       retirePlayer: (position) => {
         const { roster, currentSeason, allTimeRecord, hallOfFame } = get();
@@ -231,72 +321,100 @@ export const useDynastyStore = create<DynastyState>()(
 
         set({
           roster: nextRoster,
-          hallOfFame: [
-            ...hallOfFame,
-            {
-              player,
-              retiredAtSeason: currentSeason,
-              careerRecord: `${allTimeRecord.wins}-${allTimeRecord.losses}`,
-            },
-          ],
+          hallOfFame: [...hallOfFame, makeHallOfFameEntry(player, currentSeason, allTimeRecord)],
         });
       },
 
+      completeInitialDraft: (roster, results) => {
+        set((s) => ({ roster, ...applySeasonOutcome(s, results, TODO_BALANCE_INITIAL_DRAFT_BONUS_PACKS) }));
+      },
+
       // Pure-accumulation model (confirmed): the roster carries over
-      // completely untouched. Perks are season-scoped, so they clear here.
-      //
-      // Roster-carryover model (docs/handoff/05-game-loop-bugfixes.md, P0
-      // DECISION NEEDED — confirmed with the user): Dynasty has no draft
-      // step of its own. A "season" simulates games directly against the
-      // current pack-built roster, matching 03-legacy-mode.md's original
-      // description (roster grows only via packs) rather than routing
-      // through gameStore's Spin/Draft flow.
-      startNextSeason: () => {
-        const { roster, allTimeRecord, dynastyXP, xpToNextLevel, dynastyLevel } = get();
-        const rosterEntries = Object.values(roster).filter((p): p is Player => !!p);
+      // completely untouched — this never touches `roster`/`bench`.
+      applyNextSeasonResults: (results) => {
+        set((s) => applySeasonOutcome(s, results));
+      },
 
-        if (rosterEntries.length === 0) {
-          // Nothing pulled from packs yet — nothing to simulate against,
-          // but the season counter and perk reset still advance.
-          set((s) => ({ currentSeason: s.currentSeason + 1, activePerks: [] }));
-          return;
-        }
+      swapStarterWithBench: (position, benchPlayerId) => {
+        const { roster, bench } = get();
+        const benchPlayer = bench.find((p) => p.id === benchPlayerId);
+        if (!benchPlayer) return;
 
-        // Mirrors ResultScreen.tsx's team-strength calc: average of filled
-        // slots only, unfilled positions don't drag the rating down.
-        const avgRating = Math.round(
-          rosterEntries.reduce((sum, p) => sum + p.rating, 0) / rosterEntries.length,
-        );
-        const results = simulateSeasonResults(avgRating);
-        const wins = results.filter(Boolean).length;
-        const losses = results.length - wins;
+        const eligiblePositions = benchPlayer.eligiblePositions ?? [benchPlayer.position];
+        if (!eligiblePositions.includes(position)) return;
 
-        // xpToNextLevel scaling per level isn't specified in 03-legacy-mode.md
-        // or 05-game-loop-bugfixes.md — kept flat (never changes) rather than
-        // guessing a curve; revisit once product confirms a progression
-        // formula.
-        let nextXP = dynastyXP + TODO_BALANCE_DYNASTY_SEASON_XP;
-        let nextLevel = dynastyLevel;
-        while (nextXP >= xpToNextLevel) {
-          nextXP -= xpToNextLevel;
-          nextLevel += 1;
-        }
+        const currentStarter = roster[position];
+        const nextBench = bench.filter((p) => p.id !== benchPlayerId);
+        if (currentStarter) nextBench.push(currentStarter);
 
-        set((s) => ({
-          allTimeRecord: { wins: allTimeRecord.wins + wins, losses: allTimeRecord.losses + losses },
-          dynastyXP: nextXP,
-          dynastyLevel: nextLevel,
-          currentSeason: s.currentSeason + 1,
-          activePerks: [],
-        }));
+        set({
+          roster: { ...roster, [position]: benchPlayer },
+          bench: nextBench,
+        });
+      },
+
+      releaseFromBench: (playerId) => {
+        const { bench, currentSeason, allTimeRecord, hallOfFame } = get();
+        const player = bench.find((p) => p.id === playerId);
+        if (!player) return;
+
+        set({
+          bench: bench.filter((p) => p.id !== playerId),
+          hallOfFame: [...hallOfFame, makeHallOfFameEntry(player, currentSeason, allTimeRecord)],
+        });
+      },
+
+      resolvePackPulls: (resolutions) => {
+        const { currentSeason, allTimeRecord } = get();
+        let nextRoster = { ...get().roster };
+        let nextBench = get().bench;
+        let nextHallOfFame = get().hallOfFame;
+
+        resolutions.forEach(({ player, placement }) => {
+          if (placement === 'start') {
+            const displaced = nextRoster[player.position];
+            nextRoster = { ...nextRoster, [player.position]: player };
+            if (displaced) {
+              const room = makeRoomOnBench(nextBench, nextHallOfFame, currentSeason, allTimeRecord, displaced);
+              nextBench = room.bench;
+              nextHallOfFame = room.hallOfFame;
+            }
+          } else {
+            const room = makeRoomOnBench(nextBench, nextHallOfFame, currentSeason, allTimeRecord, player);
+            nextBench = room.bench;
+            nextHallOfFame = room.hallOfFame;
+          }
+        });
+
+        set({ roster: nextRoster, bench: nextBench, hallOfFame: nextHallOfFame });
       },
   }),
 );
 
+// Pre-pack-redesign saves persisted `ownedPacks` as an array of `{id, type}`
+// pack objects (and had an `activePerks` field that no longer exists) —
+// coerce old shapes on load so a stale save from before this change doesn't
+// clobber the fresh `ownedPacks: number` initial state with an array that
+// then gets rendered directly as a React child.
+function migratePersistedState(raw: unknown): Partial<DynastyState> {
+  if (!raw || typeof raw !== 'object') return {};
+  const data = { ...(raw as Record<string, unknown>) };
+
+  if (Array.isArray(data.ownedPacks)) {
+    data.ownedPacks = data.ownedPacks.length;
+  } else if (typeof data.ownedPacks !== 'number') {
+    data.ownedPacks = 0;
+  }
+
+  delete data.activePerks;
+
+  return data as Partial<DynastyState>;
+}
+
 AsyncStorage.getItem(STORAGE_KEY)
   .then((raw) => {
     if (!raw) return;
-    useDynastyStore.setState(JSON.parse(raw) as Partial<DynastyState>);
+    useDynastyStore.setState(migratePersistedState(JSON.parse(raw)));
   })
   .catch(() => {});
 

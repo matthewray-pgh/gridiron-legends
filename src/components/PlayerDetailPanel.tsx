@@ -1,12 +1,11 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Player, Position } from '../data/players';
-import { Colors, Font, Radius, Typography } from '../theme/colors';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { Player, Position, TIER_COLORS, parseYear } from '../data/players';
+import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
+import { SecondaryButton } from './SecondaryButton';
 
-function parseYear(playerYears: string): string {
-  const match = playerYears.match(/(\d{4})/);
-  return match ? match[1] : '--';
-}
+const STAT_GRID_COLS = 3;
 
 interface StatMetric {
   key: string;
@@ -37,27 +36,48 @@ export function PlayerDetailPanel({ player, fallbackStatMetrics, quickAssignSlot
     );
   }
 
+  const tierColors = TIER_COLORS[player.tier];
+  const rowCount = Math.ceil(fallbackStatMetrics.length / STAT_GRID_COLS);
+
   return (
-    <>
-      <View style={styles.topRow}>
+    <View style={styles.wrap}>
+      <View style={styles.watermarkWrap} pointerEvents="none">
+        <MaterialCommunityIcons name="shield-star" size={160} color={tierColors.text} />
+      </View>
+
+      <View style={styles.headerRow}>
         <View style={styles.titleWrap}>
           <Text style={styles.name}>{player.name}</Text>
           <Text style={styles.meta}>
             {player.team} · {parseYear(player.years)}
           </Text>
         </View>
+        <View style={styles.positionWrap}>
+          <Text style={styles.positionValue}>{player.position}</Text>
+        </View>
       </View>
 
       {!hideStats && (
         <View style={styles.statsBox}>
-          <Text style={styles.statsLabel}>STATISTICS</Text>
+          <Text style={styles.statsLabel}>STATS</Text>
           <View style={styles.statGrid}>
-            {fallbackStatMetrics.map((metric) => (
-              <View key={metric.key} style={styles.statItem}>
-                <Text style={styles.statValue}>{metric.value}</Text>
-                <Text style={styles.statLabel}>{metric.label}</Text>
-              </View>
-            ))}
+            {fallbackStatMetrics.map((metric, index) => {
+              const isLastCol = (index + 1) % STAT_GRID_COLS === 0 || index === fallbackStatMetrics.length - 1;
+              const isLastRow = Math.floor(index / STAT_GRID_COLS) === rowCount - 1;
+              return (
+                <View
+                  key={metric.key}
+                  style={[
+                    styles.statItem,
+                    !isLastCol && styles.statItemDividerRight,
+                    !isLastRow && styles.statItemDividerBottom,
+                  ]}
+                >
+                  <Text style={styles.statValue}>{metric.value}</Text>
+                  <Text style={styles.statLabel}>{metric.label}</Text>
+                </View>
+              );
+            })}
             {fallbackStatMetrics.length === 0 && (
               <Text style={styles.statsEmptyText}>No stat breakdown available.</Text>
             )}
@@ -85,11 +105,9 @@ export function PlayerDetailPanel({ player, fallbackStatMetrics, quickAssignSlot
       </View>
 
       {!!onClose && (
-        <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.85}>
-          <Text style={styles.closeBtnText}>Close</Text>
-        </TouchableOpacity>
+        <SecondaryButton label="Close" onPress={onClose} style={styles.closeBtn} />
       )}
-    </>
+    </View>
   );
 }
 
@@ -107,16 +125,34 @@ const styles = StyleSheet.create({
     fontFamily: Font.secondaryRegular,
     textAlign: 'center',
   },
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  wrap: {
+    flex: 1,
+  },
+  watermarkWrap: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.06,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
     gap: 10,
+  },
+  positionWrap: {
+    alignItems: 'flex-end',
+  },
+  positionValue: {
+    color: Colors.textPrimary,
+    fontSize: Typography['3xl'],
+    fontFamily: Font.primaryBold,
+    letterSpacing: 0.5,
   },
   titleWrap: { flexShrink: 1 },
   name: {
     color: Colors.textPrimary,
-    fontSize: Typography['2xl'],
+    fontSize: Typography['3xl'],
     fontFamily: Font.primaryBold,
   },
   meta: {
@@ -126,12 +162,8 @@ const styles = StyleSheet.create({
     fontFamily: Font.secondaryMedium,
   },
   statsBox: {
-    backgroundColor: Colors.bgCardDeep,
-    borderRadius: Radius.md,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    marginTop: 16,
     gap: 8,
-    marginTop: 14,
   },
   statsLabel: {
     color: Colors.textMuted,
@@ -147,19 +179,30 @@ const styles = StyleSheet.create({
   statGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 10,
-    columnGap: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    backgroundColor: `${Colors.bgCardDeep}59`,
   },
   statItem: {
-    width: '31%',
+    width: `${100 / STAT_GRID_COLS}%`,
     alignItems: 'center',
+    paddingVertical: Spacing.md,
+  },
+  statItemDividerRight: {
+    borderRightWidth: 1,
+    borderRightColor: Colors.border,
+  },
+  statItemDividerBottom: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
   statLabel: {
     color: Colors.textMuted,
     fontSize: Typography.sm,
     letterSpacing: 0.4,
     fontFamily: Font.secondaryBold,
+    marginTop: 4,
   },
   statValue: {
     color: Colors.textPrimary,
@@ -205,17 +248,6 @@ const styles = StyleSheet.create({
     fontFamily: Font.secondarySemiBold,
   },
   closeBtn: {
-    alignSelf: 'center',
     marginTop: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: Radius.sm,
-    borderWidth: 1,
-    borderColor: Colors.borderMid,
-  },
-  closeBtnText: {
-    color: Colors.textSecondary,
-    fontSize: Typography.sm,
-    fontFamily: Font.primaryBold,
   },
 });

@@ -8,7 +8,6 @@ import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { ERA_OPTIONS, FRANCHISES, useGameStore } from '../store/gameStore';
 import { DRAFT_POSITIONS } from '../data/players';
 import { SpinCard, ChamferButtonBackground } from '../components/SpinOrnaments';
-import { BrandBackground } from '../components/BrandBackground';
 import { useResponsive } from '../hooks/useResponsive';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -132,10 +131,10 @@ export function SpinScreen() {
         style={[styles.container, isWide && styles.containerWide]}
         onPress={() => (canAdvance ? handleAdvance() : triggerSpin())}
       >
-        <BrandBackground variant="header" style={styles.topLabelWrap}>
+        <View style={styles.topLabelWrap}>
           <Text style={styles.roundLabel}>{roundLabel}</Text>
           <Text style={styles.roundPositionLabel}>{roundPositionType}</Text>
-        </BrandBackground>
+        </View>
 
         <View style={styles.dividerRow}>
           <LinearGradient
@@ -147,7 +146,7 @@ export function SpinScreen() {
         </View>
 
         <View style={styles.cardsColumn}>
-          <SpinCard tone="gold" label="TEAM" useTexture>
+          <SpinCard tone="gold" label="TEAM" texture="stadium">
             <Animated.Text
               style={[styles.cardValue, { transform: [{ translateY: teamTranslateY }] }]}
               numberOfLines={1}
@@ -157,7 +156,7 @@ export function SpinScreen() {
               {teamDisplay}
             </Animated.Text>
           </SpinCard>
-          <SpinCard tone="silver" label="ERA">
+          <SpinCard tone="silver" label="ERA" texture="field">
             <Animated.Text
               style={[styles.cardValue, styles.cardValueSilver, { transform: [{ translateY: eraTranslateY }] }]}
               numberOfLines={1}
@@ -180,6 +179,7 @@ export function SpinScreen() {
         ) : (
           <>
             <TouchableOpacity style={styles.goBtn} onPress={handleAdvance} activeOpacity={0.85}>
+              <ChamferButtonBackground />
               <Text style={styles.goText}>LET&apos;S GO</Text>
             </TouchableOpacity>
             <View style={styles.bottomRow}>
@@ -266,14 +266,17 @@ const styles = StyleSheet.create({
   },
   goBtn: {
     marginTop: 18,
-    alignSelf: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    borderRadius: Radius.md,
+    minHeight: 58,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
-  goText: { 
-    color: Colors.gold, 
-    fontSize: Typography.xl, 
-    fontFamily: Font.primaryBold 
+  goText: {
+    color: Colors.bgDark,
+    fontSize: Typography.xl,
+    fontFamily: Font.primaryBold,
+    letterSpacing: 2,
   },
   bottomRow: { marginTop: 18, alignItems: 'center', gap: 8 },
   rerollBtn: {

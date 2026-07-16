@@ -12,8 +12,20 @@ import Svg, {
 import { Colors, Font, Typography } from '../theme/colors';
 
 const STADIUM_BG = require('../../assets/stadium-bg.png');
+const FIELD_BG = require('../../assets/field-bottom.png');
 
 export type Tone = 'gold' | 'silver';
+
+// Which on-brand photo texture a SpinCard uses — 'stadium' (lights, used for
+// TEAM) and 'field' (yard lines, used for ERA) so the two cards read as
+// visually distinct instead of the same photo twice. Omit for the flat
+// dark-fill + clock-ticks look.
+export type SpinCardTexture = 'stadium' | 'field';
+
+const TEXTURE_SOURCES: Record<SpinCardTexture, number> = {
+  stadium: STADIUM_BG,
+  field: FIELD_BG,
+};
 
 const TONE_COLORS: Record<Tone, { light: string; mid: string; dark: string; label: string }> = {
   gold: { light: '#F4D883', mid: Colors.gold, dark: '#8B6B2C', label: Colors.gold },
@@ -45,10 +57,10 @@ interface SpinCardProps {
   tone: Tone;
   label: string;
   children: React.ReactNode;
-  useTexture?: boolean;
+  texture?: SpinCardTexture;
 }
 
-export function SpinCard({ tone, label, children, useTexture = false }: SpinCardProps) {
+export function SpinCard({ tone, label, children, texture }: SpinCardProps) {
   const [size, setSize] = useState({ w: 0, h: 0 });
   const c = TONE_COLORS[tone];
   const clipId = `cardClip-${tone}`;
@@ -67,14 +79,14 @@ export function SpinCard({ tone, label, children, useTexture = false }: SpinCard
               <Path d={outerPath} />
             </ClipPath>
             <LinearGradient id={`overlay-${tone}`} x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor="#0B0F14" stopOpacity={useTexture ? 0.5 : 0.94} />
-              <Stop offset="1" stopColor="#0B0F14" stopOpacity={useTexture ? 0.88 : 0.98} />
+              <Stop offset="0" stopColor="#0B0F14" stopOpacity={texture ? 0.5 : 0.94} />
+              <Stop offset="1" stopColor="#0B0F14" stopOpacity={texture ? 0.88 : 0.98} />
             </LinearGradient>
           </Defs>
 
-          {useTexture ? (
+          {texture ? (
             <SvgImage
-              href={STADIUM_BG}
+              href={TEXTURE_SOURCES[texture]}
               x={0}
               y={0}
               width={size.w}
@@ -86,7 +98,7 @@ export function SpinCard({ tone, label, children, useTexture = false }: SpinCard
             <Path d={outerPath} fill="#0B121B" />
           )}
 
-          {!useTexture && <ClockTicks w={size.w} h={size.h} tone={tone} />}
+          {!texture && <ClockTicks w={size.w} h={size.h} tone={tone} />}
 
           <Path d={outerPath} fill={`url(#overlay-${tone})`} />
           <Path d={outerPath} fill="none" stroke={c.mid} strokeWidth={2} />

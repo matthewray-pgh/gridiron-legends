@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { BrandBackground } from './BrandBackground';
+import { PrimaryButton } from './PrimaryButton';
 
 interface HeroBandProps {
   onPlayPress: () => void;
@@ -20,9 +21,7 @@ export function HeroBand({ onPlayPress, onViewRulesPress }: HeroBandProps) {
         <Text style={styles.status}>RESETS --:--:--</Text>
 
         <View style={styles.actions}>
-          <TouchableOpacity style={styles.playBtn} onPress={onPlayPress} activeOpacity={0.85}>
-            <Text style={styles.playBtnText}>PLAY NOW</Text>
-          </TouchableOpacity>
+          <PrimaryButton label="PLAY NOW" onPress={onPlayPress} />
           <TouchableOpacity onPress={onViewRulesPress} activeOpacity={0.7}>
             <Text style={styles.rulesLink}>View rules</Text>
           </TouchableOpacity>
@@ -34,7 +33,7 @@ export function HeroBand({ onPlayPress, onViewRulesPress }: HeroBandProps) {
 
 const styles = StyleSheet.create({
   wrap: {
-    borderRadius: Radius.sharp,
+    borderRadius: Radius.lg,
     overflow: 'hidden',
     marginBottom: Spacing.lg,
     minHeight: 260,
@@ -46,7 +45,7 @@ const styles = StyleSheet.create({
   eyebrow: {
     fontSize: Typography.sm,
     color: Colors.gold,
-    fontFamily: Font.mono,
+    fontFamily: Font.secondarySemiBold,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
   },
@@ -61,7 +60,7 @@ const styles = StyleSheet.create({
   status: {
     fontSize: Typography.md,
     color: Colors.textSecondary,
-    fontFamily: Font.mono,
+    fontFamily: Font.secondaryRegular,
     marginBottom: Spacing.lg,
   },
   actions: {
@@ -69,22 +68,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.xl,
   },
-  playBtn: {
-    backgroundColor: Colors.gold,
-    borderRadius: Radius.sharp,
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-  },
-  playBtnText: {
-    fontSize: Typography.lg,
-    color: Colors.bgDark,
-    fontFamily: Font.primaryBold,
-    letterSpacing: 1,
-  },
   rulesLink: {
     fontSize: Typography.md,
     color: Colors.textSecondary,
-    fontFamily: Font.mono,
+    fontFamily: Font.secondaryRegular,
     textDecorationLine: 'underline',
   },
 });

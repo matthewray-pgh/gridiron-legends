@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { useNavigation, useNavigationState } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Colors, Spacing } from '../theme/colors';
-import { DYNASTY_ENABLED } from '../config/featureFlags';
+import { DYNASTY_ENABLED, LEADERBOARD_ENABLED } from '../config/featureFlags';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -18,8 +19,9 @@ const ICON_BTN_SIZE = 44;
 // RESOLVED). Renders on every screen at every viewport width via
 // AppNavigator's screenOptions.header — not scoped to HomeScreen and not
 // gated on isWide, replacing the old Home-only, wide-only <TopNav />.
-// Deliberately minimal: logo (always links Home) + 2 icon-only shortcuts
-// (Leaderboard, Dynasty) — not the mockup's full text-link nav, which would
+// Deliberately minimal: logo (always links Home) + icon-only shortcuts
+// (Leaderboard, Dynasty — each independently gated by its feature flag, see
+// config/featureFlags.ts) — not the mockup's full text-link nav, which would
 // fight the app's hub-and-spoke shape (Home → mode → play → Result → Home).
 export function AppShell() {
   const navigation = useNavigation<Nav>();
@@ -43,16 +45,22 @@ export function AppShell() {
       </TouchableOpacity>
 
       <View style={styles.shortcuts}>
-        <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={() => navigation.navigate('Leaderboard')}
-          disabled={routeName === 'Leaderboard'}
-          accessibilityLabel="Leaderboard"
-          accessibilityRole="button"
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={[styles.icon, routeName === 'Leaderboard' && styles.iconActive]}>🏆</Text>
-        </TouchableOpacity>
+        {LEADERBOARD_ENABLED && (
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => navigation.navigate('Leaderboard')}
+            disabled={routeName === 'Leaderboard'}
+            accessibilityLabel="Leaderboard"
+            accessibilityRole="button"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <MaterialCommunityIcons
+              name="podium"
+              size={20}
+              color={routeName === 'Leaderboard' ? Colors.gold : Colors.textMuted}
+            />
+          </TouchableOpacity>
+        )}
 
         {DYNASTY_ENABLED && (
           <TouchableOpacity
@@ -63,7 +71,11 @@ export function AppShell() {
             accessibilityRole="button"
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={[styles.icon, routeName === 'DynastyHome' && styles.iconActive]}>👑</Text>
+            <MaterialCommunityIcons
+              name="crown"
+              size={20}
+              color={routeName === 'DynastyHome' ? Colors.gold : Colors.textMuted}
+            />
           </TouchableOpacity>
         )}
       </View>
@@ -99,12 +111,5 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  icon: {
-    fontSize: 20,
-    opacity: 0.75,
-  },
-  iconActive: {
-    opacity: 1,
   },
 });
