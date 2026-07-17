@@ -63,6 +63,10 @@ export function ResultScreen() {
   const [phase, setPhase] = useState<Phase>('roster');
   const [revealedCount, setRevealedCount] = useState(0);
   const [results, setResults] = useState<boolean[]>([]);
+  // claimDailyChallenge()/earnRings() fire inside the reveal effect below
+  // with no UI feedback — this just remembers what happened so the reward
+  // banner can report it once the reveal finishes.
+  const [dailyRewardEarned, setDailyRewardEarned] = useState(false);
 
   const rosterEntries = Object.entries(roster);
   const avgRating =
@@ -113,6 +117,9 @@ export function ResultScreen() {
           // named earn sources in docs/handoff/03-legacy-mode.md — the
           // amount is a TODO_BALANCE placeholder, not confirmed game balance.
           earnRings(TODO_BALANCE_RINGS_SOURCES.dailyChallengeCompletion, 'daily_challenge_completion');
+          setDailyRewardEarned(true);
+        } else {
+          setDailyRewardEarned(false);
         }
       } else {
         recordResult(wins, TOTAL_GAMES);
@@ -221,6 +228,16 @@ export function ResultScreen() {
     </>
   );
 
+  const dailyRewardBanner = phase === 'done' && mode === 'daily' && (
+    <View style={styles.rewardBanner}>
+      <Text style={styles.rewardText}>
+        {dailyRewardEarned
+          ? `🪙 +${TODO_BALANCE_RINGS_SOURCES.dailyChallengeCompletion} RINGS EARNED`
+          : 'Already completed today — replay earns no Rings'}
+      </Text>
+    </View>
+  );
+
   const actionsRow = phase === 'done' && (
     <View style={styles.actions}>
       <SecondaryButton label="↗ SHARE" onPress={handleShare} style={styles.shareBtn} />
@@ -255,6 +272,7 @@ export function ResultScreen() {
           </>
         )}
 
+        {dailyRewardBanner}
         {actionsRow}
       </ScrollView>
     </SafeAreaView>
@@ -331,6 +349,22 @@ const styles = StyleSheet.create({
     textAlign: 'center', marginTop: 10,
   },
 
+  rewardBanner: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    paddingVertical: 10,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.gold,
+    backgroundColor: Colors.gold + '1A',
+    alignItems: 'center',
+  },
+  rewardText: {
+    fontSize: Typography.md,
+    color: Colors.gold,
+    fontFamily: Font.primaryBold,
+    letterSpacing: 0.5,
+  },
   actions: { flexDirection: 'row', gap: 10, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg, paddingTop: Spacing.sm },
   shareBtn: { flex: 1 },
   againBtnWrap: { flex: 1 },

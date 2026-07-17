@@ -12,11 +12,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
-import { DRAFT_POSITIONS, Player, Position, parseYear } from '../data/players';
+import { DRAFT_POSITIONS, Position, parseYear } from '../data/players';
 import { useGameStore } from '../store/gameStore';
 import { useResponsive } from '../hooks/useResponsive';
+import { getFullStatMetrics, getRowStatMetrics } from '../utils/statMetrics';
 import { PlayerDetailPanel } from '../components/PlayerDetailPanel';
 import { PlayerRow } from '../components/PlayerRow';
+import { PlayerRowStats } from '../components/PlayerRowStats';
 import { InfoChip } from '../components/InfoChip';
 import { SelectablePill } from '../components/SelectablePill';
 import { BrandBackground } from '../components/BrandBackground';
@@ -26,156 +28,6 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const OFFENSE_POSITIONS: Position[] = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'FLEX2'];
 const DEFENSE_POSITIONS: Position[] = ['EDGE', 'DT', 'LB', 'CB', 'S', 'D-FLEX'];
-// Row-card top 3 (ROW_STAT_COUNT below) — order matters, the first 3 fields
-// with a non-zero value win the slot, so the position's headline stats go
-// first, deeper box-score fields after for the full detail-panel breakdown.
-const QB_STAT_DISPLAY_ORDER: Array<[string, string]> = [
-  ['passingYards', 'PASSYDS'],
-  ['passingTD', 'PASSTD'],
-  ['interceptions', 'INT'],
-  ['completions', 'COMP'],
-  ['attempts', 'ATT'],
-  ['rushingYards', 'RUYDS'],
-  ['rushingTD', 'RUTD'],
-];
-
-const RB_STAT_DISPLAY_ORDER: Array<[string, string]> = [
-  ['rushingYards', 'RUYDS'],
-  ['rushingTD', 'RUTD'],
-  ['receivingYards', 'RECYDS'],
-  ['receptions', 'REC'],
-  ['receivingTD', 'RECTD'],
-];
-
-const RECEIVER_STAT_DISPLAY_ORDER: Array<[string, string]> = [
-  ['receptions', 'REC'],
-  ['receivingYards', 'RECYDS'],
-  ['receivingTD', 'RECTD'],
-  ['receivingYardsAfterCatch', 'RECYAC'],
-  ['rushingYards', 'RUYDS'],
-];
-
-// FLEX/FLEX2 candidates can be a native RB, WR, or TE (see
-// GENERATED_POSITION_MAP), so unlike RB/WR/TE above this stays a broad
-// combined list rather than committing to a rushing- or receiving-first
-// headline.
-const FLEX_STAT_DISPLAY_ORDER: Array<[string, string]> = [
-  ['rushingYards', 'RUYDS'],
-  ['rushingTD', 'RUTD'],
-  ['receptions', 'REC'],
-  ['receivingYards', 'RECYDS'],
-  ['receivingTD', 'RECTD'],
-  ['receivingYardsAfterCatch', 'RECYAC'],
-];
-
-const EDGE_STAT_DISPLAY_ORDER: Array<[string, string]> = [
-  ['tackles', 'TKL'],
-  ['sacks', 'SACKS'],
-  ['qbHits', 'QBHITS'],
-  ['tfl', 'TFL'],
-  ['forcedFumbles', 'FF'],
-];
-
-const DT_STAT_DISPLAY_ORDER: Array<[string, string]> = [
-  ['tackles', 'TKL'],
-  ['sacks', 'SACKS'],
-  ['tfl', 'TFL'],
-  ['qbHits', 'QBHITS'],
-  ['forcedFumbles', 'FF'],
-];
-
-const LB_STAT_DISPLAY_ORDER: Array<[string, string]> = [
-  ['tackles', 'TKL'],
-  ['sacks', 'SACKS'],
-  ['tfl', 'TFL'],
-  ['interceptions', 'INT'],
-  ['forcedFumbles', 'FF'],
-];
-
-const CB_STAT_DISPLAY_ORDER: Array<[string, string]> = [
-  ['tackles', 'TKL'],
-  ['interceptions', 'INT'],
-  ['passesDefended', 'PD'],
-  ['forcedFumbles', 'FF'],
-  ['sacks', 'SACKS'],
-];
-
-const S_STAT_DISPLAY_ORDER: Array<[string, string]> = [
-  ['tackles', 'TKL'],
-  ['interceptions', 'INT'],
-  ['forcedFumbles', 'FF'],
-  ['passesDefended', 'PD'],
-  ['tfl', 'TFL'],
-];
-
-// D-FLEX can be any defensive position, so — like FLEX/FLEX2 — it stays a
-// broad combined list rather than one position's headline stats.
-const D_FLEX_STAT_DISPLAY_ORDER: Array<[string, string]> = [
-  ['tackles', 'TKL'],
-  ['sacks', 'SACKS'],
-  ['interceptions', 'INT'],
-  ['tfl', 'TFL'],
-  ['qbHits', 'QBHITS'],
-  ['forcedFumbles', 'FF'],
-  ['passesDefended', 'PD'],
-];
-
-function getStatDisplayOrder(position: Position | undefined): Array<[string, string]> {
-  switch (position) {
-    case 'QB': return QB_STAT_DISPLAY_ORDER;
-    case 'RB': return RB_STAT_DISPLAY_ORDER;
-    case 'WR':
-    case 'TE': return RECEIVER_STAT_DISPLAY_ORDER;
-    case 'FLEX':
-    case 'FLEX2': return FLEX_STAT_DISPLAY_ORDER;
-    case 'EDGE': return EDGE_STAT_DISPLAY_ORDER;
-    case 'DT': return DT_STAT_DISPLAY_ORDER;
-    case 'LB': return LB_STAT_DISPLAY_ORDER;
-    case 'CB': return CB_STAT_DISPLAY_ORDER;
-    case 'S': return S_STAT_DISPLAY_ORDER;
-    case 'D-FLEX': return D_FLEX_STAT_DISPLAY_ORDER;
-    default: return [];
-  }
-}
-
-// Compact row-card stat readout — the position's 3 most significant stats
-// only (not the full breakdown that PlayerDetailPanel's STATISTICS grid
-// shows), in the same big-number/small-label shape as that panel's stat
-// items.
-const ROW_STAT_COUNT = 3;
-
-function getRowStatMetrics(candidate: Player): Array<{ key: string; label: string; value: string }> {
-  const structured = getStatDisplayOrder(candidate.position)
-    .map(([key, label]) => {
-      const value = candidate.statValues?.[key];
-      if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return null;
-      return { key, label, value: formatChipValue(value) };
-    })
-    .filter((entry): entry is { key: string; label: string; value: string } => Boolean(entry))
-    .slice(0, ROW_STAT_COUNT);
-
-  if (structured.length > 0) return structured;
-
-  return candidate.stats
-    .split('•')
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0)
-    .slice(0, ROW_STAT_COUNT)
-    .map((entry) => {
-      const splitIndex = entry.indexOf(' ');
-      const value = splitIndex > 0 ? entry.slice(0, splitIndex) : entry;
-      const label = (splitIndex > 0 ? entry.slice(splitIndex + 1) : 'STAT').replace(/\s+/g, '').toUpperCase();
-      return { key: `${label}-${value}`, label, value };
-    });
-}
-
-function formatChipValue(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) return '0';
-  if (value >= 1000) return Math.round(value).toLocaleString('en-US');
-  if (value >= 100) return Math.round(value).toString();
-  if (Number.isInteger(value)) return value.toString();
-  return value.toFixed(1);
-}
 
 export function GameScreen() {
   const navigation = useNavigation<Nav>();
@@ -236,36 +88,7 @@ export function GameScreen() {
   const openOffenseSlots = OFFENSE_POSITIONS.filter((position) => !roster[position]);
   const openDefenseSlots = DEFENSE_POSITIONS.filter((position) => !roster[position]);
 
-  const statMetrics = useMemo(() => {
-    if (!selectedPlayer) return [];
-    const fromRawStats = getStatDisplayOrder(selectedPlayer.position)
-      .map(([key, label]) => {
-        const value = selectedPlayer.statValues?.[key];
-        if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return null;
-        return { key, label, value: formatChipValue(value) };
-      })
-      .filter((entry): entry is { key: string; label: string; value: string } => Boolean(entry));
-
-    if (fromRawStats.length > 0) return fromRawStats;
-
-    return selectedPlayer.stats
-      .split('•')
-      .map((entry) => entry.trim())
-      .filter((entry) => entry.length > 0);
-  }, [selectedPlayer]);
-
-  const fallbackStatMetrics = useMemo(() => {
-    return statMetrics
-      .map((entry) => {
-        if (typeof entry !== 'string') return entry;
-
-        const splitIndex = entry.indexOf(' ');
-        const value = splitIndex > 0 ? entry.slice(0, splitIndex) : entry;
-        const label = (splitIndex > 0 ? entry.slice(splitIndex + 1) : 'STAT').replace(/\s+/g, '').toUpperCase();
-        return { key: `${label}-${value}`, label, value };
-      })
-      .filter((entry): entry is { key: string; label: string; value: string } => Boolean(entry));
-  }, [selectedPlayer]);
+  const fallbackStatMetrics = useMemo(() => getFullStatMetrics(selectedPlayer), [selectedPlayer]);
 
   useEffect(() => {
     if (isComplete) {
@@ -362,19 +185,7 @@ export function GameScreen() {
                       meta={`${candidate.team} · ${parseYear(candidate.years)}`}
                       selected={selected}
                       onPress={() => handleSelectPlayer(index)}
-                      right={showStats ? (
-                        <View style={styles.rowStats}>
-                          {getRowStatMetrics(candidate).map((metric, i) => (
-                            <React.Fragment key={metric.key}>
-                              {i > 0 && <View style={styles.statDivider} />}
-                              <View style={styles.statItem}>
-                                <Text style={styles.statValue}>{metric.value}</Text>
-                                <Text style={styles.statLabel}>{metric.label}</Text>
-                              </View>
-                            </React.Fragment>
-                          ))}
-                        </View>
-                      ) : undefined}
+                      right={showStats ? <PlayerRowStats metrics={getRowStatMetrics(candidate)} /> : undefined}
                     />
                   );
                 })}
@@ -571,33 +382,6 @@ const styles = StyleSheet.create({
     fontFamily: Font.primaryBold,
     fontSize: Typography.lg,
     fontWeight: '800',
-  },
-  rowStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  statDivider: {
-    width: 1,
-    height: 34,
-    marginHorizontal: 8,
-    backgroundColor: Colors.border,
-  },
-  statItem: {
-    alignItems: 'center',
-    minWidth: 48,
-  },
-  statValue: {
-    color: Colors.textPrimary,
-    fontSize: Typography['2xl'],
-    fontFamily: Font.primaryBold,
-  },
-  statLabel: {
-    color: Colors.textDim,
-    fontSize: Typography.sm,
-    fontFamily: Font.secondaryBold,
-    letterSpacing: 0.4,
-    marginTop: 1,
   },
   assignWrap: {
     marginTop: 6,

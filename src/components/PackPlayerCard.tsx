@@ -2,15 +2,21 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, Text, TouchableOpacity, View, StyleSheet } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Colors, Font, Radius, Typography } from '../theme/colors';
+import { parseYear } from '../data/players';
 import { PackRarity } from '../data/packs';
 import { PackPullResult } from '../store/dynastyStore';
 
 const RARITY_LABEL: Record<PackRarity, string> = {
   common: 'COMMON', rare: 'RARE', elite: 'ELITE', legend: 'LEGEND',
 };
-const RARITY_COLOR: Record<PackRarity, string> = {
+// Exported for CardStack.tsx, which tints its decorative "shuffled behind"
+// ghost cards with the same rarity colors as the real upcoming cards.
+export const RARITY_COLOR: Record<PackRarity, string> = {
   common: Colors.rarityCommon, rare: Colors.rarityRare, elite: Colors.rarityElite, legend: Colors.rarityLegend,
 };
+
+const DEFAULT_WIDTH = 220;
+const HEIGHT_RATIO = 1.45;
 
 interface PackPlayerCardProps {
   card: PackPullResult;
@@ -18,15 +24,23 @@ interface PackPlayerCardProps {
   // are never selectable.
   selected?: boolean;
   onPress?: () => void;
+  // Card width in px — height is derived from it (HEIGHT_RATIO) so callers
+  // just pick one number. Defaults to DEFAULT_WIDTH for any caller that
+  // doesn't size it explicitly.
+  width?: number;
 }
 
 // The card revealed when opening a Dynasty pack — reused for every card in
-// the pack-opening grid (data/packs.ts pulls PACK_CARD_COUNT of these per
-// pack). Selecting a non-duplicate card shrinks it slightly and swaps its
-// border to green with a checkmark overlay, confirmed with the user as the
-// "keep this card" signal.
-export function PackPlayerCard({ card, selected = false, onPress }: PackPlayerCardProps) {
+// CardStack.tsx's shuffled-deck reveal (data/packs.ts pulls PACK_CARD_COUNT
+// of these per pack). Selecting a non-duplicate card shrinks it slightly
+// and swaps its border to green with a checkmark overlay, confirmed with
+// the user as the "keep this card" signal. No OVR rating is shown anywhere
+// on the card (confirmed with the user) — name/team/year are the
+// prominent identity instead, with a placeholder shield icon standing in
+// for a player photo (no photo assets exist yet).
+export function PackPlayerCard({ card, selected = false, onPress, width = DEFAULT_WIDTH }: PackPlayerCardProps) {
   const scale = useRef(new Animated.Value(1)).current;
+  const height = width * HEIGHT_RATIO;
 
   useEffect(() => {
     Animated.spring(scale, {
@@ -40,7 +54,7 @@ export function PackPlayerCard({ card, selected = false, onPress }: PackPlayerCa
 
   if (card.duplicate) {
     return (
-      <View style={[styles.card, styles.cardDuplicate, { borderColor: rarityColor }]}>
+      <View style={[styles.card, styles.cardDuplicate, { width, height, borderColor: rarityColor }]}>
         <Text style={[styles.rarity, { color: rarityColor }]}>{RARITY_LABEL[card.rarity]} · DUPLICATE</Text>
         <Text style={styles.duplicateSub}>Converted to +{card.ringsRefund} 💍</Text>
       </View>
@@ -54,23 +68,26 @@ export function PackPlayerCard({ card, selected = false, onPress }: PackPlayerCa
       <Animated.View
         style={[
           styles.card,
-          { borderColor: selected ? Colors.win : rarityColor, transform: [{ scale }] },
+          { width, height, borderColor: selected ? Colors.win : rarityColor, transform: [{ scale }] },
         ]}
       >
-        <View style={styles.ovrBadge}>
-          <Text style={styles.ovrBadgeText}>{player.rating}</Text>
-        </View>
-
         {selected && (
           <View style={styles.checkBadge}>
-            <MaterialCommunityIcons name="check-circle" size={22} color={Colors.win} />
+            <MaterialCommunityIcons name="check-circle" size={28} color={Colors.win} />
           </View>
         )}
 
+        <View style={styles.imagePlaceholder}>
+          <MaterialCommunityIcons name="shield-star" size={width * 0.4} color={rarityColor} />
+        </View>
+
         <Text style={[styles.rarity, { color: rarityColor }]}>{RARITY_LABEL[card.rarity]}</Text>
         <Text style={styles.name} numberOfLines={1}>{player.name}</Text>
-        <Text style={styles.meta}>{player.team} · {player.position}</Text>
-        <Text style={styles.stats} numberOfLines={2}>{player.stats}</Text>
+        <Text style={styles.meta}>{player.team} · {parseYear(player.years)}</Text>
+        <View style={styles.positionBadge}>
+          <Text style={styles.positionBadgeText}>{player.position}</Text>
+        </View>
+        <Text style={styles.stats} numberOfLines={3}>{player.stats}</Text>
       </Animated.View>
     </TouchableOpacity>
   );
@@ -78,24 +95,27 @@ export function PackPlayerCard({ card, selected = false, onPress }: PackPlayerCa
 
 const styles = StyleSheet.create({
   card: {
-    width: 160, minHeight: 190, borderRadius: Radius.lg, borderWidth: 2, padding: 14,
-    paddingTop: 18, alignItems: 'center', backgroundColor: Colors.bgCardDeep,
+    borderRadius: Radius.lg, borderWidth: 2, padding: 18,
+    paddingTop: 20, alignItems: 'center', backgroundColor: Colors.bgCardDeep,
   },
-  cardDuplicate: { minHeight: undefined, justifyContent: 'center', opacity: 0.75 },
+  cardDuplicate: { justifyContent: 'center' },
 
-  ovrBadge: {
-    position: 'absolute', top: -10, right: -10, minWidth: 36, height: 36, borderRadius: Radius.full,
-    backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
+  imagePlaceholder: {
+    width: '100%', alignItems: 'center', justifyContent: 'center', marginBottom: 10,
   },
-  ovrBadgeText: { color: Colors.bgDark, fontFamily: Font.primaryBold, fontSize: Typography.sm },
 
   checkBadge: {
-    position: 'absolute', top: -10, left: -10, backgroundColor: Colors.bgPrimary, borderRadius: Radius.full,
+    position: 'absolute', top: -12, left: -12, backgroundColor: Colors.bgPrimary, borderRadius: Radius.full,
   },
 
-  rarity: { fontSize: Typography.xs, fontFamily: Font.secondaryBold, letterSpacing: 1, marginBottom: 6, textAlign: 'center' },
-  name: { color: Colors.textPrimary, fontFamily: Font.primarySemiBold, fontSize: Typography.base, textAlign: 'center' },
-  meta: { color: Colors.textMuted, fontSize: Typography.xs, marginTop: 3, textAlign: 'center', fontFamily: Font.secondaryRegular },
-  stats: { color: Colors.textSecondary, fontSize: Typography.xs, marginTop: 8, textAlign: 'center', fontFamily: Font.secondaryRegular, lineHeight: 15 },
-  duplicateSub: { color: Colors.textMuted, fontSize: Typography.sm, marginTop: 4, textAlign: 'center', fontFamily: Font.secondaryRegular },
+  rarity: { fontSize: Typography.base, fontFamily: Font.secondaryBold, letterSpacing: 1.5, marginBottom: 8, textAlign: 'center' },
+  name: { color: Colors.textPrimary, fontFamily: Font.primaryBold, fontSize: Typography['2xl'], textAlign: 'center' },
+  meta: { color: Colors.textSecondary, fontSize: Typography.lg, marginTop: 4, textAlign: 'center', fontFamily: Font.secondaryMedium },
+  positionBadge: {
+    marginTop: 10, backgroundColor: Colors.bgCard, borderRadius: Radius.sm,
+    paddingHorizontal: 12, paddingVertical: 4,
+  },
+  positionBadgeText: { color: Colors.textSecondary, fontSize: Typography.sm, fontFamily: Font.primaryBold, letterSpacing: 0.5 },
+  stats: { color: Colors.textSecondary, fontSize: Typography.base, marginTop: 14, textAlign: 'center', fontFamily: Font.secondaryRegular, lineHeight: 20 },
+  duplicateSub: { color: Colors.textMuted, fontSize: Typography.base, marginTop: 6, textAlign: 'center', fontFamily: Font.secondaryRegular },
 });

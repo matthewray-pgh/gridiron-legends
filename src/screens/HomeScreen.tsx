@@ -22,8 +22,10 @@ import { BrandBackground } from '../components/BrandBackground';
 import { GameSetupModal } from '../components/GameSetupModal';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useResponsive } from '../hooks/useResponsive';
-import { DYNASTY_ENABLED, LEADERBOARD_ENABLED } from '../config/featureFlags';
+import { useDailyResetCountdown } from '../hooks/useDailyResetCountdown';
+import { DYNASTY_ENABLED, HALL_OF_FAME_ENABLED, LEADERBOARD_ENABLED } from '../config/featureFlags';
 import { useDynastyStore } from '../store/dynastyStore';
+import { todaySeedBase } from '../utils/seededRandom';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -31,6 +33,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 export function HomeScreen() {
   const navigation        = useNavigation<Nav>();
   const { isWide }         = useResponsive();
+  const dailyCountdown     = useDailyResetCountdown();
   const streak             = useStatsStore((s) => s.streak);
   const bestRecord         = useStatsStore((s) => s.bestRecord);
   const leaderboard        = useStatsStore((s) => s.leaderboard);
@@ -41,11 +44,27 @@ export function HomeScreen() {
   const positionIndex       = useGameStore((s) => s.positionIndex);
   const lockedTeam          = useGameStore((s) => s.lockedTeam);
 
-  const dynastyLevel      = useDynastyStore((s) => s.dynastyLevel);
+  const dynastySeason     = useDynastyStore((s) => s.currentSeason);
+  const dynastyRoster     = useDynastyStore((s) => s.roster);
   const dynastyRings      = useDynastyStore((s) => s.rings);
   const dynastyAllTime    = useDynastyStore((s) => s.allTimeRecord);
   const dynastyHOFCount   = useDynastyStore((s) => s.hallOfFame.length);
   const dynastyPackCount  = useDynastyStore((s) => s.ownedPacks);
+  const lastDailyClaimDate = useDynastyStore((s) => s.lastDailyClaimDate);
+
+  // claimDailyChallenge() (dynastyStore) only gates the reward — it never
+  // surfaced in the UI, so a player who'd already banked today's Rings/
+  // streak had no way to tell a replay wouldn't earn anything. Comparing
+  // against todaySeedBase() here (not a stored boolean) so this flips back
+  // to false on its own at the next local-midnight reset.
+  const dailyCompletedToday = lastDailyClaimDate === todaySeedBase();
+
+  // currentSeason starts at 1 the moment a Dynasty save exists, even before
+  // a team's been drafted (or after every starter's been retired/released
+  // back down to none) — the banner should read "Season 0" in that state
+  // rather than implying a season is already underway.
+  const hasDynastyRoster = Object.keys(dynastyRoster).length > 0;
+  const dynastySeasonDisplay = hasDynastyRoster ? dynastySeason : 0;
 
   const hasInProgressRun = Object.keys(roster).length > 0 && !isComplete;
 
@@ -105,6 +124,7 @@ export function HomeScreen() {
                  longer competes for the hero slot (doc 04 point 4), it
                  renders in the sidebar below instead.                  */}
             <HeroBand
+              completedToday={dailyCompletedToday}
               onPlayPress={() => startGame('daily')}
               onViewRulesPress={() => { /* no rules screen yet */ }}
             />
@@ -168,16 +188,18 @@ export function HomeScreen() {
                 {DYNASTY_ENABLED && (
                   <View style={[styles.dynastyBanner, styles.dynastyBannerWide]}>
                     <Text style={styles.dynastyEyebrow}>YOUR DYNASTY</Text>
-                    <Text style={styles.dynastyTitle}>Dynasty · Level {dynastyLevel}</Text>
+                    <Text style={styles.dynastyTitle}>Dynasty · Season {dynastySeasonDisplay}</Text>
                     <View style={styles.dynastyRow}>
                       <View style={styles.dynastyChip}>
                         <Text style={styles.dynastyChipValue}>{dynastyAllTime.wins}-{dynastyAllTime.losses}</Text>
                         <Text style={styles.dynastyChipLabel}>All-time</Text>
                       </View>
-                      <View style={styles.dynastyChip}>
-                        <Text style={styles.dynastyChipValue}>{dynastyHOFCount}</Text>
-                        <Text style={styles.dynastyChipLabel}>HOF</Text>
-                      </View>
+                      {HALL_OF_FAME_ENABLED && (
+                        <View style={styles.dynastyChip}>
+                          <Text style={styles.dynastyChipValue}>{dynastyHOFCount}</Text>
+                          <Text style={styles.dynastyChipLabel}>HOF</Text>
+                        </View>
+                      )}
                       <View style={styles.dynastyChip}>
                         <Text style={styles.dynastyChipValue}>{dynastyPackCount}</Text>
                         <Text style={styles.dynastyChipLabel}>Packs</Text>
@@ -227,10 +249,16 @@ export function HomeScreen() {
                     </>
                   ) : (
                     <>
-                      <Text style={styles.heroLabel}>TODAY'S CHALLENGE</Text>
+                      <Text style={styles.heroLabel}>
+                        {dailyCompletedToday ? 'CHALLENGE COMPLETE' : "TODAY'S CHALLENGE"}
+                      </Text>
                       <Text style={styles.heroTitle}>DAILY ROSTER BUILD</Text>
-                      <Text style={styles.heroClock}>RESETS --:--:--</Text>
-                      <PrimaryButton label="PLAY NOW" onPress={() => startGame('daily')} style={styles.heroBtn} />
+                      <Text style={styles.heroClock}>RESETS {dailyCountdown}</Text>
+                      <PrimaryButton
+                        label={dailyCompletedToday ? 'PLAY AGAIN' : 'PLAY NOW'}
+                        onPress={() => startGame('daily')}
+                        style={styles.heroBtn}
+                      />
                     </>
                   )}
                 </View>
@@ -247,16 +275,18 @@ export function HomeScreen() {
             {DYNASTY_ENABLED && (
               <View style={styles.dynastyBanner}>
                 <Text style={styles.dynastyEyebrow}>YOUR DYNASTY</Text>
-                <Text style={styles.dynastyTitle}>Dynasty · Level {dynastyLevel}</Text>
+                <Text style={styles.dynastyTitle}>Dynasty · Season {dynastySeasonDisplay}</Text>
                 <View style={styles.dynastyRow}>
                   <View style={styles.dynastyChip}>
                     <Text style={styles.dynastyChipValue}>{dynastyAllTime.wins}-{dynastyAllTime.losses}</Text>
                     <Text style={styles.dynastyChipLabel}>All-time</Text>
                   </View>
-                  <View style={styles.dynastyChip}>
-                    <Text style={styles.dynastyChipValue}>{dynastyHOFCount}</Text>
-                    <Text style={styles.dynastyChipLabel}>HOF</Text>
-                  </View>
+                  {HALL_OF_FAME_ENABLED && (
+                    <View style={styles.dynastyChip}>
+                      <Text style={styles.dynastyChipValue}>{dynastyHOFCount}</Text>
+                      <Text style={styles.dynastyChipLabel}>HOF</Text>
+                    </View>
+                  )}
                   <View style={styles.dynastyChip}>
                     <Text style={styles.dynastyChipValue}>{dynastyPackCount}</Text>
                     <Text style={styles.dynastyChipLabel}>Packs</Text>
@@ -277,7 +307,11 @@ export function HomeScreen() {
             <Text style={[styles.railLabel, styles.railLabelMobile]}>Call sheet</Text>
             <View style={styles.rail}>
               {showDailyPill && (
-                <CallSheetPill title="Daily Challenge" tag="today only" onPress={() => startGame('daily')} />
+                <CallSheetPill
+                  title="Daily Challenge"
+                  tag={dailyCompletedToday ? 'completed' : 'today only'}
+                  onPress={() => startGame('daily')}
+                />
               )}
               <CallSheetPill title="Classic" tag="stats on" onPress={() => startGame('classic')} />
               <CallSheetPill title="Gridiron IQ" tag="stats off" onPress={() => startGame('iq')} />
@@ -380,14 +414,14 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   dynastyEyebrow: {
-    fontSize: Typography.xs,
+    fontSize: Typography.sm,
     color: Colors.gold,
     fontFamily: Font.secondarySemiBold,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
   },
   dynastyTitle: {
-    fontSize: 20,
+    fontSize: Typography['2xl'],
     color: Colors.textPrimary,
     fontFamily: Font.primaryBold,
     letterSpacing: 0.5,
@@ -408,12 +442,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dynastyChipValue: {
-    fontSize: Typography.base,
+    fontSize: Typography.lg,
     color: Colors.gold,
     fontFamily: Font.primaryBold,
   },
   dynastyChipLabel: {
-    fontSize: 9,
+    fontSize: Typography.xs,
     color: Colors.textSecondary,
     fontFamily: Font.secondarySemiBold,
     textTransform: 'uppercase',

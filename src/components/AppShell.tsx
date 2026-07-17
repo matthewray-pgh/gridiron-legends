@@ -10,6 +10,14 @@ import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
+// Screens that are all "inside" Dynasty mode for the purposes of the crown
+// shortcut's active state — not just the DynastyHome route itself. Without
+// this, the crown lit gold on DynastyHome but silently reverted to the
+// default muted color on PackOpening/HallOfFame, even though the user was
+// still navigating within Dynasty — visually inconsistent across screens
+// that are all part of the same section.
+const DYNASTY_ROUTE_NAMES: (keyof RootStackParamList)[] = ['DynastyHome', 'PackOpening', 'HallOfFame'];
+
 const LOGO = require('../../assets/undefeated-gridiron-legends-header.png');
 const LOGO_ASPECT_RATIO = 1398 / 375;
 const LOGO_HEIGHT = 40;
@@ -28,6 +36,7 @@ export function AppShell() {
   const insets = useSafeAreaInsets();
   const routeName = useNavigationState((state) => state?.routes[state.index]?.name);
   const onHome = routeName === 'Home';
+  const inDynastySection = routeName != null && DYNASTY_ROUTE_NAMES.includes(routeName as keyof RootStackParamList);
 
   return (
     <View style={[styles.wrap, { paddingTop: insets.top + 12 }]}>
@@ -74,7 +83,7 @@ export function AppShell() {
             <MaterialCommunityIcons
               name="crown"
               size={20}
-              color={routeName === 'DynastyHome' ? Colors.gold : Colors.textMuted}
+              color={inDynastySection ? Colors.gold : Colors.textMuted}
             />
           </TouchableOpacity>
         )}

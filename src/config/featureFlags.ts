@@ -10,3 +10,12 @@ export const DYNASTY_ENABLED = true;
 // Challenge mode card/pill, the LeaderboardTeaser sidebar widget, and the
 // AppShell header shortcut all at once — that's every entry point.
 export const LEADERBOARD_ENABLED = false;
+
+// Hall of Fame (retired-player shelf) — pulled from the UI for now while
+// Dynasty's roster-management flow settles, confirmed with the user, not
+// deleted: HallOfFameScreen.tsx, dynastyStore's `hallOfFame` data (still
+// populated by every Retire/Release in RosterManager.tsx), and the
+// `HallOfFame` route registration in AppNavigator.tsx are all untouched.
+// Flip back to true to restore the "Hall of Fame" entry card on
+// DynastyHomeScreen and the HOF chip on HomeScreen's Dynasty banner.
+export const HALL_OF_FAME_ENABLED = false;

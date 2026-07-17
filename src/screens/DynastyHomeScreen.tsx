@@ -3,43 +3,37 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Platform }
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
-import { DRAFT_POSITIONS, parseYear } from '../data/players';
-import { PACK_CARD_COUNT } from '../data/packs';
-import { BENCH_CAPACITY, useDynastyStore } from '../store/dynastyStore';
+import { HALL_OF_FAME_ENABLED } from '../config/featureFlags';
+import { useDynastyStore } from '../store/dynastyStore';
+import { DRAFT_POSITIONS } from '../data/players';
 import { EraToken, TeamScope, useGameStore } from '../store/gameStore';
-import { PlayerRow } from '../components/PlayerRow';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { SecondaryButton } from '../components/SecondaryButton';
 import { GameSetupModal } from '../components/GameSetupModal';
 import { BrandBackground } from '../components/BrandBackground';
+import { RosterManager } from '../components/RosterManager';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-type Tab = 'dynasty' | 'roster' | 'packs';
 
 // Legacy mode (docs/handoff/03-legacy-mode.md), renamed Dynasty throughout
-// per product direction. This screen owns its own sub-tab-bar (Dynasty /
-// Roster / Packs / HOF) as internal tab state rather than a nested
-// navigator — HOF is the one tab that pushes to its own route (HOF is
-// scoped as a standalone list screen, not detailed for inline display).
+// per product direction. Previously a sub-tab-bar (Dynasty / Roster /
+// Packs / HOF); flattened to a single scrollable view — Roster is just
+// shown inline via RosterManager rather than switched to, Packs is a
+// toolbar shortcut (PackOpeningScreen is its own full-screen flow), and
+// Hall of Fame is pulled from the UI entirely for now (HALL_OF_FAME_ENABLED,
+// see config/featureFlags.ts) while the roster-management flow settles.
 export function DynastyHomeScreen() {
   const navigation = useNavigation<Nav>();
-  const [tab, setTab] = useState<Tab>('dynasty');
 
-  const dynastyLevel = useDynastyStore((s) => s.dynastyLevel);
-  const dynastyXP = useDynastyStore((s) => s.dynastyXP);
-  const xpToNextLevel = useDynastyStore((s) => s.xpToNextLevel);
   const rings = useDynastyStore((s) => s.rings);
   const allTimeRecord = useDynastyStore((s) => s.allTimeRecord);
   const currentSeason = useDynastyStore((s) => s.currentSeason);
   const roster = useDynastyStore((s) => s.roster);
-  const bench = useDynastyStore((s) => s.bench);
   const hallOfFame = useDynastyStore((s) => s.hallOfFame);
   const ownedPacks = useDynastyStore((s) => s.ownedPacks);
-  const retirePlayer = useDynastyStore((s) => s.retirePlayer);
-  const swapStarterWithBench = useDynastyStore((s) => s.swapStarterWithBench);
-  const releaseFromBench = useDynastyStore((s) => s.releaseFromBench);
   const setGameMode = useGameStore((s) => s.setMode);
   const beginDraftSession = useGameStore((s) => s.beginDraftSession);
   const earnRings = useDynastyStore((s) => s.earnRings);
@@ -65,7 +59,7 @@ export function DynastyHomeScreen() {
   // so on web this confirmation never appeared and Reset never fired.
   // window.confirm() is the standard web-platform substitute for exactly
   // this case; native platforms keep the real Alert.
-  const RESET_MESSAGE = 'This clears your roster, bench, Rings, record, and Hall of Fame back to Level 1. This cannot be undone.';
+  const RESET_MESSAGE = 'This clears your roster, bench, Rings, record, and Hall of Fame back to Season 1. This cannot be undone.';
   function handleResetDynasty() {
     if (Platform.OS === 'web') {
       if (window.confirm(`Reset Dynasty?\n\n${RESET_MESSAGE}`)) resetDynasty();
@@ -81,9 +75,21 @@ export function DynastyHomeScreen() {
     );
   }
 
-  const filledSlots = DRAFT_POSITIONS.filter((pos) => roster[pos]);
-  const hasRoster = filledSlots.length > 0;
-  const progressPct = xpToNextLevel > 0 ? Math.min(1, dynastyXP / xpToNextLevel) : 0;
+  const hasRoster = Object.keys(roster).length > 0;
+  // Packs are a post-draft reward (the initial draft itself grants a
+  // bonus pack batch) — gating on `hasRoster` would be wrong here, since
+  // retiring/releasing every player via RosterManager can legitimately
+  // empty the roster again post-draft. currentSeason only ever increments
+  // once the initial draft (or a season) completes and never resets except
+  // via a full Dynasty reset, so it's the reliable "drafted at least once"
+  // signal.
+  const hasCompletedInitialDraft = currentSeason > 1;
+  // RosterManager lets a starter be retired without an immediate
+  // replacement (leaves that slot "Empty" until a bench player is
+  // promoted or a pack pull fills it) — a season can't be simulated with
+  // a missing starter, so Start Season is gated on every slot being filled.
+  const openRosterSlots = DRAFT_POSITIONS.filter((pos) => !roster[pos]);
+  const rosterComplete = openRosterSlots.length === 0;
 
   // "Start season" now runs the same simulate-and-reveal flow ResultScreen
   // already uses for the initial draft, instead of instantly updating the
@@ -106,146 +112,6 @@ export function DynastyHomeScreen() {
     navigation.navigate('Spin');
   }
 
-  function handleTabPress(next: Tab | 'hof') {
-    if (next === 'hof') {
-      navigation.navigate('HallOfFame');
-      return;
-    }
-    setTab(next);
-  }
-
-  const dynastyTab = (
-    <>
-      <View style={styles.card}>
-        <View style={styles.cardTop}>
-          <Text style={styles.level}>LEVEL {dynastyLevel}</Text>
-          <Text style={styles.record}>{allTimeRecord.wins}-{allTimeRecord.losses} all-time</Text>
-        </View>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${progressPct * 100}%` }]} />
-        </View>
-        <Text style={styles.progressCaption}>{dynastyXP} / {xpToNextLevel} XP to level {dynastyLevel + 1}</Text>
-      </View>
-
-      <Text style={styles.sectionLabel}>Current roster</Text>
-      {!hasRoster ? (
-        <Text style={styles.emptyText}>No roster yet — start your Dynasty draft to build your first 12 starters.</Text>
-      ) : (
-        <View style={styles.rosterStrip}>
-          {filledSlots.map((pos) => (
-            <View key={pos} style={styles.rosterSlot}>
-              <Text style={styles.rosterSlotPos}>{pos}</Text>
-              <Text style={styles.rosterSlotOvr}>{roster[pos]?.rating}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-
-      <TouchableOpacity style={styles.hofCard} onPress={() => handleTabPress('hof')} activeOpacity={0.85}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.hofTitle}>Hall of Fame</Text>
-          <Text style={styles.hofSub}>{hallOfFame.length} retired legend{hallOfFame.length === 1 ? '' : 's'} · view shelf</Text>
-        </View>
-        <Text style={styles.hofArrow}>›</Text>
-      </TouchableOpacity>
-
-      {hasRoster ? (
-        <View style={styles.ctaRow}>
-          <SecondaryButton label="Open packs" badge={ownedPacks} onPress={() => navigation.navigate('PackOpening')} style={styles.ctaSecondary} />
-          <PrimaryButton label={`Start season ${currentSeason}`} onPress={handleStartSeason} style={styles.ctaPrimary} />
-        </View>
-      ) : (
-        <PrimaryButton label="Draft Team" onPress={() => setSetupVisible(true)} style={styles.startDynastyBtn} />
-      )}
-
-      <SecondaryButton
-        label="Reset Dynasty & start over"
-        onPress={handleResetDynasty}
-        labelColor={Colors.loss}
-        style={styles.resetBtn}
-      />
-    </>
-  );
-
-  const rosterTab = (
-    <>
-      <Text style={styles.sectionLabel}>Full roster</Text>
-      {DRAFT_POSITIONS.map((pos) => {
-        const starter = roster[pos];
-        return starter ? (
-          <PlayerRow
-            key={pos}
-            position={pos}
-            name={starter.name}
-            meta={`${starter.team} · ${parseYear(starter.years)}`}
-            style={styles.rosterRow}
-            right={
-              <View style={styles.rosterRowRight}>
-                <Text style={styles.rosterRowOvr}>{starter.rating} OVR</Text>
-                <TouchableOpacity onPress={() => retirePlayer(pos)} activeOpacity={0.7}>
-                  <Text style={styles.retireText}>Retire</Text>
-                </TouchableOpacity>
-              </View>
-            }
-          />
-        ) : (
-          <PlayerRow key={pos} position={pos} name="Empty" meta="No starter drafted" style={styles.rosterRow} />
-        );
-      })}
-
-      <Text style={[styles.sectionLabel, styles.benchSectionLabel]}>Bench ({bench.length}/{BENCH_CAPACITY})</Text>
-      {bench.length === 0 ? (
-        <Text style={styles.emptyText}>Bench is empty — pack pulls can go here instead of starting.</Text>
-      ) : (
-        bench
-          .slice()
-          .sort((a, b) => b.rating - a.rating)
-          .map((player) => {
-            const starter = roster[player.position];
-            const delta = player.rating - (starter?.rating ?? player.rating);
-            return (
-              <PlayerRow
-                key={player.id}
-                position={player.position}
-                name={player.name}
-                meta={`${player.team} · ${parseYear(player.years)}`}
-                style={styles.rosterRow}
-                right={
-                  <View style={styles.rosterRowRight}>
-                    {starter && (
-                      <Text style={[styles.deltaText, delta >= 0 ? styles.deltaPositive : styles.deltaNegative]}>
-                        {delta >= 0 ? `+${delta}` : delta}
-                      </Text>
-                    )}
-                    <Text style={styles.rosterRowOvr}>{player.rating} OVR</Text>
-                    <TouchableOpacity onPress={() => swapStarterWithBench(player.position, player.id)} activeOpacity={0.7}>
-                      <Text style={styles.swapText}>Start</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => releaseFromBench(player.id)} activeOpacity={0.7}>
-                      <Text style={styles.retireText}>Release</Text>
-                    </TouchableOpacity>
-                  </View>
-                }
-              />
-            );
-          })
-      )}
-    </>
-  );
-
-  const packsTab = (
-    <>
-      <Text style={styles.sectionLabel}>Owned packs</Text>
-      <View style={styles.packsRow}>
-        <View style={styles.packsCard}>
-          <Text style={styles.packsCardTitle}>Packs · {PACK_CARD_COUNT} cards each</Text>
-          <Text style={styles.packsCardCount}>{ownedPacks}</Text>
-        </View>
-      </View>
-      <PrimaryButton label="Open / buy packs" onPress={() => navigation.navigate('PackOpening')} />
-    </>
-  );
-
   return (
     <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
       <BrandBackground variant="header" style={styles.toolbar}>
@@ -258,9 +124,21 @@ export function DynastyHomeScreen() {
             <Text style={styles.devBtnText}>DEV +{DEV_RINGS_GRANT}</Text>
           </TouchableOpacity>
         )}
-        {__DEV__ && (
-          <TouchableOpacity style={styles.devBtn} onPress={handleResetDynasty} activeOpacity={0.7}>
-            <Text style={styles.devBtnText}>DEV RESET</Text>
+        {hasCompletedInitialDraft && (
+          <TouchableOpacity
+            style={styles.packsBtn}
+            onPress={() => navigation.navigate('PackOpening')}
+            activeOpacity={0.7}
+            accessibilityLabel="Open packs"
+            accessibilityRole="button"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <MaterialCommunityIcons name="cards" size={18} color={Colors.gold} />
+            {ownedPacks > 0 && (
+              <View style={styles.packsBadge}>
+                <Text style={styles.packsBadgeText}>{ownedPacks}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         )}
         <View style={styles.ringsChip}>
@@ -269,21 +147,52 @@ export function DynastyHomeScreen() {
       </BrandBackground>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {tab === 'dynasty' && dynastyTab}
-        {tab === 'roster' && rosterTab}
-        {tab === 'packs' && packsTab}
-      </ScrollView>
+        <View style={styles.card}>
+          <View style={styles.cardTop}>
+            <Text style={styles.seasonLabel}>SEASON {hasRoster ? currentSeason : 0}</Text>
+            <Text style={styles.record}>{allTimeRecord.wins}-{allTimeRecord.losses} all-time</Text>
+          </View>
+        </View>
 
-      <View style={styles.tabBar}>
-        {(['dynasty', 'roster', 'packs'] as Tab[]).map((t) => (
-          <TouchableOpacity key={t} style={styles.tabItem} onPress={() => handleTabPress(t)} activeOpacity={0.7}>
-            <Text style={[styles.tabItemText, tab === t && styles.tabItemTextActive]}>{t.toUpperCase()}</Text>
+        {HALL_OF_FAME_ENABLED && (
+          <TouchableOpacity style={styles.hofCard} onPress={() => navigation.navigate('HallOfFame')} activeOpacity={0.85}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.hofTitle}>Hall of Fame</Text>
+              <Text style={styles.hofSub}>{hallOfFame.length} retired legend{hallOfFame.length === 1 ? '' : 's'} · view shelf</Text>
+            </View>
+            <Text style={styles.hofArrow}>›</Text>
           </TouchableOpacity>
-        ))}
-        <TouchableOpacity style={styles.tabItem} onPress={() => handleTabPress('hof')} activeOpacity={0.7}>
-          <Text style={styles.tabItemText}>HOF</Text>
-        </TouchableOpacity>
-      </View>
+        )}
+
+        {hasRoster ? (
+          <>
+            <RosterManager />
+            {!rosterComplete && (
+              <Text style={styles.warningText}>
+                Fill {openRosterSlots.length} open roster {openRosterSlots.length === 1 ? 'spot' : 'spots'} before starting the season.
+              </Text>
+            )}
+            <PrimaryButton
+              label={`Start season ${currentSeason}`}
+              onPress={handleStartSeason}
+              disabled={!rosterComplete}
+              style={styles.startSeasonBtn}
+            />
+          </>
+        ) : (
+          <>
+            <Text style={styles.emptyText}>No roster yet — start your Dynasty draft to build your first 12 starters.</Text>
+            <PrimaryButton label="Draft Team" onPress={() => setSetupVisible(true)} style={styles.startDynastyBtn} />
+          </>
+        )}
+
+        <SecondaryButton
+          label="Reset Dynasty & start over"
+          onPress={handleResetDynasty}
+          labelColor={Colors.loss}
+          style={styles.resetBtn}
+        />
+      </ScrollView>
 
       <GameSetupModal
         visible={setupVisible}
@@ -307,30 +216,24 @@ const styles = StyleSheet.create({
   ringsText: { color: Colors.gold, fontSize: Typography.sm, fontFamily: Font.secondarySemiBold },
   devBtn: { borderWidth: 1, borderColor: Colors.loss, borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4, marginRight: 8 },
   devBtnText: { color: Colors.loss, fontSize: Typography.xs, fontFamily: Font.secondarySemiBold },
+  packsBtn: {
+    width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: Colors.gold,
+    alignItems: 'center', justifyContent: 'center', position: 'relative',
+  },
+  packsBadge: {
+    position: 'absolute', top: -6, right: -6, backgroundColor: Colors.gold, borderRadius: Radius.full,
+    minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
+  },
+  packsBadgeText: { color: Colors.bgDark, fontSize: Typography.xs, fontFamily: Font.secondaryBold },
 
   scrollContent: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg },
 
   card: { backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.lg, padding: 14, marginBottom: Spacing.lg },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 },
-  level: { fontSize: Typography.xl, color: Colors.gold, fontFamily: Font.primaryBold, letterSpacing: 1 },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  seasonLabel: { fontSize: Typography.xl, color: Colors.gold, fontFamily: Font.primaryBold, letterSpacing: 1 },
   record: { fontSize: Typography.sm, color: Colors.textMuted, fontFamily: Font.secondaryRegular },
-  progressTrack: { height: 6, backgroundColor: Colors.bgCardDeep, borderRadius: 4, overflow: 'hidden', marginBottom: 6 },
-  progressFill: { height: '100%', backgroundColor: Colors.gold },
-  progressCaption: { fontSize: Typography.xs, color: Colors.textMuted, fontFamily: Font.secondaryRegular },
 
-  sectionLabel: {
-    fontSize: Typography.xs, color: Colors.textSecondary, fontFamily: Font.mono,
-    letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8,
-  },
   emptyText: { color: Colors.textMuted, fontSize: Typography.base, fontFamily: Font.secondaryRegular, marginBottom: Spacing.lg, lineHeight: 20 },
-
-  rosterStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: Spacing.lg },
-  rosterSlot: {
-    minWidth: 56, backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
-    borderRadius: Radius.sm, paddingVertical: 6, paddingHorizontal: 4, alignItems: 'center',
-  },
-  rosterSlotPos: { fontSize: Typography.xs, color: Colors.textMuted, letterSpacing: 0.5 },
-  rosterSlotOvr: { fontSize: Typography.md, color: Colors.textPrimary, fontFamily: Font.secondarySemiBold, marginTop: 2 },
 
   hofCard: {
     flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.bgCardDeep,
@@ -340,36 +243,8 @@ const styles = StyleSheet.create({
   hofSub: { color: Colors.textMuted, fontSize: Typography.sm, marginTop: 2, fontFamily: Font.secondaryRegular },
   hofArrow: { color: Colors.textMuted, fontSize: Typography.xl },
 
-  ctaRow: { flexDirection: 'row', gap: 8, marginBottom: Spacing.md },
-  ctaSecondary: { flex: 1 },
-  ctaPrimary: { flex: 1.4 },
+  warningText: { color: Colors.loss, fontSize: Typography.sm, fontFamily: Font.secondarySemiBold, marginTop: Spacing.md },
+  startSeasonBtn: { marginTop: Spacing.md, marginBottom: Spacing.md },
   startDynastyBtn: { marginBottom: Spacing.md },
   resetBtn: { marginTop: Spacing.sm },
-
-  rosterRow: { marginBottom: 6 },
-  benchSectionLabel: { marginTop: Spacing.md },
-  deltaText: { fontSize: Typography.xs, fontFamily: Font.secondarySemiBold },
-  deltaPositive: { color: Colors.win },
-  deltaNegative: { color: Colors.loss },
-
-  rosterRowRight: { flexDirection: 'row', gap: 12, alignItems: 'center' },
-  rosterRowOvr: { color: Colors.gold, fontSize: Typography.sm, fontFamily: Font.secondarySemiBold },
-  retireText: { color: Colors.loss, fontSize: Typography.sm, fontFamily: Font.secondarySemiBold },
-  swapText: { color: Colors.gold, fontSize: Typography.sm, fontFamily: Font.secondarySemiBold },
-
-  packsRow: { flexDirection: 'row', gap: 8, marginBottom: Spacing.lg },
-  packsCard: {
-    flex: 1, backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
-    borderRadius: Radius.md, paddingVertical: 14, alignItems: 'center',
-  },
-  packsCardTitle: { color: Colors.textSecondary, fontSize: Typography.sm, fontFamily: Font.secondaryRegular },
-  packsCardCount: { color: Colors.textPrimary, fontSize: Typography['2xl'], fontFamily: Font.primaryBold, marginTop: 4 },
-
-  tabBar: {
-    flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: Colors.border,
-    paddingTop: 10, paddingBottom: 6, paddingHorizontal: Spacing.lg,
-  },
-  tabItem: { flex: 1, alignItems: 'center' },
-  tabItemText: { fontSize: Typography.xs, color: Colors.textMuted, letterSpacing: 0.5, fontFamily: Font.secondarySemiBold },
-  tabItemTextActive: { color: Colors.gold },
 });

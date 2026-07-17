@@ -7,11 +7,11 @@ import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { PACK_CARD_COUNT } from '../data/packs';
 import { DRAFT_POSITIONS, parseYear } from '../data/players';
 import { BENCH_CAPACITY, PackPlacement, PackPullResult, PackResolution, TODO_BALANCE_PACK_COST_RINGS, useDynastyStore } from '../store/dynastyStore';
-import { PackPlayerCard } from '../components/PackPlayerCard';
 import { PlayerRow } from '../components/PlayerRow';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { SecondaryButton } from '../components/SecondaryButton';
 import { BrandBackground } from '../components/BrandBackground';
+import { CardStack } from '../components/CardStack';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -31,6 +31,7 @@ export function PackOpeningScreen() {
   const navigation = useNavigation<Nav>();
   const rings = useDynastyStore((s) => s.rings);
   const ownedPacks = useDynastyStore((s) => s.ownedPacks);
+  const currentSeason = useDynastyStore((s) => s.currentSeason);
   const roster = useDynastyStore((s) => s.roster);
   const bench = useDynastyStore((s) => s.bench);
   const buyPack = useDynastyStore((s) => s.buyPack);
@@ -43,7 +44,19 @@ export function PackOpeningScreen() {
   const checkedCount = Object.values(checked).filter(Boolean).length;
   const totalRingsRefund = (pulls ?? []).reduce((sum, card) => sum + (card.duplicate ? card.ringsRefund : 0), 0);
 
+  // Packs are a post-draft reward — the initial draft (DynastyHomeScreen's
+  // "Draft Team") has to be completed first. currentSeason only increments
+  // once the initial draft (or a season) completes and never resets except
+  // via a full Dynasty reset, so `> 1` is a reliable "drafted at least
+  // once" signal — unlike checking roster non-emptiness, which would
+  // wrongly re-lock this if every player is later retired/released. The
+  // toolbar shortcut into this screen is already hidden pre-draft
+  // (DynastyHomeScreen.tsx), but this is the actual gate: guards buy/open
+  // directly too, in case this screen is ever reached another way.
+  const hasCompletedInitialDraft = currentSeason > 1;
+
   function handleOpen() {
+    if (!hasCompletedInitialDraft) return;
     const result = openPack();
     if (!result) return;
     setPulls(result);
@@ -51,6 +64,7 @@ export function PackOpeningScreen() {
   }
 
   function handleBuy() {
+    if (!hasCompletedInitialDraft) return;
     buyPack();
   }
 
@@ -93,7 +107,12 @@ export function PackOpeningScreen() {
 
       {!pulls ? (
         <View style={styles.stage}>
-          {ownedPacks > 0 ? (
+          {!hasCompletedInitialDraft ? (
+            <>
+              <Text style={styles.emptyText}>Draft your team before opening packs — packs build out your bench, not your starting roster.</Text>
+              <PrimaryButton label="Back to Dynasty" onPress={() => navigation.goBack()} />
+            </>
+          ) : ownedPacks > 0 ? (
             <>
               <TouchableOpacity style={styles.packVisual} onPress={handleOpen} activeOpacity={0.9}>
                 <Text style={styles.packVisualText}>TAP TO{'\n'}OPEN</Text>
@@ -114,20 +133,7 @@ export function PackOpeningScreen() {
       ) : (
         <>
           <View style={styles.topHalf}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.cardRow}
-            >
-              {pulls.map((card, i) => (
-                <PackPlayerCard
-                  key={i}
-                  card={card}
-                  selected={!!checked[i]}
-                  onPress={card.duplicate ? undefined : () => toggleChecked(i)}
-                />
-              ))}
-            </ScrollView>
+            <CardStack pulls={pulls} checked={checked} onToggle={toggleChecked} />
           </View>
 
           <View style={styles.bottomHalf}>
@@ -217,8 +223,7 @@ const styles = StyleSheet.create({
   hint: { color: Colors.textMuted, fontSize: Typography.sm, fontFamily: Font.secondaryRegular },
   emptyText: { color: Colors.textMuted, fontSize: Typography.base, fontFamily: Font.secondaryRegular, textAlign: 'center' },
 
-  topHalf: { flex: 1, justifyContent: 'center', paddingTop: Spacing.md },
-  cardRow: { flexDirection: 'row', gap: 12, paddingHorizontal: Spacing.lg },
+  topHalf: { flex: 2, justifyContent: 'center', paddingTop: Spacing.md },
 
   bottomHalf: {
     flex: 1, borderTopWidth: 1, borderTopColor: Colors.border,

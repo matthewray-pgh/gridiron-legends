@@ -54,10 +54,6 @@ export const TODO_BALANCE_RINGS_SOURCES = {
 
 export const TODO_BALANCE_PACK_COST_RINGS = 100;
 
-// XP awarded for completing a Dynasty season, regardless of record — not
-// confirmed game balance (docs/handoff/05-game-loop-bugfixes.md, P0).
-export const TODO_BALANCE_DYNASTY_SEASON_XP = 250;
-
 // docs/handoff/08-dynasty-gameplay-redesign.md > point 3: shared pool, any
 // position, 5-6 slots — exact count wasn't locked beyond "5-6", picked 6.
 export const BENCH_CAPACITY = 6;
@@ -75,18 +71,14 @@ export const TODO_BALANCE_SEASON_END_PACKS = 1;
 // specifically — see completeInitialDraft().
 export const TODO_BALANCE_INITIAL_DRAFT_BONUS_PACKS = 2;
 
-// dynastyLevel / dynastyXP are part of the state shape the handoff doc
-// specifies, but the doc names no XP-earning source at all (only Rings
-// sources are discussed) — so nothing feeds XP yet rather than guessing a
-// formula. Starts at Level 1 / 0 XP until a real source is confirmed.
-const XP_PER_LEVEL = 1000;
-
 interface DynastyState {
-  dynastyLevel: number;
-  dynastyXP: number;
-  xpToNextLevel: number;
   rings: number;
   allTimeRecord: { wins: number; losses: number };
+  // Dynasty's progression counter (replaces the earlier dynastyLevel/XP
+  // system, which had no confirmed XP-earning source or leveling curve).
+  // Starts at 1; increments by exactly 1 each time a season is simulated
+  // (applySeasonOutcome, run once per "Start season" / initial draft) — one
+  // season per simulation, not a points-accumulation metric.
   currentSeason: number;
   roster: DynastyRoster;
   bench: Player[];
@@ -101,7 +93,6 @@ interface DynastyState {
   // non-duplicate cards are placed via resolvePackPulls() once the player
   // has chosen start-or-bench for each.
   openPack: () => PackPullResult[] | null;
-  retirePlayer: (position: Position) => void;
   // One-time initial-draft completion (docs/handoff/08, point 1): writes the
   // full 12-slot drafted roster in one shot (replacing whatever pack-only
   // roster existed, which for a fresh save is nothing), then immediately
@@ -114,10 +105,13 @@ interface DynastyState {
   // the user), computing `results` itself from the current roster and
   // handing them here rather than this store simulating a second time.
   applyNextSeasonResults: (results: boolean[]) => void;
-  // Bench management (docs/handoff/08, point 3) — available any time from
-  // the roster tab, not just at pack-pull time.
-  swapStarterWithBench: (position: Position, benchPlayerId: string) => void;
-  releaseFromBench: (playerId: string) => void;
+  // Bench management (docs/handoff/08, point 3) — the Roster tab
+  // (RosterManager.tsx) is a staged editor: every Bench/Start/Retire/
+  // Release action there only mutates local component state, and this is
+  // the single atomic commit that lands the whole edit session at once.
+  // `retiredPlayers` covers both starters retired and bench players
+  // released — both go to the Hall of Fame the same way.
+  commitLineup: (roster: DynastyRoster, bench: Player[], retiredPlayers: Player[]) => void;
   // Batch-applies a whole pack's worth of start/bench choices in one shot
   // (confirmed with the user: all cards from a pack are shown together with
   // a forced choice per card + a single "save" commit, not a sequential
@@ -131,16 +125,13 @@ interface DynastyState {
   // re-minting Rings for an identical (seeded) result. Returns true the
   // first time it's called on a given calendar day, false on any repeat.
   claimDailyChallenge: () => boolean;
-  // Wipes all Dynasty progress back to a fresh save (Level 1, no roster,
+  // Wipes all Dynasty progress back to a fresh save (Season 1, no roster,
   // no Rings). Dev/testing affordance for now — see DynastyHomeScreen's
   // __DEV__-gated button — there's no player-facing confirmation UX yet.
   resetDynasty: () => void;
 }
 
 const INITIAL_DYNASTY_STATE: PersistedDynastyState = {
-  dynastyLevel: 1,
-  dynastyXP: 0,
-  xpToNextLevel: XP_PER_LEVEL,
   rings: 0,
   allTimeRecord: { wins: 0, losses: 0 },
   currentSeason: 1,
@@ -187,36 +178,24 @@ function makeHallOfFameEntry(
 }
 
 // Shared by applyNextSeasonResults() and completeInitialDraft()
-// (docs/handoff/08, acceptance criteria) so win/XP/pack bookkeeping only
-// lives in one place — callers (ResultScreen.tsx, for every season) are
+// (docs/handoff/08, acceptance criteria) so win/pack bookkeeping only lives
+// in one place — callers (ResultScreen.tsx, for every season) are
 // responsible for producing `results` via simulateSeasonResults, this only
 // applies the outcome. `packAward` defaults to the normal per-season amount;
 // completeInitialDraft() passes the larger one-time draft bonus instead.
 function applySeasonOutcome(
-  state: Pick<DynastyState, 'allTimeRecord' | 'dynastyXP' | 'dynastyLevel' | 'xpToNextLevel' | 'currentSeason' | 'ownedPacks'>,
+  state: Pick<DynastyState, 'allTimeRecord' | 'currentSeason' | 'ownedPacks'>,
   results: boolean[],
   packAward: number = TODO_BALANCE_SEASON_END_PACKS,
-): Pick<DynastyState, 'allTimeRecord' | 'dynastyXP' | 'dynastyLevel' | 'currentSeason' | 'ownedPacks'> {
+): Pick<DynastyState, 'allTimeRecord' | 'currentSeason' | 'ownedPacks'> {
   const wins = results.filter(Boolean).length;
   const losses = results.length - wins;
-
-  // xpToNextLevel scaling per level isn't specified in 03-legacy-mode.md or
-  // 05-game-loop-bugfixes.md — kept flat (never changes) rather than
-  // guessing a curve; revisit once product confirms a progression formula.
-  let nextXP = state.dynastyXP + TODO_BALANCE_DYNASTY_SEASON_XP;
-  let nextLevel = state.dynastyLevel;
-  while (nextXP >= state.xpToNextLevel) {
-    nextXP -= state.xpToNextLevel;
-    nextLevel += 1;
-  }
 
   return {
     allTimeRecord: {
       wins: state.allTimeRecord.wins + wins,
       losses: state.allTimeRecord.losses + losses,
     },
-    dynastyXP: nextXP,
-    dynastyLevel: nextLevel,
     currentSeason: state.currentSeason + 1,
     ownedPacks: state.ownedPacks + packAward,
   };
@@ -251,15 +230,14 @@ const STORAGE_KEY = 'dynasty-store';
 // serializable and are re-created by `create` on every load.
 type PersistedDynastyState = Omit<
   DynastyState,
-  | 'earnRings' | 'buyPack' | 'openPack' | 'retirePlayer'
+  | 'earnRings' | 'buyPack' | 'openPack'
   | 'applyNextSeasonResults' | 'claimDailyChallenge' | 'resetDynasty' | 'completeInitialDraft'
-  | 'swapStarterWithBench' | 'releaseFromBench' | 'resolvePackPulls'
+  | 'commitLineup' | 'resolvePackPulls'
 >;
 
 const PERSISTED_KEYS: (keyof PersistedDynastyState)[] = [
-  'dynastyLevel', 'dynastyXP', 'xpToNextLevel', 'rings', 'allTimeRecord',
-  'currentSeason', 'roster', 'bench', 'hallOfFame', 'ownedPacks',
-  'lastDailyClaimDate',
+  'rings', 'allTimeRecord', 'currentSeason', 'roster', 'bench',
+  'hallOfFame', 'ownedPacks', 'lastDailyClaimDate',
 ];
 
 function pickPersistedState(state: DynastyState): PersistedDynastyState {
@@ -311,20 +289,6 @@ export const useDynastyStore = create<DynastyState>()(
         return results;
       },
 
-      retirePlayer: (position) => {
-        const { roster, currentSeason, allTimeRecord, hallOfFame } = get();
-        const player = roster[position];
-        if (!player) return;
-
-        const nextRoster = { ...roster };
-        delete nextRoster[position];
-
-        set({
-          roster: nextRoster,
-          hallOfFame: [...hallOfFame, makeHallOfFameEntry(player, currentSeason, allTimeRecord)],
-        });
-      },
-
       completeInitialDraft: (roster, results) => {
         set((s) => ({ roster, ...applySeasonOutcome(s, results, TODO_BALANCE_INITIAL_DRAFT_BONUS_PACKS) }));
       },
@@ -335,33 +299,12 @@ export const useDynastyStore = create<DynastyState>()(
         set((s) => applySeasonOutcome(s, results));
       },
 
-      swapStarterWithBench: (position, benchPlayerId) => {
-        const { roster, bench } = get();
-        const benchPlayer = bench.find((p) => p.id === benchPlayerId);
-        if (!benchPlayer) return;
-
-        const eligiblePositions = benchPlayer.eligiblePositions ?? [benchPlayer.position];
-        if (!eligiblePositions.includes(position)) return;
-
-        const currentStarter = roster[position];
-        const nextBench = bench.filter((p) => p.id !== benchPlayerId);
-        if (currentStarter) nextBench.push(currentStarter);
-
-        set({
-          roster: { ...roster, [position]: benchPlayer },
-          bench: nextBench,
-        });
-      },
-
-      releaseFromBench: (playerId) => {
-        const { bench, currentSeason, allTimeRecord, hallOfFame } = get();
-        const player = bench.find((p) => p.id === playerId);
-        if (!player) return;
-
-        set({
-          bench: bench.filter((p) => p.id !== playerId),
-          hallOfFame: [...hallOfFame, makeHallOfFameEntry(player, currentSeason, allTimeRecord)],
-        });
+      commitLineup: (roster, bench, retiredPlayers) => {
+        const { currentSeason, allTimeRecord, hallOfFame } = get();
+        const newEntries = retiredPlayers.map((player) =>
+          makeHallOfFameEntry(player, currentSeason, allTimeRecord),
+        );
+        set({ roster, bench, hallOfFame: [...hallOfFame, ...newEntries] });
       },
 
       resolvePackPulls: (resolutions) => {
@@ -407,6 +350,12 @@ function migratePersistedState(raw: unknown): Partial<DynastyState> {
   }
 
   delete data.activePerks;
+  // dynastyLevel/dynastyXP/xpToNextLevel are retired — Seasons (currentSeason)
+  // is now the one progression counter. Strip them from old saves so they
+  // don't linger in AsyncStorage forever.
+  delete data.dynastyLevel;
+  delete data.dynastyXP;
+  delete data.xpToNextLevel;
 
   return data as Partial<DynastyState>;
 }
