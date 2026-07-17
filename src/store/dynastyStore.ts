@@ -19,8 +19,11 @@
 // improves season over season, no aging/decay curve.
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Player, Position, ratingToTier } from '../data/players';
-import { pullPlayerPack, PackPlayer, PackRarity, TODO_BALANCE_DUPE_REFUND_RINGS } from '../data/packs';
+import { GeneratedEra, Player, Position, ratingToTier } from '../data/players';
+import {
+  pullPlayerPack, PackPlayer, PackRarity, PackTierId, PACK_TIERS,
+  TODO_BALANCE_DUPE_REFUND_RINGS, TODO_BALANCE_ERA_LOCK_SURCHARGE_RINGS,
+} from '../data/packs';
 import { todaySeedBase } from '../utils/seededRandom';
 
 export type DynastyRoster = Partial<Record<Position, Player>>;
@@ -31,9 +34,33 @@ export interface HallOfFameEntry {
   careerRecord: string;
 }
 
-// Perk packs are retired for now — every pack is a player pack, so
-// ownedPacks is just a fungible count rather than an array of typed
-// objects (nothing distinguishes one pack from another anymore).
+// Where a pending pack came from — shown in the Shop's My Packs tab
+// (docs/handoff/gridiron-legends-shop-mockups.html: "Purchased · Season 6",
+// "Season reward · Season 7").
+export type PackSource = 'purchase' | 'season_reward' | 'draft_bonus';
+
+// Packs are individually tracked again (not a fungible per-tier count):
+// an era-locked pack pulls from a narrower pool than an unlocked pack of the
+// same tier, so two "Pro Pack" entries aren't interchangeable once one of
+// them is era-locked — each needs its own identity to remember that.
+export interface OwnedPack {
+  id: string;
+  tierId: PackTierId;
+  eraLock?: GeneratedEra;
+  acquiredSeason: number;
+  source: PackSource;
+}
+
+export function totalOwnedPacks(ownedPacks: OwnedPack[]): number {
+  return ownedPacks.length;
+}
+
+let packIdCounter = 0;
+function makeOwnedPack(tierId: PackTierId, acquiredSeason: number, source: PackSource, eraLock?: GeneratedEra): OwnedPack {
+  packIdCounter += 1;
+  return { id: `pack_${Date.now()}_${packIdCounter}`, tierId, acquiredSeason, source, eraLock };
+}
+
 export type PackPullResult =
   | { player: Player; rarity: PackRarity; duplicate: false }
   | { rarity: PackRarity; duplicate: true; ringsRefund: number };
@@ -48,11 +75,14 @@ export interface PackResolution {
 // docs/handoff/03-legacy-mode.md > DECISION NEEDED ("Rings currency",
 // "Packs"). Stubbed as named placeholders per that doc's instruction not to
 // invent real numbers; update these constants once product signs off.
+//
+// dailyChallengeCompletion bumped 15 -> 40: at 15/day a Rookie pack (100)
+// took ~7 days and Legend (650) ~44 days with no other earn source, making
+// the Shop feel decorative for weeks. 40/day brings that to ~2.5/7/16 days
+// (Rookie/Pro/Legend) — still a real grind, not a rate change to pack costs.
 export const TODO_BALANCE_RINGS_SOURCES = {
-  dailyChallengeCompletion: 15,
+  dailyChallengeCompletion: 40,
 } as const;
-
-export const TODO_BALANCE_PACK_COST_RINGS = 100;
 
 // docs/handoff/08-dynasty-gameplay-redesign.md > point 3: shared pool, any
 // position, 5-6 slots — exact count wasn't locked beyond "5-6", picked 6.
@@ -83,16 +113,19 @@ interface DynastyState {
   roster: DynastyRoster;
   bench: Player[];
   hallOfFame: HallOfFameEntry[];
-  ownedPacks: number;
+  ownedPacks: OwnedPack[];
   lastDailyClaimDate: number | null;
 
   earnRings: (amount: number, source: string) => void;
-  buyPack: () => boolean;
-  // Opens one pack, returning its PACK_CARD_COUNT card results (or null if
-  // no pack is owned). Duplicate cards are auto-resolved into Rings here;
-  // non-duplicate cards are placed via resolvePackPulls() once the player
-  // has chosen start-or-bench for each.
-  openPack: () => PackPullResult[] | null;
+  // eraLock adds TODO_BALANCE_ERA_LOCK_SURCHARGE_RINGS to the tier's base
+  // cost and narrows that pack's own pull pool once opened — the odds
+  // themselves are unaffected (data/packs.ts pullPlayerPack).
+  buyPack: (tierId: PackTierId, eraLock?: GeneratedEra) => boolean;
+  // Opens the given pack instance, returning its PACK_CARD_COUNT card
+  // results (or null if that pack id isn't owned). Duplicate cards are
+  // auto-resolved into Rings here; non-duplicate cards are placed via
+  // resolvePackPulls() once the player has chosen start-or-bench for each.
+  openPack: (packId: string) => PackPullResult[] | null;
   // One-time initial-draft completion (docs/handoff/08, point 1): writes the
   // full 12-slot drafted roster in one shot (replacing whatever pack-only
   // roster existed, which for a fresh save is nothing), then immediately
@@ -138,7 +171,7 @@ const INITIAL_DYNASTY_STATE: PersistedDynastyState = {
   roster: {},
   bench: [],
   hallOfFame: [],
-  ownedPacks: 0,
+  ownedPacks: [],
   lastDailyClaimDate: null,
 };
 
@@ -187,17 +220,23 @@ function applySeasonOutcome(
   state: Pick<DynastyState, 'allTimeRecord' | 'currentSeason' | 'ownedPacks'>,
   results: boolean[],
   packAward: number = TODO_BALANCE_SEASON_END_PACKS,
+  packSource: PackSource = 'season_reward',
 ): Pick<DynastyState, 'allTimeRecord' | 'currentSeason' | 'ownedPacks'> {
   const wins = results.filter(Boolean).length;
   const losses = results.length - wins;
+  const nextSeason = state.currentSeason + 1;
+  // Season-end and initial-draft-bonus packs are always Rookie tier, never
+  // era-locked — higher tiers and era locks are ring purchases only, not a
+  // reward source (yet).
+  const newPacks = Array.from({ length: packAward }, () => makeOwnedPack('rookie', nextSeason, packSource));
 
   return {
     allTimeRecord: {
       wins: state.allTimeRecord.wins + wins,
       losses: state.allTimeRecord.losses + losses,
     },
-    currentSeason: state.currentSeason + 1,
-    ownedPacks: state.ownedPacks + packAward,
+    currentSeason: nextSeason,
+    ownedPacks: [...state.ownedPacks, ...newPacks],
   };
 }
 
@@ -266,18 +305,27 @@ export const useDynastyStore = create<DynastyState>()(
         return true;
       },
 
-      buyPack: () => {
-        const { rings, ownedPacks } = get();
-        if (rings < TODO_BALANCE_PACK_COST_RINGS) return false;
-        set({ rings: rings - TODO_BALANCE_PACK_COST_RINGS, ownedPacks: ownedPacks + 1 });
+      buyPack: (tierId, eraLock) => {
+        const tier = PACK_TIERS.find((t) => t.id === tierId);
+        if (!tier) return false;
+        const cost = tier.cost + (eraLock ? TODO_BALANCE_ERA_LOCK_SURCHARGE_RINGS : 0);
+        const { rings, ownedPacks, currentSeason } = get();
+        if (rings < cost) return false;
+        set({
+          rings: rings - cost,
+          ownedPacks: [...ownedPacks, makeOwnedPack(tierId, currentSeason, 'purchase', eraLock)],
+        });
         return true;
       },
 
-      openPack: () => {
+      openPack: (packId) => {
         const { ownedPacks, roster, bench, hallOfFame } = get();
-        if (ownedPacks <= 0) return null;
+        const pack = ownedPacks.find((p) => p.id === packId);
+        if (!pack) return null;
+        const tier = PACK_TIERS.find((t) => t.id === pack.tierId);
+        if (!tier) return null;
 
-        const pulled = pullPlayerPack();
+        const pulled = pullPlayerPack(tier, pack.eraLock);
         const results: PackPullResult[] = pulled.map((card) =>
           isDuplicate(roster, bench, hallOfFame, card.id)
             ? { rarity: card.rarity, duplicate: true, ringsRefund: TODO_BALANCE_DUPE_REFUND_RINGS }
@@ -285,12 +333,18 @@ export const useDynastyStore = create<DynastyState>()(
         );
         const ringsRefund = results.reduce((sum, r) => sum + (r.duplicate ? r.ringsRefund : 0), 0);
 
-        set((s) => ({ ownedPacks: s.ownedPacks - 1, rings: s.rings + ringsRefund }));
+        set((s) => ({
+          ownedPacks: s.ownedPacks.filter((p) => p.id !== packId),
+          rings: s.rings + ringsRefund,
+        }));
         return results;
       },
 
       completeInitialDraft: (roster, results) => {
-        set((s) => ({ roster, ...applySeasonOutcome(s, results, TODO_BALANCE_INITIAL_DRAFT_BONUS_PACKS) }));
+        set((s) => ({
+          roster,
+          ...applySeasonOutcome(s, results, TODO_BALANCE_INITIAL_DRAFT_BONUS_PACKS, 'draft_bonus'),
+        }));
       },
 
       // Pure-accumulation model (confirmed): the roster carries over
@@ -334,19 +388,29 @@ export const useDynastyStore = create<DynastyState>()(
   }),
 );
 
-// Pre-pack-redesign saves persisted `ownedPacks` as an array of `{id, type}`
-// pack objects (and had an `activePerks` field that no longer exists) —
-// coerce old shapes on load so a stale save from before this change doesn't
-// clobber the fresh `ownedPacks: number` initial state with an array that
-// then gets rendered directly as a React child.
+// ownedPacks has gone through a few shapes before the current per-instance
+// array: pre-pack-redesign saves had it as an array of `{id, type}` pack
+// objects (plus an `activePerks` field that no longer exists), and
+// pre-Shop saves had it as a single flat number (one pack "type" only, no
+// tiers, no era locks). Coerce both old shapes into that many fresh Rookie
+// packs on load — the original tier/source/season of a legacy pack isn't
+// recoverable, but treating it as a Rookie season-reward pack is a safe
+// default (Rookie is the only tier those old saves could have meant).
 function migratePersistedState(raw: unknown): Partial<DynastyState> {
   if (!raw || typeof raw !== 'object') return {};
   const data = { ...(raw as Record<string, unknown>) };
+  const currentSeason = typeof data.currentSeason === 'number' ? data.currentSeason : 1;
 
   if (Array.isArray(data.ownedPacks)) {
-    data.ownedPacks = data.ownedPacks.length;
-  } else if (typeof data.ownedPacks !== 'number') {
-    data.ownedPacks = 0;
+    const looksCurrent = data.ownedPacks.length === 0
+      || (typeof data.ownedPacks[0] === 'object' && data.ownedPacks[0] !== null && 'tierId' in (data.ownedPacks[0] as object));
+    data.ownedPacks = looksCurrent
+      ? data.ownedPacks
+      : data.ownedPacks.map(() => makeOwnedPack('rookie', currentSeason, 'season_reward'));
+  } else if (typeof data.ownedPacks === 'number') {
+    data.ownedPacks = Array.from({ length: data.ownedPacks }, () => makeOwnedPack('rookie', currentSeason, 'season_reward'));
+  } else {
+    data.ownedPacks = [];
   }
 
   delete data.activePerks;

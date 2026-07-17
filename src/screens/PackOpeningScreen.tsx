@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
-import { PACK_CARD_COUNT } from '../data/packs';
+import { PACK_CARD_COUNT, PACK_TIERS } from '../data/packs';
 import { DRAFT_POSITIONS, parseYear } from '../data/players';
-import { BENCH_CAPACITY, PackPlacement, PackPullResult, PackResolution, TODO_BALANCE_PACK_COST_RINGS, useDynastyStore } from '../store/dynastyStore';
+import { BENCH_CAPACITY, PackPlacement, PackPullResult, PackResolution, useDynastyStore } from '../store/dynastyStore';
 import { PlayerRow } from '../components/PlayerRow';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { SecondaryButton } from '../components/SecondaryButton';
@@ -15,6 +15,7 @@ import { CardStack } from '../components/CardStack';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Route = RouteProp<RootStackParamList, 'PackOpening'>;
 
 // A pack opens PACK_CARD_COUNT cards at once (perk packs are retired for
 // now). Confirmed with the user: cards are laid out top-half/bottom-half —
@@ -29,14 +30,23 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 // silently do nothing.
 export function PackOpeningScreen() {
   const navigation = useNavigation<Nav>();
+  const route = useRoute<Route>();
+  const packId = route.params.packId;
+
   const rings = useDynastyStore((s) => s.rings);
-  const ownedPacks = useDynastyStore((s) => s.ownedPacks);
+  const pack = useDynastyStore((s) => s.ownedPacks.find((p) => p.id === packId));
   const currentSeason = useDynastyStore((s) => s.currentSeason);
   const roster = useDynastyStore((s) => s.roster);
   const bench = useDynastyStore((s) => s.bench);
-  const buyPack = useDynastyStore((s) => s.buyPack);
   const openPack = useDynastyStore((s) => s.openPack);
   const resolvePackPulls = useDynastyStore((s) => s.resolvePackPulls);
+
+  const tier = pack ? PACK_TIERS.find((t) => t.id === pack.tierId) : undefined;
+  // Pinned once on mount so the title stays put through the reveal — openPack()
+  // removes the pack from ownedPacks the moment it's opened, which would
+  // otherwise flip `tier` back to undefined and the toolbar title to "PACK"
+  // mid-reveal.
+  const [titleTier] = useState(tier);
 
   const [pulls, setPulls] = useState<PackPullResult[] | null>(null);
   const [checked, setChecked] = useState<Record<number, boolean>>({});
@@ -56,16 +66,11 @@ export function PackOpeningScreen() {
   const hasCompletedInitialDraft = currentSeason > 1;
 
   function handleOpen() {
-    if (!hasCompletedInitialDraft) return;
-    const result = openPack();
+    if (!hasCompletedInitialDraft || !pack) return;
+    const result = openPack(packId);
     if (!result) return;
     setPulls(result);
     setChecked({});
-  }
-
-  function handleBuy() {
-    if (!hasCompletedInitialDraft) return;
-    buyPack();
   }
 
   function toggleChecked(index: number) {
@@ -99,7 +104,7 @@ export function PackOpeningScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.toolbarTitle}>OPEN PACKS</Text>
+        <Text style={styles.toolbarTitle}>{titleTier ? titleTier.label.toUpperCase() : 'PACK'}</Text>
         <View style={styles.ringsChip}>
           <Text style={styles.ringsText}>{rings} 💍</Text>
         </View>
@@ -112,21 +117,19 @@ export function PackOpeningScreen() {
               <Text style={styles.emptyText}>Draft your team before opening packs — packs build out your bench, not your starting roster.</Text>
               <PrimaryButton label="Back to Dynasty" onPress={() => navigation.goBack()} />
             </>
-          ) : ownedPacks > 0 ? (
+          ) : pack && tier ? (
             <>
               <TouchableOpacity style={styles.packVisual} onPress={handleOpen} activeOpacity={0.9}>
                 <Text style={styles.packVisualText}>TAP TO{'\n'}OPEN</Text>
               </TouchableOpacity>
-              <Text style={styles.hint}>{ownedPacks} pack{ownedPacks === 1 ? '' : 's'} available · {PACK_CARD_COUNT} cards each</Text>
+              <Text style={styles.hint}>
+                {PACK_CARD_COUNT} cards{pack.eraLock ? ` · ${pack.eraLock}` : ''}
+              </Text>
             </>
           ) : (
             <>
-              <Text style={styles.emptyText}>No packs owned.</Text>
-              <PrimaryButton
-                label={`Buy for ${TODO_BALANCE_PACK_COST_RINGS} 💍`}
-                onPress={handleBuy}
-                disabled={rings < TODO_BALANCE_PACK_COST_RINGS}
-              />
+              <Text style={styles.emptyText}>This pack is no longer available.</Text>
+              <PrimaryButton label="Back to Shop" onPress={() => navigation.navigate('Shop')} />
             </>
           )}
         </View>

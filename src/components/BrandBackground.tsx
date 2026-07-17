@@ -11,6 +11,12 @@ interface BrandBackgroundProps {
   variant: BrandBackgroundVariant;
   children?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
+  // 'default' overlay is tuned for text legibility (SiteFooter's nav
+  // links/disclaimer sit directly on it) — near-opaque, which leaves the
+  // photo itself barely visible. 'light' is for decorative-only footer use
+  // (FieldFooterBand) where there's no text to protect and the field art
+  // should actually read as a football field, not a near-black band.
+  overlayIntensity?: 'default' | 'light';
 }
 
 // Shared brand background system (DESIGN-SYSTEM.md §6) — stadium art behind
@@ -29,11 +35,17 @@ const GRADIENT_COLORS: Record<BrandBackgroundVariant, readonly [string, string, 
   footer: ['#070A0EE0', '#070A0EF7'],
 };
 
-export function BrandBackground({ variant, children, style }: BrandBackgroundProps) {
+// Lighter top stop than 'default' so the field art actually reads as a
+// field, still fading to a near-solid bottom edge to blend into whatever
+// follows the band.
+const LIGHT_FOOTER_GRADIENT: readonly [string, string] = ['#070A0E4D', '#070A0EE0'];
+
+export function BrandBackground({ variant, children, style, overlayIntensity = 'default' }: BrandBackgroundProps) {
   const source = variant === 'header' ? STADIUM_BG : FIELD_BG;
+  const gradient = overlayIntensity === 'light' && variant === 'footer' ? LIGHT_FOOTER_GRADIENT : GRADIENT_COLORS[variant];
   return (
     <ImageBackground source={source} style={style} imageStyle={styles.image}>
-      <LinearGradient colors={GRADIENT_COLORS[variant]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={gradient} style={StyleSheet.absoluteFill} />
       {children}
     </ImageBackground>
   );

@@ -18,13 +18,14 @@ import { HeroBand } from '../components/HeroBand';
 import { ModeCard } from '../components/ModeCard';
 import { LeaderboardTeaser } from '../components/LeaderboardTeaser';
 import { SiteFooter } from '../components/SiteFooter';
+import { FieldFooterBand } from '../components/FieldFooterBand';
 import { BrandBackground } from '../components/BrandBackground';
 import { GameSetupModal } from '../components/GameSetupModal';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useResponsive } from '../hooks/useResponsive';
 import { useDailyResetCountdown } from '../hooks/useDailyResetCountdown';
 import { DYNASTY_ENABLED, HALL_OF_FAME_ENABLED, LEADERBOARD_ENABLED } from '../config/featureFlags';
-import { useDynastyStore } from '../store/dynastyStore';
+import { totalOwnedPacks, useDynastyStore } from '../store/dynastyStore';
 import { todaySeedBase } from '../utils/seededRandom';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -49,7 +50,7 @@ export function HomeScreen() {
   const dynastyRings      = useDynastyStore((s) => s.rings);
   const dynastyAllTime    = useDynastyStore((s) => s.allTimeRecord);
   const dynastyHOFCount   = useDynastyStore((s) => s.hallOfFame.length);
-  const dynastyPackCount  = useDynastyStore((s) => s.ownedPacks);
+  const dynastyPackCount  = useDynastyStore((s) => totalOwnedPacks(s.ownedPacks));
   const lastDailyClaimDate = useDynastyStore((s) => s.lastDailyClaimDate);
 
   // claimDailyChallenge() (dynastyStore) only gates the reward — it never
@@ -330,6 +331,11 @@ export function HomeScreen() {
             <Text style={styles.disclaimer}>
               Not affiliated with or endorsed by the NFL, NFLPA, or any team.
             </Text>
+
+            {/* Wide already gets the field background via SiteFooter below —
+                narrow has no footer at all otherwise, so it gets the same
+                art as a plain decorative band instead. */}
+            <FieldFooterBand />
           </View>
         )}
 

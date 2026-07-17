@@ -16,7 +16,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 // default muted color on PackOpening/HallOfFame, even though the user was
 // still navigating within Dynasty — visually inconsistent across screens
 // that are all part of the same section.
-const DYNASTY_ROUTE_NAMES: (keyof RootStackParamList)[] = ['DynastyHome', 'PackOpening', 'HallOfFame'];
+const DYNASTY_ROUTE_NAMES: (keyof RootStackParamList)[] = ['DynastyHome', 'Shop', 'PackOpening', 'HallOfFame'];
 
 const LOGO = require('../../assets/undefeated-gridiron-legends-header.png');
 const LOGO_ASPECT_RATIO = 1398 / 375;

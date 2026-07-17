@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Pressable, View, Text, StyleSheet } from 'react-native';
-import { Colors, Radius, Spacing, Typography, Font } from '../theme/colors';
+import { View, Text, StyleSheet } from 'react-native';
+import { Colors, Spacing, Typography, Font } from '../theme/colors';
 import { DRAFT_POSITIONS, Player, Position, parseYear } from '../data/players';
 import { BENCH_CAPACITY, DynastyRoster, useDynastyStore } from '../store/dynastyStore';
-import { getFullStatMetrics, getRowStatMetrics } from '../utils/statMetrics';
+import { getRowStatMetrics } from '../utils/statMetrics';
 import { PlayerRow } from './PlayerRow';
 import { PlayerRowStats } from './PlayerRowStats';
-import { PlayerDetailAction, PlayerDetailPanel } from './PlayerDetailPanel';
+import { PlayerDetailAction } from './PlayerDetailPanel';
 import { PrimaryButton } from './PrimaryButton';
 import { SecondaryButton } from './SecondaryButton';
 
@@ -20,14 +20,15 @@ type Selection = { player: Player; kind: 'starter' | 'bench'; position?: Positio
 // yet); Save just stays disabled until it's back at/under capacity instead
 // of blocking the individual move.
 //
-// Row/detail-card display matches GameScreen.tsx's draft-screen pattern
-// (confirmed with the user): rows show compact stat chips via
-// PlayerRowStats (no OVR), and tapping a row opens a bottom-sheet modal
-// with PlayerDetailPanel — the same component the draft screen uses —
-// showing conditional action buttons (Bench+Retire for a starter,
-// Starter+Retire for a bench player) instead of the draft screen's
-// Quick Assign slots.
-export function RosterManager() {
+// All the staged-edit state/logic lives here as a hook rather than inside a
+// single self-contained component — docs/handoff/gridiron-legends-dynasty-
+// web.html's wide layout needs DynastyHomeScreen itself to know whether a
+// player is selected (to decide whether its right-hand pane shows the
+// season overview or the player detail panel), so the selection state has
+// to be visible one level up, not trapped inside this module. Narrow keeps
+// the previous bottom-sheet-modal presentation; wide swaps the modal for a
+// persistent side pane. Both read/write the same editor instance.
+export function useRosterEditor() {
   const storeRoster = useDynastyStore((s) => s.roster);
   const storeBench = useDynastyStore((s) => s.bench);
   const commitLineup = useDynastyStore((s) => s.commitLineup);
@@ -143,6 +144,21 @@ export function RosterManager() {
       { label: 'Retire', destructive: true, disabled: retireDisabled, onPress: () => { releaseBenchPlayer(selected.player); setSelected(null); } },
     ];
 
+  return {
+    pendingRoster, pendingBench, overCapacity, canSave, dirty,
+    selected, setSelected, selectedActions, actionsNote,
+    handleSave, handleDiscard,
+  };
+}
+
+export type RosterEditor = ReturnType<typeof useRosterEditor>;
+
+// Roster + bench rows and the save bar — shared by the narrow (rows only,
+// detail opens in a Modal — see DynastyHomeScreen) and wide (rows in
+// widePaneLeft, detail is the persistent widePaneRight) layouts.
+export function RosterList({ editor }: { editor: RosterEditor }) {
+  const { pendingRoster, pendingBench, overCapacity, dirty, canSave, selected, setSelected, handleSave, handleDiscard } = editor;
+
   return (
     <>
       <Text style={styles.sectionLabel}>Full roster</Text>
@@ -200,25 +216,6 @@ export function RosterManager() {
           </View>
         </View>
       )}
-
-      <Modal
-        visible={!!selected}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setSelected(null)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setSelected(null)}>
-          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-            <PlayerDetailPanel
-              player={selected?.player ?? null}
-              fallbackStatMetrics={getFullStatMetrics(selected?.player ?? null)}
-              actions={selectedActions}
-              actionsNote={actionsNote}
-              onClose={() => setSelected(null)}
-            />
-          </Pressable>
-        </Pressable>
-      </Modal>
     </>
   );
 }
@@ -240,19 +237,4 @@ const styles = StyleSheet.create({
   saveBarButtons: { flexDirection: 'row', gap: 10 },
   discardBtn: { flex: 1 },
   saveBtn: { flex: 1.4 },
-
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: '#070A0ED1',
-    justifyContent: 'flex-end',
-  },
-  modalCard: {
-    backgroundColor: Colors.bgCard,
-    borderTopLeftRadius: Radius.xl,
-    borderTopRightRadius: Radius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 14,
-    gap: 12,
-  },
 });
