@@ -13,11 +13,28 @@ interface StatMetric {
   value: string;
 }
 
+export interface PlayerDetailAction {
+  label: string;
+  onPress: () => void;
+  destructive?: boolean;
+  disabled?: boolean;
+}
+
 interface PlayerDetailPanelProps {
   player: Player | null;
   fallbackStatMetrics: StatMetric[];
-  quickAssignSlots: Position[];
-  onAssign: (position: Position) => void;
+  // Draft-screen usage (GameScreen.tsx): "Quick Assign" grid of open
+  // eligible position slots.
+  quickAssignSlots?: Position[];
+  onAssign?: (position: Position) => void;
+  // Dynasty roster usage (RosterManager.tsx): a small row of named action
+  // buttons (Bench/Starter/Retire) instead of position slots. Only one of
+  // quickAssignSlots or actions should be passed by a given caller —
+  // quickAssignSlots takes precedence if both are somehow provided.
+  actions?: PlayerDetailAction[];
+  // Small explanatory line shown under the actions row — e.g. why Retire
+  // is currently disabled (no bench/roster replacement for the slot).
+  actionsNote?: string;
   onClose?: () => void;
   // docs/handoff/05-game-loop-bugfixes.md P1 (resolved): OVR is never shown
   // by default here (it's gated behind the Dynasty-only Scouting Report
@@ -27,7 +44,7 @@ interface PlayerDetailPanelProps {
   hideStats?: boolean;
 }
 
-export function PlayerDetailPanel({ player, fallbackStatMetrics, quickAssignSlots, onAssign, onClose, hideStats = false }: PlayerDetailPanelProps) {
+export function PlayerDetailPanel({ player, fallbackStatMetrics, quickAssignSlots, onAssign, actions, actionsNote, onClose, hideStats = false }: PlayerDetailPanelProps) {
   if (!player) {
     return (
       <View style={styles.emptyWrap}>
@@ -85,24 +102,49 @@ export function PlayerDetailPanel({ player, fallbackStatMetrics, quickAssignSlot
         </View>
       )}
 
-      <View style={styles.quickAssignWrap}>
-        <Text style={styles.quickAssignLabel}>Quick Assign</Text>
-        <View style={styles.quickAssignGrid}>
-          {quickAssignSlots.map((position) => (
-            <TouchableOpacity
-              key={position}
-              style={styles.quickAssignBtn}
-              onPress={() => onAssign(position)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.quickAssignBtnText}>{position}</Text>
-            </TouchableOpacity>
-          ))}
-          {quickAssignSlots.length === 0 && (
-            <Text style={styles.quickAssignEmpty}>No open eligible slots.</Text>
-          )}
+      {quickAssignSlots ? (
+        <View style={styles.quickAssignWrap}>
+          <Text style={styles.quickAssignLabel}>Quick Assign</Text>
+          <View style={styles.quickAssignGrid}>
+            {quickAssignSlots.map((position) => (
+              <TouchableOpacity
+                key={position}
+                style={styles.quickAssignBtn}
+                onPress={() => onAssign?.(position)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.quickAssignBtnText}>{position}</Text>
+              </TouchableOpacity>
+            ))}
+            {quickAssignSlots.length === 0 && (
+              <Text style={styles.quickAssignEmpty}>No open eligible slots.</Text>
+            )}
+          </View>
         </View>
-      </View>
+      ) : actions && (
+        <View style={styles.quickAssignWrap}>
+          <View style={styles.quickAssignGrid}>
+            {actions.map((action) => (
+              <TouchableOpacity
+                key={action.label}
+                style={[
+                  styles.quickAssignBtn,
+                  action.destructive && styles.quickAssignBtnDestructive,
+                  action.disabled && styles.quickAssignBtnDisabled,
+                ]}
+                onPress={action.onPress}
+                disabled={action.disabled}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.quickAssignBtnText, action.destructive && styles.quickAssignBtnTextDestructive]}>
+                  {action.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {!!actionsNote && <Text style={styles.actionsNoteText}>{actionsNote}</Text>}
+        </View>
+      )}
 
       {!!onClose && (
         <SecondaryButton label="Close" onPress={onClose} style={styles.closeBtn} />
@@ -241,6 +283,25 @@ const styles = StyleSheet.create({
     fontSize: Typography.xl,
     fontFamily: Font.primaryBold,
     letterSpacing: 0.5,
+  },
+  // Dynasty roster's "Retire" action (RosterManager.tsx) — same pill shape
+  // as Quick Assign, swapped to the app's destructive-action color instead
+  // of gold (matches DynastyHomeScreen's "Reset Dynasty" button).
+  quickAssignBtnDestructive: {
+    borderColor: Colors.loss,
+    backgroundColor: '#2A1210',
+  },
+  quickAssignBtnTextDestructive: {
+    color: Colors.loss,
+  },
+  quickAssignBtnDisabled: {
+    opacity: 0.35,
+  },
+  actionsNoteText: {
+    color: Colors.textDim,
+    fontSize: Typography.sm,
+    fontFamily: Font.secondaryRegular,
+    marginTop: 4,
   },
   quickAssignEmpty: {
     color: Colors.textDim,
