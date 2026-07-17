@@ -13,6 +13,11 @@ export type RootStackParamList = {
   Result: { dynastyContinuation?: boolean } | undefined;
   Leaderboard: undefined;
   DynastyHome: undefined;
-  PackOpening: undefined;
+  Shop: undefined;
+  // Buying happens in Shop; PackOpening is reached from there with the id
+  // of the specific pack instance that was tapped in "My Packs" (packs are
+  // tracked individually since an era lock makes two packs of the same tier
+  // not interchangeable — see store/dynastyStore.ts OwnedPack).
+  PackOpening: { packId: string };
   HallOfFame: undefined;
 };

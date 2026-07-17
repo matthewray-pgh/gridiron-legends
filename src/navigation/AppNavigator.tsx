@@ -8,6 +8,7 @@ import { GameScreen } from '../screens/GameScreen';
 import { ResultScreen } from '../screens/ResultScreen';
 import { LeaderboardScreen } from '../screens/LeaderboardScreen';
 import { DynastyHomeScreen } from '../screens/DynastyHomeScreen';
+import { ShopScreen } from '../screens/ShopScreen';
 import { PackOpeningScreen } from '../screens/PackOpeningScreen';
 import { HallOfFameScreen } from '../screens/HallOfFameScreen';
 import { AppShell } from '../components/AppShell';
@@ -34,6 +35,7 @@ export function AppNavigator() {
         <Stack.Screen name="Result" component={ResultScreen} />
         <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
         <Stack.Screen name="DynastyHome" component={DynastyHomeScreen} />
+        <Stack.Screen name="Shop" component={ShopScreen} />
         <Stack.Screen name="PackOpening" component={PackOpeningScreen} />
         <Stack.Screen name="HallOfFame" component={HallOfFameScreen} />
       </Stack.Navigator>

@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Undefeated Gridiron Legends — Dynasty Home (Web)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bgPrimary:#0B0F14; --bgCard:#121A23; --bgCardDeep:#0D141C; --bgDark:#070A0E;
+    --gold:#D4A017; --goldMuted:#D4A01733;
+    --textPrimary:#F5F7FA; --textSecondary:#A7B1BC; --textMuted:#7A8B9C; --textDim:#5E6C79;
+    --border:#213244; --borderMid:#314759;
+    --win:#22C55E; --loss:#EF4444;
+    --rarityCommon:#A7B1BC; --rarityRare:#3E8DE0; --rarityElite:#9B6FE3; --rarityLegend:#F0C24B;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:#05070A;color:var(--textPrimary);font-family:'Inter',sans-serif;padding:40px 20px 80px;}
+  h1.page-title{font-family:'Bebas Neue',sans-serif;letter-spacing:2px;font-size:34px;text-align:center;margin:0 0 4px;
+    background:linear-gradient(180deg,#fff,#B9C2CC);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  p.page-sub{text-align:center;color:var(--textSecondary);font-size:13px;margin:0 0 40px;max-width:640px;margin-left:auto;margin-right:auto;line-height:1.6;}
+
+  .browser{max-width:1180px;margin:0 auto;border-radius:12px;overflow:hidden;box-shadow:0 40px 90px rgba(0,0,0,0.6);
+    border:1px solid #1B222C;}
+  .browser-chrome{background:#161B22;padding:10px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #232A34;}
+  .dot{width:10px;height:10px;border-radius:50%;background:#3A4048;}
+  .browser-url{flex:1;background:#0D1117;border-radius:6px;padding:5px 12px;font-family:'Inter',sans-serif;
+    font-size:11px;color:var(--textSecondary);margin-left:10px;}
+
+  .page{background:var(--bgPrimary);}
+
+  /* toolbar — unchanged, stays full-width above the wide row, same as GameScreen */
+  .toolbar{display:flex;align-items:center;gap:12px;padding:14px 28px;
+    background:radial-gradient(ellipse at 50% -30%, #1c2733 0%, var(--bgPrimary) 70%);
+    border-bottom:1px solid var(--border);}
+  .backBtn{font-size:20px;color:var(--textMuted);}
+  .toolbarTitle{flex:1;font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1.1px;}
+  .packsBtn{width:36px;height:36px;border-radius:18px;border:1px solid var(--gold);display:flex;align-items:center;
+    justify-content:center;position:relative;font-size:14px;}
+  .packsBadge{position:absolute;top:-6px;right:-6px;background:var(--gold);color:var(--bgDark);border-radius:9px;
+    min-width:18px;height:18px;font-size:10px;font-family:'Space Mono',monospace;font-weight:700;display:flex;
+    align-items:center;justify-content:center;padding:0 4px;}
+  .ringsChip{border:1px solid var(--gold);border-radius:999px;padding:5px 12px;font-family:'Space Mono',monospace;
+    font-size:12px;color:var(--gold);}
+
+  /* wide row — mirrors GameScreen's wideRow/widePaneLeft/widePaneRight exactly */
+  .wideRow{display:flex;gap:0;min-height:640px;}
+  .widePaneLeft{flex:1.3;padding:24px 28px;overflow-y:auto;max-height:640px;}
+  .widePaneRight{flex:1;border-left:1px solid var(--border);padding:24px 24px;background:var(--bgCardDeep);
+    display:flex;flex-direction:column;max-height:640px;overflow-y:auto;}
+
+  .sectionLabel{font-family:'Space Mono',monospace;font-size:11px;color:var(--textSecondary);letter-spacing:1.5px;
+    text-transform:uppercase;margin-bottom:10px;}
+  .benchSectionLabel{margin-top:20px;}
+
+  .rosterRow{display:flex;align-items:center;gap:12px;background:var(--bgCard);border:1px solid var(--border);
+    border-radius:10px;padding:11px 14px;margin-bottom:6px;cursor:pointer;transition:border-color 0.12s;}
+  .rosterRow:hover{border-color:var(--borderMid);}
+  .rosterRow.selected{border-color:var(--gold);background:var(--goldMuted);}
+  .rosterRow.empty{opacity:0.5;cursor:default;}
+  .posBadge{width:34px;height:26px;border-radius:5px;border:1px solid var(--border);display:flex;align-items:center;
+    justify-content:center;font-family:'Space Mono',monospace;font-size:9.5px;color:var(--textSecondary);flex-shrink:0;}
+  .rowInfo{flex:1;min-width:0;}
+  .rowName{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:0.3px;}
+  .rowMeta{font-size:10.5px;color:var(--textMuted);font-family:'Space Mono',monospace;margin-top:1px;}
+  .rowStats{display:flex;gap:10px;flex-shrink:0;}
+  .rowStat{text-align:center;}
+  .rowStat .v{font-family:'Space Mono',monospace;font-size:12px;font-weight:700;color:var(--textPrimary);}
+  .rowStat .l{font-size:7.5px;color:var(--textDim);letter-spacing:0.5px;}
+
+  .emptyText{color:var(--textMuted);font-size:12.5px;line-height:1.6;margin-bottom:16px;}
+  .warningText{color:var(--loss);font-size:11.5px;font-family:'Inter',sans-serif;font-weight:600;margin-bottom:10px;}
+
+  .saveBar{margin-top:16px;padding-top:16px;border-top:1px solid var(--border);display:flex;gap:10px;}
+  .discardBtn{flex:1;min-height:42px;background:#121A24;border:1px solid #3A4754;border-radius:9px;
+    color:var(--textSecondary);font-family:'Bebas Neue',sans-serif;font-size:13px;cursor:pointer;}
+  .saveBtn{flex:1.4;min-height:42px;border-radius:9px;border:1px solid #F5DC7A;cursor:pointer;
+    background:linear-gradient(90deg,#A86A05,#D4A017,#F0CC50,#D4A017,#A86A05);color:var(--bgDark);
+    font-family:'Bebas Neue',sans-serif;font-size:13px;}
+
+  /* right pane: default state (season overview) */
+  .seasonCard{background:var(--bgCard);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;}
+  .seasonTop{display:flex;justify-content:space-between;align-items:baseline;}
+  .seasonLabel{font-family:'Bebas Neue',sans-serif;font-size:19px;color:var(--gold);letter-spacing:1px;}
+  .seasonRecord{font-size:11px;color:var(--textMuted);}
+
+  .hofCard{display:flex;align-items:center;gap:10px;background:var(--bgCardDeep);border:1px solid var(--border);
+    border-radius:12px;padding:12px 14px;margin-bottom:16px;cursor:pointer;}
+  .hofTitle{font-size:13px;font-family:'Inter',sans-serif;font-weight:600;}
+  .hofSub{font-size:10.5px;color:var(--textMuted);margin-top:2px;}
+  .hofArrow{margin-left:auto;color:var(--textMuted);font-size:18px;}
+
+  .startSeasonBtn{width:100%;min-height:46px;border-radius:10px;border:1px solid #F5DC7A;cursor:pointer;
+    background:linear-gradient(90deg,#A86A05,#D4A017,#F0CC50,#D4A017,#A86A05);color:var(--bgDark);
+    font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:0.6px;margin-bottom:10px;}
+  .resetBtn{width:100%;min-height:40px;background:transparent;border:1px solid var(--border);border-radius:9px;
+    color:var(--loss);font-family:'Bebas Neue',sans-serif;font-size:12.5px;cursor:pointer;margin-top:auto;}
+
+  .paneHint{font-size:11px;color:var(--textDim);text-align:center;margin-top:14px;font-family:'Inter',sans-serif;}
+
+  /* right pane: player detail state */
+  .detailPanel{display:none;flex-direction:column;height:100%;}
+  .detailPanel.show{display:flex;}
+  .detailHeader{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
+  .detailPos{display:inline-block;font-family:'Space Mono',monospace;font-size:10px;color:var(--gold);border:1px solid var(--gold);
+    border-radius:6px;padding:2px 8px;margin-bottom:8px;}
+  .detailName{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:0.5px;}
+  .detailMeta{font-size:11.5px;color:var(--textMuted);font-family:'Space Mono',monospace;margin-top:2px;}
+  .detailCloseX{color:var(--textMuted);font-size:20px;cursor:pointer;}
+
+  .detailStatsGrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:18px 0;}
+  .detailStatBox{background:var(--bgCard);border:1px solid var(--border);border-radius:9px;padding:10px 8px;text-align:center;}
+  .detailStatBox .v{font-family:'Space Mono',monospace;font-size:16px;font-weight:700;color:var(--textPrimary);}
+  .detailStatBox .l{font-size:8.5px;color:var(--textMuted);letter-spacing:0.5px;text-transform:uppercase;margin-top:3px;}
+
+  .detailActionsNote{font-size:11px;color:var(--loss);line-height:1.5;margin-bottom:12px;}
+  .detailActions{display:flex;gap:10px;margin-top:auto;}
+  .actionBtnPrimary{flex:1;min-height:44px;border-radius:9px;border:1px solid #F5DC7A;cursor:pointer;
+    background:linear-gradient(90deg,#A86A05,#D4A017,#F0CC50,#D4A017,#A86A05);color:var(--bgDark);
+    font-family:'Bebas Neue',sans-serif;font-size:13px;}
+  .actionBtnDanger{flex:1;min-height:44px;border-radius:9px;border:1px solid var(--loss);background:transparent;
+    color:var(--loss);font-family:'Bebas Neue',sans-serif;font-size:13px;cursor:pointer;}
+  .actionBtnDanger.disabled{opacity:0.35;cursor:default;}
+</style>
+</head>
+<body>
+
+<h1 class="page-title">Undefeated Gridiron Legends — Dynasty Home</h1>
+<p class="page-sub">Web-wide layout, following the exact master-detail pattern GameScreen.tsx already uses: roster list on the left, a persistent right pane instead of the modal RosterManager currently pops up on mobile. Click any roster row.</p>
+
+<div class="browser">
+  <div class="browser-chrome">
+    <div class="dot" style="background:#E5534B;"></div>
+    <div class="dot" style="background:#E5A93E;"></div>
+    <div class="dot" style="background:#3EBB61;"></div>
+    <div class="browser-url">undefeatedgridironlegends.com/dynasty</div>
+  </div>
+
+  <div class="page">
+    <div class="toolbar">
+      <div class="backBtn">←</div>
+      <div class="toolbarTitle">DYNASTY</div>
+      <div class="packsBtn">🃏<div class="packsBadge">2</div></div>
+      <div class="ringsChip">340 💍</div>
+    </div>
+
+    <div class="wideRow">
+      <div class="widePaneLeft">
+        <div class="sectionLabel">Full roster</div>
+
+        <div class="rosterRow" onclick="selectPlayer('qb')">
+          <div class="posBadge">QB</div>
+          <div class="rowInfo"><div class="rowName">J. Allen</div><div class="rowMeta">BUF · 2018</div></div>
+          <div class="rowStats">
+            <div class="rowStat"><div class="v">4215</div><div class="l">YDS</div></div>
+            <div class="rowStat"><div class="v">38</div><div class="l">TD</div></div>
+          </div>
+        </div>
+        <div class="rosterRow" onclick="selectPlayer('rb')">
+          <div class="posBadge">RB</div>
+          <div class="rowInfo"><div class="rowName">S. Barkley</div><div class="rowMeta">NYG · 2022</div></div>
+          <div class="rowStats">
+            <div class="rowStat"><div class="v">1312</div><div class="l">YDS</div></div>
+            <div class="rowStat"><div class="v">10</div><div class="l">TD</div></div>
+          </div>
+        </div>
+        <div class="rosterRow" onclick="selectPlayer('wr')">
+          <div class="posBadge">WR</div>
+          <div class="rowInfo"><div class="rowName">D. Adams</div><div class="rowMeta">GB · 2020</div></div>
+          <div class="rowStats">
+            <div class="rowStat"><div class="v">115</div><div class="l">REC</div></div>
+            <div class="rowStat"><div class="v">18</div><div class="l">TD</div></div>
+          </div>
+        </div>
+        <div class="rosterRow empty">
+          <div class="posBadge">TE</div>
+          <div class="rowInfo"><div class="rowName">Empty</div><div class="rowMeta">No starter drafted</div></div>
+        </div>
+        <div class="rosterRow" onclick="selectPlayer('edge')">
+          <div class="posBadge">EDGE</div>
+          <div class="rowInfo"><div class="rowName">M. Thomas</div><div class="rowMeta">PIT · 2011</div></div>
+          <div class="rowStats">
+            <div class="rowStat"><div class="v">12</div><div class="l">SACK</div></div>
+            <div class="rowStat"><div class="v">44</div><div class="l">TKL</div></div>
+          </div>
+        </div>
+
+        <div class="sectionLabel benchSectionLabel">Bench (2/6)</div>
+        <div class="rosterRow" onclick="selectPlayer('bench1')">
+          <div class="posBadge">WR</div>
+          <div class="rowInfo"><div class="rowName">T. Hill</div><div class="rowMeta">MIA · 2023</div></div>
+          <div class="rowStats">
+            <div class="rowStat"><div class="v">98</div><div class="l">REC</div></div>
+            <div class="rowStat"><div class="v">12</div><div class="l">TD</div></div>
+          </div>
+        </div>
+        <div class="rosterRow" onclick="selectPlayer('bench2')">
+          <div class="posBadge">RB</div>
+          <div class="rowInfo"><div class="rowName">D. Henry</div><div class="rowMeta">TEN · 2020</div></div>
+          <div class="rowStats">
+            <div class="rowStat"><div class="v">2027</div><div class="l">YDS</div></div>
+            <div class="rowStat"><div class="v">17</div><div class="l">TD</div></div>
+          </div>
+        </div>
+
+        <div class="warningText">Fill 1 open roster spot before starting the season.</div>
+
+        <div class="saveBar" id="saveBar" style="display:none;">
+          <button class="discardBtn">DISCARD</button>
+          <button class="saveBtn">SAVE CHANGES</button>
+        </div>
+      </div>
+
+      <div class="widePaneRight">
+        <div id="defaultPane">
+          <div class="seasonCard">
+            <div class="seasonTop">
+              <div class="seasonLabel">SEASON 7</div>
+              <div class="seasonRecord">18-6 all-time</div>
+            </div>
+          </div>
+          <div class="hofCard">
+            <div><div class="hofTitle">Hall of Fame</div><div class="hofSub">3 retired legends · view shelf</div></div>
+            <div class="hofArrow">›</div>
+          </div>
+          <button class="startSeasonBtn" disabled style="opacity:0.4;">START SEASON 7</button>
+          <div class="paneHint">Select a roster or bench player on the left to bench, start, or retire them.</div>
+          <button class="resetBtn">Reset Dynasty &amp; start over</button>
+        </div>
+
+        <div id="detailPane" class="detailPanel">
+          <div class="detailHeader">
+            <div>
+              <div class="detailPos" id="detailPos">QB</div>
+              <div class="detailName" id="detailName">J. Allen</div>
+              <div class="detailMeta" id="detailMeta">BUF · 2018 · Starter</div>
+            </div>
+            <div class="detailCloseX" onclick="closeDetail()">×</div>
+          </div>
+
+          <div class="detailStatsGrid" id="detailStats"></div>
+
+          <div id="detailNote"></div>
+          <div class="detailActions" id="detailActions"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const PLAYERS = {
+  qb:    { pos:'QB', name:'J. Allen', meta:'BUF · 2018', kind:'starter', stats:[['4215','PASS YDS'],['38','PASS TD'],['10','INT']], canRetire:true },
+  rb:    { pos:'RB', name:'S. Barkley', meta:'NYG · 2022', kind:'starter', stats:[['1312','RUSH YDS'],['10','RUSH TD'],['57','REC']], canRetire:false },
+  wr:    { pos:'WR', name:'D. Adams', meta:'GB · 2020', kind:'starter', stats:[['115','REC'],['18','REC TD'],['1374','REC YDS']], canRetire:true },
+  edge:  { pos:'EDGE', name:'M. Thomas', meta:'PIT · 2011', kind:'starter', stats:[['12','SACKS'],['44','TKL'],['3','FF']], canRetire:false },
+  bench1:{ pos:'WR', name:'T. Hill', meta:'MIA · 2023', kind:'bench', stats:[['98','REC'],['12','REC TD'],['1799','REC YDS']], canRetire:true },
+  bench2:{ pos:'RB', name:'D. Henry', meta:'TEN · 2020', kind:'bench', stats:[['2027','RUSH YDS'],['17','RUSH TD'],['378','ATT']], canRetire:false },
+};
+
+function selectPlayer(key){
+  const p = PLAYERS[key];
+  document.querySelectorAll('.rosterRow').forEach(r => r.classList.remove('selected'));
+  event.currentTarget.classList.add('selected');
+
+  document.getElementById('defaultPane').style.display = 'none';
+  document.getElementById('detailPane').classList.add('show');
+
+  document.getElementById('detailPos').textContent = p.pos;
+  document.getElementById('detailName').textContent = p.name;
+  document.getElementById('detailMeta').textContent = p.meta + ' · ' + (p.kind === 'starter' ? 'Starter' : 'Bench');
+
+  document.getElementById('detailStats').innerHTML = p.stats.map(([v,l]) => `
+    <div class="detailStatBox"><div class="v">${v}</div><div class="l">${l}</div></div>
+  `).join('');
+
+  const noteEl = document.getElementById('detailNote');
+  const actionsEl = document.getElementById('detailActions');
+
+  if (p.kind === 'starter') {
+    noteEl.innerHTML = p.canRetire ? '' : `<div class="detailActionsNote">No bench player at ${p.pos} to fill this slot — retire is blocked until you have a replacement.</div>`;
+    actionsEl.innerHTML = `
+      <button class="actionBtnPrimary">BENCH</button>
+      <button class="actionBtnDanger ${p.canRetire ? '' : 'disabled'}">RETIRE</button>
+    `;
+  } else {
+    noteEl.innerHTML = p.canRetire ? '' : `<div class="detailActionsNote">This is the only replacement for the open ${p.pos} slot — retire is blocked until you have another.</div>`;
+    actionsEl.innerHTML = `
+      <button class="actionBtnPrimary">STARTER</button>
+      <button class="actionBtnDanger ${p.canRetire ? '' : 'disabled'}">RETIRE</button>
+    `;
+  }
+}
+
+function closeDetail(){
+  document.querySelectorAll('.rosterRow').forEach(r => r.classList.remove('selected'));
+  document.getElementById('detailPane').classList.remove('show');
+  document.getElementById('defaultPane').style.display = 'block';
+}
+</script>
+
+</body>
+</html>

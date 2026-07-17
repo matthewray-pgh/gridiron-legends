@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Undefeated Gridiron Legends — Shop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bgPrimary:#0B0F14; --bgCard:#121A23; --bgCardDeep:#0D141C; --bgDark:#070A0E;
+    --gold:#D4A017; --goldMuted:#D4A01733; --steel:#A7B1BC; --steelDark:#7A8B9C;
+    --textPrimary:#F5F7FA; --textSecondary:#A7B1BC; --textMuted:#7A8B9C; --textDim:#5E6C79;
+    --border:#213244; --borderMid:#314759;
+    --win:#22C55E; --loss:#EF4444;
+    --rarityCommon:#A7B1BC; --rarityRare:#3E8DE0; --rarityElite:#9B6FE3; --rarityLegend:#F0C24B;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:#05070A;color:var(--textPrimary);font-family:'Inter',sans-serif;padding:40px 20px 80px;}
+  h1.page-title{font-family:'Bebas Neue',sans-serif;letter-spacing:2px;font-size:34px;text-align:center;margin:0 0 4px;
+    background:linear-gradient(180deg,#fff,#B9C2CC);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  p.page-sub{text-align:center;color:var(--textSecondary);font-size:13px;margin:0 0 44px;}
+  .phones{display:flex;gap:36px;flex-wrap:wrap;justify-content:center;max-width:1100px;margin:0 auto;}
+  .phone-block{width:300px;}
+  .phone{width:300px;height:660px;background:var(--bgDark);border-radius:36px;border:6px solid #1B222C;padding:14px;
+    position:relative;box-shadow:0 30px 60px rgba(0,0,0,0.5);}
+  .notch{position:absolute;top:14px;left:50%;transform:translateX(-50%);width:90px;height:18px;background:#000;border-radius:12px;z-index:5;}
+  .screen{height:100%;overflow-y:auto;border-radius:24px;padding:34px 0 0;display:flex;flex-direction:column;
+    background:var(--bgPrimary);scrollbar-width:none;}
+  .screen::-webkit-scrollbar{display:none;}
+  .cap-name{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px;color:var(--gold);text-align:center;margin-top:16px;}
+  .cap-desc{font-size:11.5px;color:var(--textSecondary);text-align:center;margin-top:4px;line-height:1.55;padding:0 6px;}
+
+  .toolbar{
+    display:flex;align-items:center;gap:10px;padding:8px 16px 14px;
+    background:radial-gradient(ellipse at 50% -20%, #1c2733 0%, var(--bgPrimary) 70%);
+    border-bottom:1px solid var(--border);
+  }
+  .backBtn{font-size:20px;color:var(--textMuted);padding:4px;}
+  .toolbarTitle{flex:1;font-size:20px;color:var(--textPrimary);letter-spacing:1.1px;font-family:'Bebas Neue',sans-serif;}
+  .ringsChip{border:1px solid var(--gold);border-radius:999px;padding:4px 10px;}
+  .ringsText{color:var(--gold);font-size:11px;font-family:'Inter',sans-serif;font-weight:600;}
+
+  .shopTabs{display:flex;gap:8px;padding:12px 16px 4px;}
+  .shopTab{flex:1;text-align:center;padding:9px;border-radius:10px;font-family:'Bebas Neue',sans-serif;
+    font-size:14px;letter-spacing:0.8px;border:1px solid var(--border);color:var(--textSecondary);}
+  .shopTab.active{border-color:var(--gold);color:var(--gold);background:var(--goldMuted);}
+
+  /* era filter row */
+  .eraSection{padding:14px 16px 4px;}
+  .eraLabel{font-size:9.5px;color:var(--textMuted);letter-spacing:1.2px;text-transform:uppercase;
+    font-family:'Space Mono',monospace;margin-bottom:8px;}
+  .eraRow{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;}
+  .eraRow::-webkit-scrollbar{display:none;}
+  .eraChip{flex-shrink:0;padding:6px 12px;border-radius:20px;border:1px solid var(--border);
+    font-family:'Space Mono',monospace;font-size:10.5px;color:var(--textSecondary);white-space:nowrap;}
+  .eraChip.active{border-color:var(--gold);color:var(--gold);background:var(--goldMuted);}
+  .eraNote{font-size:10px;color:var(--textDim);margin-top:8px;font-family:'Inter',sans-serif;}
+  .eraNote b{color:var(--gold);}
+
+  .tierList{padding:14px 16px 20px;display:flex;flex-direction:column;gap:14px;}
+  .tierCard{border-radius:14px;border-width:1.5px;border-style:solid;background:var(--bgCard);padding:16px;position:relative;overflow:hidden;}
+  .tierCard.rookie{border-color:var(--border);}
+  .tierCard.pro{border-color:var(--rarityRare);}
+  .tierCard.legend{border-color:var(--rarityLegend);background:linear-gradient(135deg,#1c1608,var(--bgCard) 65%);}
+  .tierGlow{position:absolute;top:-30px;right:-30px;width:100px;height:100px;border-radius:50%;filter:blur(20px);opacity:0.35;}
+  .tierTop{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+  .tierName{font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:0.5px;}
+  .tierCards{font-size:10.5px;color:var(--textMuted);margin-top:2px;font-family:'Space Mono',monospace;}
+  .tierBadge{font-size:9px;font-family:'Space Mono',monospace;letter-spacing:0.5px;text-transform:uppercase;
+    padding:3px 8px;border-radius:20px;border-width:1px;border-style:solid;}
+  .tierBadge.rookie{color:var(--rarityCommon);border-color:var(--rarityCommon);}
+  .tierBadge.pro{color:var(--rarityRare);border-color:var(--rarityRare);}
+  .tierBadge.legend{color:var(--rarityLegend);border-color:var(--rarityLegend);}
+
+  .oddsBar{display:flex;height:8px;border-radius:4px;overflow:hidden;margin:12px 0 8px;}
+  .oddsSeg.common{background:var(--rarityCommon);}
+  .oddsSeg.rare{background:var(--rarityRare);}
+  .oddsSeg.elite{background:var(--rarityElite);}
+  .oddsSeg.legend{background:var(--rarityLegend);}
+  .guaranteeText{font-size:10.5px;color:var(--gold);font-family:'Inter',sans-serif;font-weight:600;margin-bottom:12px;}
+  .guaranteeText.none{color:var(--textDim);font-weight:400;}
+
+  .tierFooter{display:flex;align-items:center;gap:10px;}
+  .tierPrice{font-family:'Space Mono',monospace;font-weight:700;font-size:15px;color:var(--gold);}
+  .tierPriceBase{font-size:10px;color:var(--textDim);text-decoration:line-through;margin-right:2px;}
+  .viewOddsLink{font-size:10px;color:var(--textMuted);font-family:'Inter',sans-serif;text-decoration:underline;margin-left:auto;}
+  .buyBtn{
+    min-height:40px;border-radius:10px;border:1px solid #F5DC7A;
+    background:linear-gradient(90deg,#A86A05,#D4A017,#F0CC50,#D4A017,#A86A05);
+    display:flex;align-items:center;justify-content:center;padding:0 18px;
+  }
+  .buyBtn span{color:var(--bgDark);font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:0.8px;}
+  .buyBtn.disabled{opacity:0.4;}
+
+  .pendingHero{margin:14px 16px 8px;text-align:center;padding:18px;border-radius:14px;
+    border:1.5px dashed var(--border);}
+  .pendingCount{font-family:'Bebas Neue',sans-serif;font-size:38px;color:var(--gold);}
+  .pendingLabel{font-size:10.5px;color:var(--textMuted);letter-spacing:1px;text-transform:uppercase;font-family:'Space Mono',monospace;}
+
+  .pendingList{padding:8px 16px 20px;display:flex;flex-direction:column;gap:10px;}
+  .pendingRow{display:flex;align-items:center;gap:12px;background:var(--bgCard);border:1px solid var(--border);
+    border-radius:12px;padding:12px 14px;}
+  .pendingIcon{width:38px;height:48px;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+    font-family:'Bebas Neue',sans-serif;font-size:9px;letter-spacing:0.5px;text-align:center;border-width:1.5px;border-style:solid;}
+  .pendingIcon.rookie{border-color:var(--border);color:var(--rarityCommon);background:var(--bgCardDeep);}
+  .pendingIcon.pro{border-color:var(--rarityRare);color:var(--rarityRare);background:#0F1D2E;}
+  .pendingIcon.legend{border-color:var(--rarityLegend);color:var(--rarityLegend);background:#1c1608;}
+  .pendingInfo{flex:1;}
+  .pendingName{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:0.5px;}
+  .pendingSub{font-size:10px;color:var(--textMuted);font-family:'Space Mono',monospace;margin-top:1px;}
+  .pendingEraTag{display:inline-block;margin-top:3px;font-size:8.5px;color:var(--gold);border:1px solid var(--gold);
+    border-radius:8px;padding:1px 6px;font-family:'Space Mono',monospace;}
+  .pendingOpenBtn{
+    min-height:34px;border-radius:8px;border:1px solid #F5DC7A;padding:0 14px;
+    background:linear-gradient(90deg,#A86A05,#D4A017,#F0CC50,#D4A017,#A86A05);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .pendingOpenBtn span{color:var(--bgDark);font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:0.5px;}
+
+  .emptyPending{text-align:center;padding:30px 20px;color:var(--textMuted);font-size:12px;font-family:'Inter',sans-serif;line-height:1.6;}
+
+  .sheetOverlay{flex:1;background:rgba(0,0,0,0.55);display:flex;align-items:flex-end;}
+  .sheet{background:var(--bgCard);border-top:1.5px solid var(--rarityLegend);border-radius:20px 20px 0 0;
+    padding:20px 18px 24px;width:100%;}
+  .sheetHandle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;}
+  .sheetTitle{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.5px;text-align:center;color:var(--rarityLegend);}
+  .sheetSubtitle{text-align:center;font-family:'Space Mono',monospace;color:var(--gold);font-size:11px;margin-top:4px;}
+  .sheetPrice{text-align:center;font-family:'Space Mono',monospace;color:var(--textSecondary);font-size:12px;margin-top:2px;margin-bottom:18px;}
+
+  .oddsTable{display:flex;flex-direction:column;gap:10px;margin-bottom:16px;}
+  .oddsRow{display:flex;align-items:center;gap:10px;}
+  .oddsDot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  .oddsRowLabel{width:64px;font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:0.5px;}
+  .oddsRowBarWrap{flex:1;height:6px;background:var(--bgCardDeep);border-radius:3px;overflow:hidden;}
+  .oddsRowBarFill{height:100%;border-radius:3px;}
+  .oddsRowPct{width:34px;text-align:right;font-family:'Space Mono',monospace;font-size:11px;color:var(--textSecondary);}
+
+  .guaranteeBox{background:var(--goldMuted);border:1px solid var(--gold);border-radius:10px;padding:12px 14px;margin-bottom:12px;}
+  .guaranteeBoxTitle{font-size:10px;color:var(--gold);letter-spacing:1px;text-transform:uppercase;font-family:'Space Mono',monospace;margin-bottom:4px;}
+  .guaranteeBoxText{font-size:12px;color:var(--textPrimary);font-family:'Inter',sans-serif;line-height:1.5;}
+
+  .eraNoteBox{border:1px dashed var(--borderMid);border-radius:10px;padding:10px 14px;margin-bottom:18px;}
+  .eraNoteBoxText{font-size:11px;color:var(--textSecondary);font-family:'Inter',sans-serif;line-height:1.5;}
+  .eraNoteBoxText b{color:var(--textPrimary);}
+
+  .sheetBuyRow{display:flex;gap:10px;}
+  .sheetCloseBtn{flex:1;min-height:48px;background:#121A24;border:1px solid #3A4754;border-radius:10px;
+    display:flex;align-items:center;justify-content:center;}
+  .sheetCloseBtn span{color:var(--textSecondary);font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:0.8px;}
+  .sheetBuyBtn{flex:2;min-height:48px;border-radius:10px;border:1px solid #F5DC7A;
+    background:linear-gradient(90deg,#A86A05,#D4A017,#F0CC50,#D4A017,#A86A05);
+    display:flex;align-items:center;justify-content:center;}
+  .sheetBuyBtn span{color:var(--bgDark);font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:0.8px;}
+</style>
+</head>
+<body>
+
+<h1 class="page-title">Undefeated Gridiron Legends — Shop</h1>
+<p class="page-sub">Revised odds (more generous per tier) + Era Packs as a price-modifier filter, not a separate product line</p>
+
+<div class="phones">
+
+  <div class="phone-block">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="toolbar">
+          <div class="backBtn">←</div>
+          <div class="toolbarTitle">SHOP</div>
+          <div class="ringsChip"><span class="ringsText">340 💍</span></div>
+        </div>
+
+        <div class="shopTabs">
+          <div class="shopTab active">PACK STORE</div>
+          <div class="shopTab">MY PACKS · 2</div>
+        </div>
+
+        <div class="eraSection">
+          <div class="eraLabel">Era filter (applies to any tier below)</div>
+          <div class="eraRow">
+            <div class="eraChip active">ALL ERAS</div>
+            <div class="eraChip">2000–05</div>
+            <div class="eraChip">2006–10</div>
+            <div class="eraChip">2011–15</div>
+            <div class="eraChip">2016–20</div>
+            <div class="eraChip">2021–25</div>
+          </div>
+          <div class="eraNote">Lock a specific era for <b>+50 💍</b> — same tier odds, narrowed pool.</div>
+        </div>
+
+        <div class="tierList">
+
+          <div class="tierCard rookie">
+            <div class="tierTop">
+              <div>
+                <div class="tierName">Rookie Pack</div>
+                <div class="tierCards">4 cards</div>
+              </div>
+              <div class="tierBadge rookie">BASE</div>
+            </div>
+            <div class="oddsBar">
+              <div class="oddsSeg common" style="width:45%;"></div>
+              <div class="oddsSeg rare" style="width:35%;"></div>
+              <div class="oddsSeg elite" style="width:15%;"></div>
+              <div class="oddsSeg legend" style="width:5%;"></div>
+            </div>
+            <div class="guaranteeText none">No guarantee — standard odds</div>
+            <div class="tierFooter">
+              <div class="tierPrice">100 💍</div>
+              <div class="viewOddsLink">View odds</div>
+            </div>
+            <div style="height:10px;"></div>
+            <div class="buyBtn"><span>BUY ROOKIE PACK</span></div>
+          </div>
+
+          <div class="tierCard pro">
+            <div class="tierGlow" style="background:var(--rarityRare);"></div>
+            <div class="tierTop">
+              <div>
+                <div class="tierName">Pro Pack</div>
+                <div class="tierCards">4 cards</div>
+              </div>
+              <div class="tierBadge pro">RARE+</div>
+            </div>
+            <div class="oddsBar">
+              <div class="oddsSeg common" style="width:20%;"></div>
+              <div class="oddsSeg rare" style="width:40%;"></div>
+              <div class="oddsSeg elite" style="width:30%;"></div>
+              <div class="oddsSeg legend" style="width:10%;"></div>
+            </div>
+            <div class="guaranteeText">Guaranteed: 1+ Rare or better</div>
+            <div class="tierFooter">
+              <div class="tierPrice">280 💍</div>
+              <div class="viewOddsLink">View odds</div>
+            </div>
+            <div style="height:10px;"></div>
+            <div class="buyBtn"><span>BUY PRO PACK</span></div>
+          </div>
+
+          <div class="tierCard legend">
+            <div class="tierGlow" style="background:var(--rarityLegend);"></div>
+            <div class="tierTop">
+              <div>
+                <div class="tierName">Legend Pack</div>
+                <div class="tierCards">4 cards</div>
+              </div>
+              <div class="tierBadge legend">ELITE+</div>
+            </div>
+            <div class="oddsBar">
+              <div class="oddsSeg common" style="width:5%;"></div>
+              <div class="oddsSeg rare" style="width:20%;"></div>
+              <div class="oddsSeg elite" style="width:45%;"></div>
+              <div class="oddsSeg legend" style="width:30%;"></div>
+            </div>
+            <div class="guaranteeText">Guaranteed: 1+ Elite or better</div>
+            <div class="tierFooter">
+              <div class="tierPrice">650 💍</div>
+              <div class="viewOddsLink">View odds</div>
+            </div>
+            <div style="height:10px;"></div>
+            <div class="buyBtn disabled"><span>NOT ENOUGH RINGS</span></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+    <div class="cap-name">Pack Store — updated odds + era filter</div>
+    <div class="cap-desc">Legend odds now 5→30% across tiers instead of 3→15% — the top pack feels worth 650. Era filter sits above the tier list since it applies to whichever tier you pick, not a 4th card.</div>
+  </div>
+
+  <div class="phone-block">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="toolbar">
+          <div class="backBtn">←</div>
+          <div class="toolbarTitle">SHOP</div>
+          <div class="ringsChip"><span class="ringsText">340 💍</span></div>
+        </div>
+
+        <div class="shopTabs">
+          <div class="shopTab">PACK STORE</div>
+          <div class="shopTab active">MY PACKS · 2</div>
+        </div>
+
+        <div class="pendingHero">
+          <div class="pendingCount">2</div>
+          <div class="pendingLabel">Packs waiting to be opened</div>
+        </div>
+
+        <div class="pendingList">
+          <div class="pendingRow">
+            <div class="pendingIcon pro">PRO</div>
+            <div class="pendingInfo">
+              <div class="pendingName">Pro Pack</div>
+              <div class="pendingSub">Purchased · Season 6</div>
+              <div class="pendingEraTag">2016–2020</div>
+            </div>
+            <div class="pendingOpenBtn"><span>OPEN</span></div>
+          </div>
+          <div class="pendingRow">
+            <div class="pendingIcon rookie">RKI</div>
+            <div class="pendingInfo">
+              <div class="pendingName">Rookie Pack</div>
+              <div class="pendingSub">Season reward · Season 7 · All eras</div>
+            </div>
+            <div class="pendingOpenBtn"><span>OPEN</span></div>
+          </div>
+        </div>
+
+        <div style="margin-top:auto;padding:16px;">
+          <div class="emptyPending">Era-locked packs show their era right on the card, so you're never guessing what you're about to open.</div>
+        </div>
+      </div>
+    </div>
+    <div class="cap-name">My Packs — era-locked example</div>
+    <div class="cap-desc">The Pro Pack shown was bought with the 2016–2020 era filter — tagged clearly so it's distinguishable from an All Eras pack of the same tier sitting right next to it.</div>
+  </div>
+
+  <div class="phone-block">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen" style="padding-top:0;">
+        <div class="sheetOverlay">
+          <div class="sheet">
+            <div class="sheetHandle"></div>
+            <div class="sheetTitle">LEGEND PACK ODDS</div>
+            <div class="sheetSubtitle">ERA LOCKED · 2016–2020</div>
+            <div class="sheetPrice">650 💍 base + 50 💍 era lock · 4 cards</div>
+
+            <div class="oddsTable">
+              <div class="oddsRow">
+                <div class="oddsDot" style="background:var(--rarityCommon);"></div>
+                <div class="oddsRowLabel">Common</div>
+                <div class="oddsRowBarWrap"><div class="oddsRowBarFill" style="width:5%;background:var(--rarityCommon);"></div></div>
+                <div class="oddsRowPct">5%</div>
+              </div>
+              <div class="oddsRow">
+                <div class="oddsDot" style="background:var(--rarityRare);"></div>
+                <div class="oddsRowLabel">Rare</div>
+                <div class="oddsRowBarWrap"><div class="oddsRowBarFill" style="width:20%;background:var(--rarityRare);"></div></div>
+                <div class="oddsRowPct">20%</div>
+              </div>
+              <div class="oddsRow">
+                <div class="oddsDot" style="background:var(--rarityElite);"></div>
+                <div class="oddsRowLabel">Elite</div>
+                <div class="oddsRowBarWrap"><div class="oddsRowBarFill" style="width:45%;background:var(--rarityElite);"></div></div>
+                <div class="oddsRowPct">45%</div>
+              </div>
+              <div class="oddsRow">
+                <div class="oddsDot" style="background:var(--rarityLegend);"></div>
+                <div class="oddsRowLabel">Legend</div>
+                <div class="oddsRowBarWrap"><div class="oddsRowBarFill" style="width:30%;background:var(--rarityLegend);"></div></div>
+                <div class="oddsRowPct">30%</div>
+              </div>
+            </div>
+
+            <div class="guaranteeBox">
+              <div class="guaranteeBoxTitle">Guarantee</div>
+              <div class="guaranteeBoxText">At least 1 of the 4 cards is Elite or better. If all 4 rolls land below Elite, the lowest-rarity card is upgraded automatically.</div>
+            </div>
+
+            <div class="eraNoteBox">
+              <div class="eraNoteBoxText">Era lock doesn't change these odds — only <b>which players are eligible</b> to be pulled. Same Elite+ guarantee, just every card comes from 2016–2020.</div>
+            </div>
+
+            <div class="sheetBuyRow">
+              <div class="sheetCloseBtn"><span>CLOSE</span></div>
+              <div class="sheetBuyBtn"><span>BUY · 700 💍</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cap-name">Odds sheet — era-locked variant</div>
+    <div class="cap-desc">Same sheet, now showing the era lock applied: subtitle tag, price breakdown (base + surcharge), and an explicit line clarifying era lock doesn't touch rarity odds — it only narrows the player pool.</div>
+  </div>
+
+</div>
+
+</body>
+</html>

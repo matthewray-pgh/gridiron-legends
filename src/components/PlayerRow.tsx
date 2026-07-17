@@ -31,7 +31,7 @@ export function PlayerRow({ position, name, meta, selected, onPress, right, styl
     >
       <View style={styles.rowLeft}>
         <View style={styles.posBadge}>
-          <Text style={styles.posBadgeText}>{position}</Text>
+          <Text style={styles.posBadgeText} numberOfLines={1}>{position}</Text>
         </View>
         <View style={styles.nameWrap}>
           <Text style={styles.playerName} numberOfLines={1}>{name}</Text>
@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
   rowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
     flexShrink: 1,
   },
   nameWrap: { flexShrink: 1 },
@@ -69,22 +69,26 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bgCard,
     borderRadius: Radius.sm,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 5,
+    minWidth: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   posBadgeText: {
     color: Colors.textSecondary,
-    fontSize: Typography.xl,
+    fontSize: Typography.md,
     fontWeight: '700',
     fontFamily: Font.primaryBold,
+    letterSpacing: 0.3,
   },
   playerName: {
     color: Colors.textPrimary,
-    fontSize: Typography['2xl'],
+    fontSize: Typography.xl,
     fontFamily: Font.primaryBold,
   },
   playerMeta: {
     color: Colors.textDim,
-    fontSize: Typography.lg,
+    fontSize: Typography.base,
     fontFamily: Font.secondaryRegular,
     marginTop: 2,
   },

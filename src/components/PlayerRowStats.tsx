@@ -31,26 +31,26 @@ const styles = StyleSheet.create({
   wrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 8,
+    marginLeft: 6,
   },
   divider: {
     width: 1,
-    height: 34,
-    marginHorizontal: 8,
+    height: 28,
+    marginHorizontal: 6,
     backgroundColor: Colors.border,
   },
   item: {
     alignItems: 'center',
-    minWidth: 48,
+    minWidth: 38,
   },
   value: {
     color: Colors.textPrimary,
-    fontSize: Typography['2xl'],
+    fontSize: Typography.xl,
     fontFamily: Font.primaryBold,
   },
   label: {
     color: Colors.textDim,
-    fontSize: Typography.sm,
+    fontSize: Typography.xs,
     fontFamily: Font.secondaryBold,
     letterSpacing: 0.4,
     marginTop: 1,
