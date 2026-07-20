@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Undefeated Gridiron Legends — Pack Opening Animation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bgPrimary:#0B0F14; --bgCard:#121A23; --bgCardDeep:#0D141C; --bgDark:#070A0E;
+    --gold:#D4A017; --goldMuted:#D4A01733;
+    --textPrimary:#F5F7FA; --textSecondary:#A7B1BC; --textMuted:#7A8B9C;
+    --border:#213244;
+    --rarityCommon:#A7B1BC; --rarityRare:#3E8DE0; --rarityElite:#9B6FE3; --rarityLegend:#F0C24B;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:#05070A;color:var(--textPrimary);font-family:'Inter',sans-serif;padding:40px 20px 80px;}
+  h1.page-title{font-family:'Bebas Neue',sans-serif;letter-spacing:2px;font-size:34px;text-align:center;margin:0 0 4px;
+    background:linear-gradient(180deg,#fff,#B9C2CC);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  p.page-sub{text-align:center;color:var(--textSecondary);font-size:13px;margin:0 0 8px;max-width:520px;margin-left:auto;margin-right:auto;line-height:1.6;}
+  p.page-sub2{text-align:center;color:var(--textMuted);font-size:11.5px;margin:0 0 36px;}
+
+  .phone{width:340px;height:680px;margin:0 auto;background:var(--bgDark);border-radius:36px;border:6px solid #1B222C;
+    padding:14px;position:relative;box-shadow:0 30px 70px rgba(0,0,0,0.6);overflow:hidden;}
+  .notch{position:absolute;top:14px;left:50%;transform:translateX(-50%);width:90px;height:18px;background:#000;border-radius:12px;z-index:20;}
+  .screen{height:100%;border-radius:24px;padding:34px 16px 16px;display:flex;flex-direction:column;
+    background:radial-gradient(circle at 50% 20%, #16202C 0%, var(--bgPrimary) 65%);position:relative;overflow:hidden;}
+
+  .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+  .toolbarTitle{flex:1;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;color:var(--textMuted);}
+  .progressDots{display:flex;gap:5px;}
+  .pDot{width:6px;height:6px;border-radius:50%;background:var(--border);}
+  .pDot.done{background:var(--gold);}
+
+  .stage{flex:1;display:flex;align-items:center;justify-content:center;position:relative;}
+
+  /* ===== pack (idle + rip) ===== */
+  .packWrap{position:relative;width:150px;height:200px;cursor:pointer;}
+  .packHalf{position:absolute;top:0;width:150px;height:200px;border-radius:12px;border:2px solid var(--gold);
+    background:linear-gradient(160deg,#241705,#0B0F14 70%);display:flex;align-items:center;justify-content:center;
+    animation:idlePulse 2.2s ease-in-out infinite;overflow:hidden;}
+  .packHalf::before{content:'';position:absolute;inset:0;background:linear-gradient(115deg,transparent 40%,rgba(240,194,75,0.25) 50%,transparent 60%);
+    background-size:250% 250%;animation:sheen 3s linear infinite;}
+  .packEmblem{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:2px;color:var(--gold);text-align:center;line-height:1.3;position:relative;z-index:1;}
+  .packEmblem span{display:block;font-size:34px;margin-bottom:4px;}
+  .tapHint{position:absolute;bottom:-30px;left:0;right:0;text-align:center;font-size:11px;color:var(--textMuted);
+    font-family:'Space Mono',monospace;letter-spacing:1px;animation:hintBlink 1.6s ease-in-out infinite;}
+
+  @keyframes idlePulse{0%,100%{box-shadow:0 0 18px 0 rgba(212,160,23,0.25);}50%{box-shadow:0 0 32px 6px rgba(212,160,23,0.45);}}
+  @keyframes sheen{0%{background-position:200% 0;}100%{background-position:-50% 0;}}
+  @keyframes hintBlink{0%,100%{opacity:0.4;}50%{opacity:1;}}
+
+  .packWrap.ripping .packHalf.left{animation:ripLeft 0.55s cubic-bezier(.36,.07,.19,.97) forwards;}
+  .packWrap.ripping .packHalf.right{animation:ripRight 0.55s cubic-bezier(.36,.07,.19,.97) forwards;}
+  @keyframes ripLeft{to{transform:translateX(-140px) rotate(-30deg);opacity:0;}}
+  @keyframes ripRight{to{transform:translateX(140px) rotate(30deg);opacity:0;}}
+
+  .flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:10;}
+  .flash.go{animation:flashPop 0.35s ease-out forwards;}
+  @keyframes flashPop{0%{opacity:0;}15%{opacity:0.9;}100%{opacity:0;}}
+
+  .burstDot{position:absolute;width:6px;height:6px;border-radius:50%;background:var(--gold);opacity:0;top:50%;left:50%;}
+  .burstDot.go{animation:burstOut 0.7s ease-out forwards;}
+  @keyframes burstOut{0%{opacity:1;transform:translate(-50%,-50%) translate(0,0) scale(1);}100%{opacity:0;transform:translate(-50%,-50%) translate(var(--bx),var(--by)) scale(0.3);}}
+
+  /* ===== card stack / reveal ===== */
+  .cardStage{display:none;width:100%;height:100%;align-items:center;justify-content:center;position:relative;}
+  .cardStage.show{display:flex;}
+
+  .cardSlot{position:absolute;width:190px;height:260px;perspective:1000px;}
+  .cardInner{position:relative;width:100%;height:100%;transform-style:preserve-3d;transition:transform 0.65s cubic-bezier(.2,.8,.3,1);}
+  .cardInner.flipped{transform:rotateY(180deg);}
+  .cardFace{position:absolute;inset:0;border-radius:14px;backface-visibility:hidden;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;border-width:2px;border-style:solid;}
+  .cardBack{background:linear-gradient(150deg,#151E29,#0B0F14);border-color:var(--border);cursor:pointer;}
+  .cardBack .bIcon{font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--textMuted);letter-spacing:2px;}
+  .cardFront{background:var(--bgCard);transform:rotateY(180deg);padding:16px;text-align:center;}
+
+  .rarityTag{font-size:9px;font-family:'Space Mono',monospace;letter-spacing:1px;text-transform:uppercase;
+    padding:3px 10px;border-radius:20px;border-width:1px;border-style:solid;margin-bottom:10px;}
+  .cardPos{font-size:10px;color:var(--textMuted);font-family:'Space Mono',monospace;margin-bottom:4px;}
+  .cardName{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:0.5px;margin-bottom:2px;}
+  .cardMeta{font-size:10.5px;color:var(--textMuted);font-family:'Space Mono',monospace;margin-bottom:14px;}
+  .cardOvr{font-family:'Bebas Neue',sans-serif;font-size:34px;line-height:1;}
+  .cardOvrLabel{font-size:8.5px;color:var(--textMuted);letter-spacing:1px;}
+
+  .cardInner.rarity-common .cardFace.cardFront{border-color:var(--rarityCommon);}
+  .cardInner.rarity-rare .cardFace.cardFront{border-color:var(--rarityRare);}
+  .cardInner.rarity-elite .cardFace.cardFront{border-color:var(--rarityElite);}
+  .cardInner.rarity-legend .cardFace.cardFront{border-color:var(--rarityLegend);}
+
+  .glowRing{position:absolute;inset:-14px;border-radius:22px;opacity:0;pointer-events:none;}
+  .glowRing.pulse-common{box-shadow:0 0 0 0 var(--rarityCommon);}
+  .glowRing.pulse-rare{animation:glowPulseMed 1.1s ease-out;box-shadow:0 0 30px 8px var(--rarityRare);}
+  .glowRing.pulse-elite{animation:glowPulseMed 1.3s ease-out;box-shadow:0 0 40px 12px var(--rarityElite);}
+  .glowRing.pulse-legend{animation:glowPulseBig 1.7s ease-out;box-shadow:0 0 60px 18px var(--rarityLegend);}
+  @keyframes glowPulseMed{0%{opacity:0;}30%{opacity:1;}100%{opacity:0;}}
+  @keyframes glowPulseBig{0%{opacity:0;}20%{opacity:1;}60%{opacity:0.8;}100%{opacity:0;}}
+
+  .stage.shake{animation:shakeIt 0.5s ease-in-out;}
+  @keyframes shakeIt{0%,100%{transform:translate(0,0);}20%{transform:translate(-6px,2px);}40%{transform:translate(6px,-2px);}60%{transform:translate(-4px,1px);}80%{transform:translate(4px,-1px);}}
+
+  .legendBanner{position:absolute;top:14%;left:-20%;width:140%;padding:6px 0;background:var(--rarityLegend);
+    color:var(--bgDark);font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:3px;text-align:center;
+    transform:rotate(-8deg) scale(0);opacity:0;z-index:5;}
+  .legendBanner.show{animation:bannerPop 0.5s cubic-bezier(.34,1.56,.64,1) 0.35s forwards;}
+  @keyframes bannerPop{to{transform:rotate(-8deg) scale(1);opacity:1;}}
+
+  .deckRow{position:absolute;bottom:8px;left:0;right:0;display:flex;justify-content:center;gap:8px;}
+  .deckThumb{width:26px;height:36px;border-radius:4px;border-width:1.5px;border-style:solid;opacity:0.9;}
+
+  .revealHint{position:absolute;bottom:-32px;left:0;right:0;text-align:center;font-size:10.5px;color:var(--textMuted);
+    font-family:'Space Mono',monospace;letter-spacing:0.5px;}
+
+  /* ===== summary ===== */
+  .summaryStage{display:none;flex-direction:column;align-items:center;width:100%;}
+  .summaryStage.show{display:flex;}
+  .summaryTitle{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;color:var(--gold);margin-bottom:4px;}
+  .summarySub{font-size:11px;color:var(--textMuted);margin-bottom:20px;}
+  .summaryGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;margin-bottom:24px;}
+  .summaryCard{border-radius:10px;border-width:1.5px;border-style:solid;background:var(--bgCard);padding:10px;text-align:center;}
+  .summaryCard .n{font-family:'Bebas Neue',sans-serif;font-size:13px;}
+  .summaryCard .p{font-size:9px;color:var(--textMuted);font-family:'Space Mono',monospace;margin-top:2px;}
+  .continueBtn{width:100%;min-height:46px;border-radius:10px;border:1px solid #F5DC7A;cursor:pointer;
+    background:linear-gradient(90deg,#A86A05,#D4A017,#F0CC50,#D4A017,#A86A05);color:var(--bgDark);
+    font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:0.8px;}
+
+  .replayBtn{margin-top:14px;background:none;border:none;color:var(--textMuted);font-size:11px;font-family:'Inter',sans-serif;
+    text-decoration:underline;cursor:pointer;}
+</style>
+</head>
+<body>
+
+<h1 class="page-title">Pack Opening — Working Animation</h1>
+<p class="page-sub">Genre-standard beats (tap → rip → reveal-one-by-one, rarity-scaled flourish) — built fresh, not copied from any specific app since I can't verify exact proprietary choreography.</p>
+<p class="page-sub2">Click the pack, then tap each card to flip it. Watch the flourish scale up as rarity increases.</p>
+
+<div class="phone">
+  <div class="notch"></div>
+  <div class="screen" id="screen">
+    <div class="flash" id="flash"></div>
+
+    <div class="toolbar">
+      <div class="toolbarTitle">OPENING PRO PACK</div>
+      <div class="progressDots" id="progressDots">
+        <div class="pDot"></div><div class="pDot"></div><div class="pDot"></div><div class="pDot"></div>
+      </div>
+    </div>
+
+    <div class="stage" id="stage">
+      <div class="packWrap" id="packWrap" onclick="ripPack()">
+        <div class="packHalf left">
+          <div class="packEmblem"><span>◆</span>PRO<br>PACK</div>
+        </div>
+        <div class="packHalf right" style="opacity:0;"></div>
+        <div class="tapHint" id="tapHint">TAP TO OPEN</div>
+      </div>
+
+      <div class="cardStage" id="cardStage">
+        <div class="cardSlot" id="cardSlot">
+          <div class="glowRing" id="glowRing"></div>
+          <div class="legendBanner" id="legendBanner">LEGENDARY PULL</div>
+          <div class="cardInner" id="cardInner">
+            <div class="cardFace cardBack" id="cardBack" onclick="flipCard()">
+              <div class="bIcon">U</div>
+            </div>
+            <div class="cardFace cardFront" id="cardFront">
+              <div class="rarityTag" id="fRarity">RARE</div>
+              <div class="cardPos" id="fPos">QB</div>
+              <div class="cardName" id="fName">T. Taylor</div>
+              <div class="cardMeta" id="fMeta">BUF · 2016</div>
+              <div class="cardOvr" id="fOvr">90</div>
+              <div class="cardOvrLabel">OVR</div>
+            </div>
+          </div>
+          <div class="revealHint" id="revealHint">TAP CARD TO REVEAL · 1 OF 4</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="summaryStage" id="summaryStage">
+      <div class="summaryTitle">4 CARDS PULLED</div>
+      <div class="summarySub">Choose start or bench for each from My Packs</div>
+      <div class="summaryGrid" id="summaryGrid"></div>
+      <button class="continueBtn">CONTINUE</button>
+      <button class="replayBtn" onclick="location.reload()">↻ Replay animation</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PULLS = [
+  { rarity:'common', pos:'RB', name:'D. Anderson', meta:'BUF · 2016', ovr:58 },
+  { rarity:'rare', pos:'QB', name:'T. Taylor', meta:'BUF · 2016', ovr:90 },
+  { rarity:'elite', pos:'WR', name:'S. Moss', meta:'MIN · 2003', ovr:93 },
+  { rarity:'legend', pos:'QB', name:'J. Allen', meta:'BUF · 2018', ovr:96 },
+];
+const RARITY_LABEL = { common:'COMMON', rare:'RARE', elite:'ELITE', legend:'LEGEND' };
+let idx = 0;
+
+function ripPack(){
+  const wrap = document.getElementById('packWrap');
+  const flash = document.getElementById('flash');
+  document.getElementById('tapHint').style.display = 'none';
+  wrap.classList.add('ripping');
+
+  const stage = document.getElementById('stage');
+  for (let i = 0; i < 14; i++){
+    const dot = document.createElement('div');
+    dot.className = 'burstDot';
+    const angle = (Math.PI * 2 * i) / 14;
+    const dist = 90 + Math.random() * 40;
+    dot.style.setProperty('--bx', Math.cos(angle) * dist + 'px');
+    dot.style.setProperty('--by', Math.sin(angle) * dist + 'px');
+    stage.appendChild(dot);
+    setTimeout(() => dot.classList.add('go'), 250);
+    setTimeout(() => dot.remove(), 1100);
+  }
+
+  setTimeout(() => { flash.classList.add('go'); }, 300);
+  setTimeout(() => {
+    wrap.style.display = 'none';
+    document.getElementById('cardStage').classList.add('show');
+    loadCard();
+  }, 500);
+}
+
+function loadCard(){
+  const p = PULLS[idx];
+  document.getElementById('fRarity').textContent = RARITY_LABEL[p.rarity];
+  document.getElementById('fRarity').style.color = `var(--rarity${cap(p.rarity)})`;
+  document.getElementById('fRarity').style.borderColor = `var(--rarity${cap(p.rarity)})`;
+  document.getElementById('fPos').textContent = p.pos;
+  document.getElementById('fName').textContent = p.name;
+  document.getElementById('fMeta').textContent = p.meta;
+  document.getElementById('fOvr').textContent = p.ovr;
+  document.getElementById('fOvr').style.color = `var(--rarity${cap(p.rarity)})`;
+
+  const inner = document.getElementById('cardInner');
+  inner.className = 'cardInner rarity-' + p.rarity;
+  document.getElementById('cardBack').style.pointerEvents = 'auto';
+  document.getElementById('revealHint').textContent = `TAP CARD TO REVEAL · ${idx+1} OF 4`;
+
+  updateDots();
+}
+
+function cap(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+
+function updateDots(){
+  const dots = document.querySelectorAll('#progressDots .pDot');
+  dots.forEach((d, i) => d.classList.toggle('done', i < idx));
+}
+
+function flipCard(){
+  const p = PULLS[idx];
+  const inner = document.getElementById('cardInner');
+  inner.classList.add('flipped');
+  document.getElementById('cardBack').style.pointerEvents = 'none';
+  document.getElementById('revealHint').style.opacity = '0';
+
+  const glow = document.getElementById('glowRing');
+  glow.className = 'glowRing pulse-' + p.rarity;
+  void glow.offsetWidth;
+  glow.className = 'glowRing pulse-' + p.rarity;
+
+  if (p.rarity === 'legend'){
+    document.getElementById('stage').classList.remove('shake');
+    void document.getElementById('stage').offsetWidth;
+    document.getElementById('stage').classList.add('shake');
+    document.getElementById('legendBanner').classList.add('show');
+  }
+
+  setTimeout(() => {
+    idx++;
+    if (idx < PULLS.length){
+      document.getElementById('legendBanner').classList.remove('show');
+      document.getElementById('revealHint').style.opacity = '1';
+      inner.classList.remove('flipped');
+      setTimeout(loadCard, 350);
+    } else {
+      updateDots();
+      setTimeout(showSummary, 900);
+    }
+  }, 1600);
+}
+
+function showSummary(){
+  document.getElementById('cardStage').classList.remove('show');
+  const grid = document.getElementById('summaryGrid');
+  grid.innerHTML = PULLS.map(p => `
+    <div class="summaryCard" style="border-color:var(--rarity${cap(p.rarity)});">
+      <div class="n">${p.name}</div>
+      <div class="p">${p.pos} · ${p.ovr} OVR</div>
+    </div>
+  `).join('');
+  document.getElementById('summaryStage').classList.add('show');
+}
+</script>
+
+</body>
+</html>
