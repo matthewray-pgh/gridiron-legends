@@ -12,9 +12,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
-import { DRAFT_POSITIONS, Position, parseYear } from '../data/players';
-import { useGameStore } from '../store/gameStore';
+import { Position, parseYear } from '../data/players';
+import { positionsForMode, useGameStore } from '../store/gameStore';
 import { useResponsive } from '../hooks/useResponsive';
+import { SHOW_DEBUG_OVR } from '../config/featureFlags';
 import { getFullStatMetrics, getRowStatMetrics } from '../utils/statMetrics';
 import { PlayerDetailPanel } from '../components/PlayerDetailPanel';
 import { PlayerRow } from '../components/PlayerRow';
@@ -48,14 +49,11 @@ export function GameScreen() {
     rerollsRemaining,
   } = useGameStore();
 
-  // docs/handoff/05-game-loop-bugfixes.md P1 (resolved, full spec): OVR (and
-  // the rating-derived tier badge) is never shown by default in any mode
-  // here — it's a scouting tool gated behind the Dynasty-only Scouting
-  // Report perk, not a baseline draft-screen display. Classic/Daily/Timer
-  // ("stats visible") show the real per-position stat line instead; Gridiron
-  // IQ ("stats hidden") shows neither stats nor OVR — name/team/years/
-  // position badge only.
-  const showStats = mode !== 'iq';
+  // docs/handoff/09-ovr-visibility-reversal.md reverses the earlier "OVR
+  // hidden by default" decision — stats (and, behind SHOW_DEBUG_OVR, OVR
+  // itself) show in every mode now. Gridiron IQ's "stats hidden" mode this
+  // used to branch on is retired (docs/handoff/10-offense-only-mode.md), so
+  // there's no longer a mode that hides either.
   const spinRouteName = mode === 'timer' ? 'TwoMinuteDrillSpin' : 'Spin';
   const candidates = currentCandidates();
   const selectedPlayer = currentPlayer();
@@ -63,10 +61,17 @@ export function GameScreen() {
   const openSlots = openPositions();
   const selectedEligibleSlots = selectedPlayer?.eligiblePositions ?? [];
   const quickAssignSlots = selectedEligibleSlots.filter((position) => !roster[position]);
-  const progressLabel = `${positionIndex + 1}/${DRAFT_POSITIONS.length}`;
-  const positionTypeLabel = positionIndex <= 5 ? 'OFFENSE' : 'DEFENSE';
+  const activePositions = positionsForMode(mode);
+  const progressLabel = `${positionIndex + 1}/${activePositions.length}`;
+  // Offense Only's 9 slots are all offense, all at once — no offense/defense
+  // phase split to make. Every other mode keeps the original two-phase
+  // split (first 6 rounds offense, next 6 defense).
+  const isOffenseOnlyMode = mode === 'offense';
+  const positionTypeLabel = isOffenseOnlyMode ? 'OFFENSE' : (positionIndex <= 5 ? 'OFFENSE' : 'DEFENSE');
   const [statsModalVisible, setStatsModalVisible] = useState(false);
-  const applicablePositions = positionIndex <= 5 ? OFFENSE_POSITIONS : DEFENSE_POSITIONS;
+  const applicablePositions = isOffenseOnlyMode
+    ? activePositions
+    : (positionIndex <= 5 ? OFFENSE_POSITIONS : DEFENSE_POSITIONS);
   const groupedCandidates = applicablePositions
     .map((position) => ({
       position,
@@ -74,19 +79,18 @@ export function GameScreen() {
         .map((candidate, index) => ({ candidate, index }))
         .filter(({ candidate }) => candidate.position === position)
         .sort(({ candidate: a }, { candidate: b }) => {
-          // First sort by era (year from the years string) in descending order
+          // docs/handoff/09-ovr-visibility-reversal.md section 2: year
+          // ascending (oldest season first), then alphabetical by name —
+          // in every mode, no exceptions. OVR must never be a sort key.
           const yearA = parseYear(a.years);
           const yearB = parseYear(b.years);
           if (yearA !== yearB) {
-            return yearB.localeCompare(yearA);
+            return yearA.localeCompare(yearB);
           }
-          // Then sort alphabetically by name
           return a.name.localeCompare(b.name);
         }),
     }))
     .filter((group) => group.entries.length > 0);
-  const openOffenseSlots = OFFENSE_POSITIONS.filter((position) => !roster[position]);
-  const openDefenseSlots = DEFENSE_POSITIONS.filter((position) => !roster[position]);
 
   const fallbackStatMetrics = useMemo(() => getFullStatMetrics(selectedPlayer), [selectedPlayer]);
 
@@ -183,9 +187,10 @@ export function GameScreen() {
                       position={candidate.position}
                       name={candidate.name}
                       meta={`${candidate.team} · ${parseYear(candidate.years)}`}
+                      ovr={SHOW_DEBUG_OVR ? candidate.rating : undefined}
                       selected={selected}
                       onPress={() => handleSelectPlayer(index)}
-                      right={showStats ? <PlayerRowStats metrics={getRowStatMetrics(candidate)} /> : undefined}
+                      right={<PlayerRowStats metrics={getRowStatMetrics(candidate)} />}
                     />
                   );
                 })}
@@ -239,7 +244,7 @@ export function GameScreen() {
                 fallbackStatMetrics={fallbackStatMetrics}
                 quickAssignSlots={quickAssignSlots}
                 onAssign={handleAssign}
-                hideStats={!showStats}
+                ovr={SHOW_DEBUG_OVR ? selectedPlayer?.rating : undefined}
               />
             </ScrollView>
           </View>
@@ -265,7 +270,7 @@ export function GameScreen() {
               quickAssignSlots={quickAssignSlots}
               onAssign={handleAssign}
               onClose={() => setStatsModalVisible(false)}
-              hideStats={!showStats}
+              ovr={SHOW_DEBUG_OVR ? selectedPlayer?.rating : undefined}
             />
           </Pressable>
         </Pressable>

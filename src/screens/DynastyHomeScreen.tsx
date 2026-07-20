@@ -5,7 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
-import { HALL_OF_FAME_ENABLED } from '../config/featureFlags';
+import { HALL_OF_FAME_ENABLED, SHOW_DEBUG_OVR } from '../config/featureFlags';
 import { totalOwnedPacks, useDynastyStore } from '../store/dynastyStore';
 import { DRAFT_POSITIONS } from '../data/players';
 import { EraToken, TeamScope, useGameStore } from '../store/gameStore';
@@ -215,6 +215,7 @@ export function DynastyHomeScreen() {
                   actions={editor.selectedActions}
                   actionsNote={editor.actionsNote}
                   onClose={() => editor.setSelected(null)}
+                  ovr={SHOW_DEBUG_OVR ? editor.selected.player.rating : undefined}
                 />
               ) : (
                 <>
@@ -292,6 +293,7 @@ export function DynastyHomeScreen() {
               actions={editor.selectedActions}
               actionsNote={editor.actionsNote}
               onClose={() => editor.setSelected(null)}
+              ovr={SHOW_DEBUG_OVR && editor.selected ? editor.selected.player.rating : undefined}
             />
           </Pressable>
         </Pressable>
@@ -299,6 +301,7 @@ export function DynastyHomeScreen() {
 
       <GameSetupModal
         visible={setupVisible}
+        mode="dynasty"
         onClose={() => setSetupVisible(false)}
         onStart={handleStartFromSetup}
       />

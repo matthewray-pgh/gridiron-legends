@@ -8,10 +8,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { DRAFT_POSITIONS } from '../data/players';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { useStatsStore } from '../store/statsStore';
-import { EraToken, TeamScope, useGameStore } from '../store/gameStore';
+import { EraToken, positionsForMode, TeamScope, useGameStore } from '../store/gameStore';
 import { ScoreBox } from '../components/ScoreBox';
 import { CallSheetPill } from '../components/CallSheetPill';
 import { HeroBand } from '../components/HeroBand';
@@ -40,6 +39,7 @@ export function HomeScreen() {
   const leaderboard        = useStatsStore((s) => s.leaderboard);
   const setMode             = useGameStore((s) => s.setMode);
   const beginDraftSession   = useGameStore((s) => s.beginDraftSession);
+  const activeMode          = useGameStore((s) => s.mode);
   const roster              = useGameStore((s) => s.roster);
   const isComplete          = useGameStore((s) => s.isComplete);
   const positionIndex       = useGameStore((s) => s.positionIndex);
@@ -75,14 +75,15 @@ export function HomeScreen() {
   // the call sheet rail below instead of being lost.
   const heroState: 'continue' | 'daily' = hasInProgressRun ? 'continue' : 'daily';
   const showDailyPill = heroState === 'continue';
+  const inProgressRoundCount = positionsForMode(activeMode).length;
   const continueSubtitle = lockedTeam
-    ? `${lockedTeam.abbr} · Round ${positionIndex + 1}/${DRAFT_POSITIONS.length}`
-    : `Round ${positionIndex + 1}/${DRAFT_POSITIONS.length}`;
+    ? `${lockedTeam.abbr} · Round ${positionIndex + 1}/${inProgressRoundCount}`
+    : `Round ${positionIndex + 1}/${inProgressRoundCount}`;
 
   const [setupVisible, setSetupVisible] = useState(false);
-  const [pendingMode,  setPendingMode]  = useState<'daily' | 'classic' | 'iq' | 'timer'>('classic');
+  const [pendingMode,  setPendingMode]  = useState<'daily' | 'classic' | 'offense' | 'timer'>('classic');
 
-  function startGame(mode: 'daily' | 'classic' | 'iq' | 'timer') {
+  function startGame(mode: 'daily' | 'classic' | 'offense' | 'timer') {
     setPendingMode(mode);
     setSetupVisible(true);
   }
@@ -143,11 +144,11 @@ export function HomeScreen() {
                     onPress={() => startGame('classic')}
                   />
                   <ModeCard
-                    icon="brain"
-                    title="Gridiron IQ"
-                    description="Blind drafting — stats stay hidden until reveal."
-                    tag="stats off"
-                    onPress={() => startGame('iq')}
+                    icon="run-fast"
+                    title="Offense Only"
+                    description="9-slot offense-heavy roster — no defense at all."
+                    tag="9 rounds · no defense"
+                    onPress={() => startGame('offense')}
                   />
                   <ModeCard
                     icon="timer"
@@ -315,7 +316,7 @@ export function HomeScreen() {
                 />
               )}
               <CallSheetPill title="Classic" tag="stats on" onPress={() => startGame('classic')} />
-              <CallSheetPill title="Gridiron IQ" tag="stats off" onPress={() => startGame('iq')} />
+              <CallSheetPill title="Offense Only" tag="9 rounds · no defense" onPress={() => startGame('offense')} />
               <CallSheetPill
                 title="Two-Minute Drill"
                 tag="skill spin"
@@ -345,6 +346,7 @@ export function HomeScreen() {
       {/* ── GAME SETUP MODAL ─────────────────────────────────────────────── */}
       <GameSetupModal
         visible={setupVisible}
+        mode={pendingMode}
         onClose={() => setSetupVisible(false)}
         onStart={handleStartFromSetup}
       />

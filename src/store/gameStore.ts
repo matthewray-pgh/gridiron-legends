@@ -3,6 +3,7 @@ import {
   Player,
   Position,
   DRAFT_POSITIONS,
+  OFFENSE_ONLY_POSITIONS,
   GENERATED_ERA_OPTIONS,
   getAllPlayersForSpin,
   getPlayableSpinCombosForOpenPositions,
@@ -10,10 +11,25 @@ import {
 } from '../data/players';
 import { dailyRandom } from '../utils/seededRandom';
 
-export type GameMode = 'daily' | 'classic' | 'iq' | 'timer' | 'dynasty';
+// 'iq' (Gridiron IQ) is retired, replaced by 'offense' (Offense Only) —
+// docs/handoff/10-offense-only-mode.md. Gridiron IQ's hidden-stats premise
+// no longer holds once OVR is visible everywhere (docs/handoff/09-ovr-
+// visibility-reversal.md), so rather than inventing a new differentiator
+// the mode slot itself was replaced with a 9-slot offense-only roster.
+export type GameMode = 'daily' | 'classic' | 'offense' | 'timer' | 'dynasty';
 export type TeamScope = 'all' | 'single';
 export type SpinState = 'pre' | 'spinning' | 'revealed' | 'picked';
 export type LockResult = 'pending' | 'hit' | 'miss';
+
+// The active position/slot list for a draft session — every mode drafts
+// the standard 12-slot roster except Offense Only's 9 (data/players.ts).
+// Exported so screens that display round counts/labels (GameScreen,
+// SpinScreen, HomeScreen) stay in sync with whatever gameStore itself
+// actually uses for currentPosition/openPositions/assignPlayerToPosition
+// below, instead of each re-deriving or hardcoding DRAFT_POSITIONS.
+export function positionsForMode(mode: GameMode): Position[] {
+  return mode === 'offense' ? OFFENSE_ONLY_POSITIONS : DRAFT_POSITIONS;
+}
 
 // docs/handoff/02-spin-mechanic-and-two-minute-drill.md > DECISION NEEDED:
 // these bonus values are placeholders carried directly from the reference
@@ -83,7 +99,7 @@ function pickSpinResult(params: {
   const { mode, roundSalt, teamScope, selectedEras, lockedTeam, openPositions } = params;
   const eras = selectedEras.length > 0 ? selectedEras : ERA_OPTIONS;
 
-  const viableTeamAbbrs = getViableTeamAbbrs(FRANCHISES.map((franchise) => franchise.abbr), eras);
+  const viableTeamAbbrs = getViableTeamAbbrs(FRANCHISES.map((franchise) => franchise.abbr), eras, positionsForMode(mode));
   const availableTeams = teamScope === 'single'
     ? (lockedTeam
       ? [lockedTeam]
@@ -288,11 +304,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   currentPosition: () => {
-    const nextOpen = DRAFT_POSITIONS.find((position) => !get().roster[position]);
-    return nextOpen ?? DRAFT_POSITIONS[DRAFT_POSITIONS.length - 1];
+    const positions = positionsForMode(get().mode);
+    const nextOpen = positions.find((position) => !get().roster[position]);
+    return nextOpen ?? positions[positions.length - 1];
   },
 
-  openPositions: () => DRAFT_POSITIONS.filter((position) => !get().roster[position]),
+  openPositions: () => positionsForMode(get().mode).filter((position) => !get().roster[position]),
 
   currentCandidates: () => {
     const currentSpin = get().currentSpin;
@@ -322,7 +339,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   assignPlayerToPosition: (position) => {
-    const { roster, currentPlayer, openPositions, drillOvrBonusPending } = get();
+    const { mode, roster, currentPlayer, openPositions, drillOvrBonusPending } = get();
 
     if (!openPositions().includes(position)) return;
 
@@ -335,12 +352,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     // Two-Minute Drill era-lock bonus: a one-time OVR boost on this pick only.
     const boostedRating = drillOvrBonusPending > 0 ? player.rating + drillOvrBonusPending : player.rating;
     const nextRoster = { ...roster, [position]: { ...player, position, rating: boostedRating } };
-    const draftedCount = DRAFT_POSITIONS.filter((slot) => nextRoster[slot]).length;
-    const isComplete = draftedCount >= DRAFT_POSITIONS.length;
+    const activePositions = positionsForMode(mode);
+    const draftedCount = activePositions.filter((slot) => nextRoster[slot]).length;
+    const isComplete = draftedCount >= activePositions.length;
 
     set({
       roster: nextRoster,
-      positionIndex: Math.min(draftedCount, DRAFT_POSITIONS.length - 1),
+      positionIndex: Math.min(draftedCount, activePositions.length - 1),
       // playerIndex: 0, — disabled, see rollSpin() above: don't auto-select
       // the next round's top-rated candidate either.
       currentSpin: null,

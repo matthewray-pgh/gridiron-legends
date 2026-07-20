@@ -5,6 +5,7 @@ import { Colors, Font, Radius, Typography } from '../theme/colors';
 import { parseYear } from '../data/players';
 import { PackRarity } from '../data/packs';
 import { PackPullResult } from '../store/dynastyStore';
+import { SHOW_DEBUG_OVR } from '../config/featureFlags';
 
 const RARITY_LABEL: Record<PackRarity, string> = {
   common: 'COMMON', rare: 'RARE', elite: 'ELITE', legend: 'LEGEND',
@@ -34,10 +35,11 @@ interface PackPlayerCardProps {
 // CardStack.tsx's shuffled-deck reveal (data/packs.ts pulls PACK_CARD_COUNT
 // of these per pack). Selecting a non-duplicate card shrinks it slightly
 // and swaps its border to green with a checkmark overlay, confirmed with
-// the user as the "keep this card" signal. No OVR rating is shown anywhere
-// on the card (confirmed with the user) — name/team/year are the
-// prominent identity instead, with a placeholder shield icon standing in
-// for a player photo (no photo assets exist yet).
+// the user as the "keep this card" signal. name/team/year are the prominent
+// identity, with a placeholder shield icon standing in for a player photo
+// (no photo assets exist yet). OVR display (docs/handoff/09-ovr-visibility-
+// reversal.md) reverses the earlier "no OVR on this card" decision — gold,
+// inline after the name, behind SHOW_DEBUG_OVR like every other player row.
 export function PackPlayerCard({ card, selected = false, onPress, width = DEFAULT_WIDTH }: PackPlayerCardProps) {
   const scale = useRef(new Animated.Value(1)).current;
   const height = width * HEIGHT_RATIO;
@@ -82,7 +84,10 @@ export function PackPlayerCard({ card, selected = false, onPress, width = DEFAUL
         </View>
 
         <Text style={[styles.rarity, { color: rarityColor }]}>{RARITY_LABEL[card.rarity]}</Text>
-        <Text style={styles.name} numberOfLines={1}>{player.name}</Text>
+        <View style={styles.nameLine}>
+          <Text style={styles.name} numberOfLines={1}>{player.name}</Text>
+          {SHOW_DEBUG_OVR && <Text style={styles.debugOvr}>{player.rating}</Text>}
+        </View>
         <Text style={styles.meta}>{player.team} · {parseYear(player.years)}</Text>
         <View style={styles.positionBadge}>
           <Text style={styles.positionBadgeText}>{player.position}</Text>
@@ -109,7 +114,9 @@ const styles = StyleSheet.create({
   },
 
   rarity: { fontSize: Typography.base, fontFamily: Font.secondaryBold, letterSpacing: 1.5, marginBottom: 8, textAlign: 'center' },
-  name: { color: Colors.textPrimary, fontFamily: Font.primaryBold, fontSize: Typography['2xl'], textAlign: 'center' },
+  nameLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, maxWidth: '100%' },
+  name: { color: Colors.textPrimary, fontFamily: Font.primaryBold, fontSize: Typography['2xl'], textAlign: 'center', flexShrink: 1 },
+  debugOvr: { color: Colors.gold, fontFamily: Font.primaryBold, fontSize: Typography['3xl'] },
   meta: { color: Colors.textSecondary, fontSize: Typography.lg, marginTop: 4, textAlign: 'center', fontFamily: Font.secondaryMedium },
   positionBadge: {
     marginTop: 10, backgroundColor: Colors.bgCard, borderRadius: Radius.sm,

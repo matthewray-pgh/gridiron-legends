@@ -10,6 +10,7 @@ import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { GameMode, useGameStore } from '../store/gameStore';
 import { useStatsStore } from '../store/statsStore';
 import { TODO_BALANCE_RINGS_SOURCES, useDynastyStore } from '../store/dynastyStore';
+import { SHOW_DEBUG_OVR } from '../config/featureFlags';
 import { useResponsive } from '../hooks/useResponsive';
 import { dailyRandom } from '../utils/seededRandom';
 import { TOTAL_SEASON_GAMES, simulateSeasonResults } from '../utils/seasonSim';
@@ -169,6 +170,7 @@ export function ResultScreen() {
           <View style={styles.rosterLeft}>
             <Text style={styles.rosterPos}>{pos}</Text>
             <Text style={styles.rosterName}>{player?.name}</Text>
+            {SHOW_DEBUG_OVR && player && <Text style={styles.debugOvr}>{player.rating}</Text>}
           </View>
           {player && <Text style={styles.rosterOvr}>{player.rating} OVR</Text>}
         </View>
@@ -343,6 +345,7 @@ const styles = StyleSheet.create({
   rosterLeft: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   rosterPos: { fontSize: Typography.xs, color: Colors.textDim, minWidth: 36, fontFamily: Font.secondarySemiBold },
   rosterName: { fontSize: Typography.base, color: Colors.textPrimary, fontFamily: Font.secondaryMedium },
+  debugOvr: { fontSize: Typography.md, color: Colors.gold, fontFamily: Font.primaryBold },
   rosterOvr: { fontSize: Typography.sm, color: Colors.gold, fontFamily: Font.secondarySemiBold },
   simSoonText: {
     fontSize: Typography.sm, color: Colors.textMuted, fontFamily: Font.secondaryRegular,

@@ -5,8 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
-import { ERA_OPTIONS, FRANCHISES, useGameStore } from '../store/gameStore';
-import { DRAFT_POSITIONS } from '../data/players';
+import { ERA_OPTIONS, FRANCHISES, positionsForMode, useGameStore } from '../store/gameStore';
 import { SpinCard, ChamferButtonBackground } from '../components/SpinOrnaments';
 import { useResponsive } from '../hooks/useResponsive';
 import type { RootStackParamList } from '../navigation/types';
@@ -17,6 +16,7 @@ export function SpinScreen() {
   const navigation = useNavigation<Nav>();
   const { isWide } = useResponsive();
   const {
+    mode,
     positionIndex,
     currentSpin,
     rollSpin,
@@ -32,10 +32,15 @@ export function SpinScreen() {
   const teamReel = useRef(new Animated.Value(0)).current;
   const eraReel = useRef(new Animated.Value(0)).current;
 
-  const roundLabel = `ROUND ${positionIndex + 1}/${DRAFT_POSITIONS.length}`;
+  const activePositions = positionsForMode(mode);
+  const roundLabel = `ROUND ${positionIndex + 1}/${activePositions.length}`;
+  // Offense Only's 9 slots are all offense, no phase split — every other
+  // mode keeps the original two-phase split (first 6 rounds offense, next
+  // 6 defense).
   const roundPositionType = useMemo(() => {
+    if (mode === 'offense') return 'OFFENSE';
     return positionIndex <= 5 ? 'OFFENSE' : 'DEFENSE';
-  }, [positionIndex]);
+  }, [mode, positionIndex]);
 
   const canAdvance = spinState === 'revealed' && currentSpin;
   const teamDisplay = useMemo(() => {

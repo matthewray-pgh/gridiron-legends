@@ -6,6 +6,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { TIER_COLORS } from '../data/players';
 import { useDynastyStore } from '../store/dynastyStore';
+import { SHOW_DEBUG_OVR } from '../config/featureFlags';
 import { BrandBackground } from '../components/BrandBackground';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -33,7 +34,10 @@ export function HallOfFameScreen() {
           hallOfFame.map((entry, i) => (
             <View key={`${entry.player.id}-${i}`} style={styles.row}>
               <View style={styles.rowLeft}>
-                <Text style={styles.name}>{entry.player.name}</Text>
+                <View style={styles.nameLine}>
+                  <Text style={styles.name}>{entry.player.name}</Text>
+                  {SHOW_DEBUG_OVR && <Text style={styles.debugOvr}>{entry.player.rating}</Text>}
+                </View>
                 <Text style={styles.sub}>{entry.player.position} · Retired season {entry.retiredAtSeason} · {entry.careerRecord}</Text>
               </View>
               <View style={[styles.tierBadge, { backgroundColor: TIER_COLORS[entry.player.tier].bg }]}>
@@ -68,7 +72,9 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg, padding: 12, marginBottom: 8,
   },
   rowLeft: { flex: 1 },
+  nameLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   name: { color: Colors.textPrimary, fontSize: Typography.lg, fontFamily: Font.primarySemiBold },
+  debugOvr: { color: Colors.gold, fontSize: Typography.xl, fontFamily: Font.primaryBold },
   sub: { color: Colors.textMuted, fontSize: Typography.sm, fontFamily: Font.secondaryRegular, marginTop: 2 },
   tierBadge: { borderRadius: Radius.sm, paddingHorizontal: 8, paddingVertical: 4 },
   tierText: { fontSize: Typography.md, fontFamily: Font.secondaryBold },
