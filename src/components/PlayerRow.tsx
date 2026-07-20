@@ -6,6 +6,13 @@ interface PlayerRowProps {
   position: string;
   name: string;
   meta: string;
+  // Temporary, testing-only (docs/handoff/09-ovr-visibility-reversal.md) —
+  // gold, inline after the name, one Typography step larger. Callers gate
+  // this behind SHOW_DEBUG_OVR themselves (pass undefined when off) rather
+  // than PlayerRow checking the flag itself, matching how `right` content
+  // like PlayerRowStats is already toggled per-caller (e.g. GameScreen's
+  // `showStats`).
+  ovr?: number;
   selected?: boolean;
   onPress?: () => void;
   // Arbitrary right-side content — stat chips on GameScreen's draft list,
@@ -21,7 +28,7 @@ interface PlayerRowProps {
 // the left, `right` slot for whatever the caller needs. Not pressable when
 // `onPress` is omitted (Dynasty's rows put their own buttons in `right`
 // instead of making the whole row tappable).
-export function PlayerRow({ position, name, meta, selected, onPress, right, style }: PlayerRowProps) {
+export function PlayerRow({ position, name, meta, ovr, selected, onPress, right, style }: PlayerRowProps) {
   return (
     <TouchableOpacity
       style={[styles.rowCard, selected && styles.rowCardSelected, style]}
@@ -34,7 +41,10 @@ export function PlayerRow({ position, name, meta, selected, onPress, right, styl
           <Text style={styles.posBadgeText} numberOfLines={1}>{position}</Text>
         </View>
         <View style={styles.nameWrap}>
-          <Text style={styles.playerName} numberOfLines={1}>{name}</Text>
+          <View style={styles.nameLine}>
+            <Text style={styles.playerName} numberOfLines={1}>{name}</Text>
+            {ovr != null && <Text style={styles.debugOvr}>{ovr}</Text>}
+          </View>
           <Text style={styles.playerMeta} numberOfLines={1}>{meta}</Text>
         </View>
       </View>
@@ -65,6 +75,12 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   nameWrap: { flexShrink: 1 },
+  nameLine: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  debugOvr: {
+    color: Colors.gold,
+    fontSize: Typography['2xl'],
+    fontFamily: Font.primaryBold,
+  },
   posBadge: {
     backgroundColor: Colors.bgCard,
     borderRadius: Radius.sm,
@@ -85,6 +101,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: Typography.xl,
     fontFamily: Font.primaryBold,
+    flexShrink: 1,
   },
   playerMeta: {
     color: Colors.textDim,

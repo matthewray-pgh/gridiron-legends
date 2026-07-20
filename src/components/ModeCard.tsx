@@ -15,7 +15,7 @@ interface ModeCardProps {
 // Wide-viewport grid card (doc 04 point 3) — richer than the narrow
 // <CallSheetPill>, with room for a one-line description. Not a replacement
 // for CallSheetPill, which mobile keeps using. Sized for 3 side-by-side
-// (Classic / Gridiron IQ / Two-Minute Drill, with Challenge currently
+// (Classic / Offense Only / Two-Minute Drill, with Challenge currently
 // pulled per LEADERBOARD_ENABLED) — flexBasis leaves headroom for the
 // modeGrid gap the same way the old 2-column '48%' did, so re-enabling a
 // 4th card wraps to 2+2 instead of breaking the row.

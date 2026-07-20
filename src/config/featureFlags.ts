@@ -11,6 +11,14 @@ export const DYNASTY_ENABLED = true;
 // AppShell header shortcut all at once — that's every entry point.
 export const LEADERBOARD_ENABLED = false;
 
+// Temporary, testing-only (docs/handoff/09-ovr-visibility-reversal.md) —
+// gold OVR shown inline after every player name, everywhere. Gates the
+// *display* only: candidate lists sort by year-then-name regardless of this
+// flag (that's a permanent rule, not a testing aid — see data/players.ts
+// sortRecords and GameScreen.tsx's groupedCandidates). Flip to `false` (or
+// delete the display code) before launch.
+export const SHOW_DEBUG_OVR = true;
+
 // Hall of Fame (retired-player shelf) — pulled from the UI for now while
 // Dynasty's roster-management flow settles, confirmed with the user, not
 // deleted: HallOfFameScreen.tsx, dynastyStore's `hallOfFame` data (still

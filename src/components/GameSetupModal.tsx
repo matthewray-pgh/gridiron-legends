@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, Pressable } from 'react-native';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { getViableTeamAbbrs } from '../data/players';
-import { ERA_OPTIONS, EraToken, TeamScope } from '../store/gameStore';
+import { ERA_OPTIONS, EraToken, GameMode, positionsForMode, TeamScope } from '../store/gameStore';
 import { SegmentedControl } from './SegmentedControl';
 import { SelectablePill } from './SelectablePill';
 import { BrandBackground } from './BrandBackground';
@@ -13,19 +13,25 @@ const VIABLE_TEAM_ABBRS = ['PIT', 'DAL', 'NE', 'SF', 'GB', 'BAL', 'MIA', 'KC', '
 
 interface GameSetupModalProps {
   visible: boolean;
+  // Which position list the "one team" viability check should run against
+  // — Offense Only's 9 offense-only slots are easier for a team/era to
+  // cover than the standard 12, so this must match whatever mode is about
+  // to launch (see positionsForMode in gameStore.ts) rather than always
+  // assuming the full 12-slot roster.
+  mode: GameMode;
   onClose: () => void;
   onStart: (params: { teamScope: TeamScope; selectedEras: EraToken[] }) => void;
 }
 
 // The team-scope + era picker every Spin/Draft entry point uses (Classic,
-// Gridiron IQ, Two-Minute Drill, Daily, and Dynasty's one-time initial
+// Offense Only, Two-Minute Drill, Daily, and Dynasty's one-time initial
 // draft) — extracted from HomeScreen so DynastyHomeScreen can launch the
 // same flow directly instead of forking a second setup sheet.
-export function GameSetupModal({ visible, onClose, onStart }: GameSetupModalProps) {
+export function GameSetupModal({ visible, mode, onClose, onStart }: GameSetupModalProps) {
   const [teamScope, setTeamScope] = useState<TeamScope>('all');
   const [selectedEras, setSelectedEras] = useState<EraToken[]>(ERA_OPTIONS);
 
-  const viableSingleTeamCount = getViableTeamAbbrs(VIABLE_TEAM_ABBRS, selectedEras).length;
+  const viableSingleTeamCount = getViableTeamAbbrs(VIABLE_TEAM_ABBRS, selectedEras, positionsForMode(mode)).length;
   const canStart = selectedEras.length > 0 && (teamScope === 'all' || viableSingleTeamCount > 0);
 
   function toggleEra(era: EraToken) {

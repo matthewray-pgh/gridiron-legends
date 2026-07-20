@@ -7,6 +7,7 @@ import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { PACK_CARD_COUNT, PACK_TIERS } from '../data/packs';
 import { DRAFT_POSITIONS, parseYear } from '../data/players';
 import { BENCH_CAPACITY, PackPlacement, PackPullResult, PackResolution, useDynastyStore } from '../store/dynastyStore';
+import { SHOW_DEBUG_OVR } from '../config/featureFlags';
 import { PlayerRow } from '../components/PlayerRow';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { SecondaryButton } from '../components/SecondaryButton';
@@ -181,6 +182,7 @@ export function PackOpeningScreen() {
                     position={pos}
                     name={starter.name}
                     meta={`${starter.team} · ${parseYear(starter.years)}`}
+                    ovr={SHOW_DEBUG_OVR ? starter.rating : undefined}
                     style={styles.rosterRefRow}
                     right={<Text style={styles.rosterRefOvr}>{starter.rating} OVR</Text>}
                   />
@@ -199,6 +201,7 @@ export function PackOpeningScreen() {
                     position={player.position}
                     name={player.name}
                     meta={`${player.team} · ${parseYear(player.years)}`}
+                    ovr={SHOW_DEBUG_OVR ? player.rating : undefined}
                     style={styles.rosterRefRow}
                     right={<Text style={styles.rosterRefOvr}>{player.rating} OVR</Text>}
                   />

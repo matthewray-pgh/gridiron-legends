@@ -13,7 +13,13 @@ export interface Player {
   eligiblePositions?: Position[];
 }
 
-export type Position = 'QB' | 'RB' | 'WR' | 'TE' | 'FLEX' | 'FLEX2' | 'EDGE' | 'DT' | 'LB' | 'CB' | 'S' | 'D-FLEX';
+// QB2/RB2/WR2 (docs/handoff/10-offense-only-mode.md) — the second slot of
+// Offense Only's duplicate-position pairs, named after the existing
+// FLEX/FLEX2 precedent (bare name + "2", not a QB1/QB2 rename of the
+// existing singular slots) rather than renaming QB/RB/WR everywhere.
+export type Position =
+  | 'QB' | 'QB2' | 'RB' | 'RB2' | 'WR' | 'WR2' | 'TE' | 'FLEX' | 'FLEX2'
+  | 'EDGE' | 'DT' | 'LB' | 'CB' | 'S' | 'D-FLEX';
 
 type GeneratedPosition =
   | 'QB'
@@ -92,10 +98,21 @@ export const DRAFT_POSITIONS: Position[] = [
   'QB', 'RB', 'WR', 'TE', 'FLEX', 'FLEX2', 'EDGE', 'DT', 'LB', 'CB', 'S', 'D-FLEX',
 ];
 
+// docs/handoff/10-offense-only-mode.md — 9-slot offense-heavy roster for
+// Offense Only mode (gameStore.ts's positionsForMode), no defensive
+// positions at all. FLEX/FLEX2 stay RB/WR/TE-only per the doc's
+// recommendation, not widened to include QB2/RB2/WR2.
+export const OFFENSE_ONLY_POSITIONS: Position[] = [
+  'QB', 'QB2', 'RB', 'RB2', 'WR', 'WR2', 'TE', 'FLEX', 'FLEX2',
+];
+
 const GENERATED_POSITION_MAP: Record<Position, GeneratedPosition[]> = {
   QB: ['QB'],
+  QB2: ['QB'],
   RB: ['RB'],
+  RB2: ['RB'],
   WR: ['WR'],
+  WR2: ['WR'],
   TE: ['TE'],
   FLEX: ['RB', 'WR', 'TE'],
   FLEX2: ['RB', 'WR', 'TE'],
@@ -251,14 +268,16 @@ function toPlayerWithEligiblePositions(
   };
 }
 
+// docs/handoff/09-ovr-visibility-reversal.md section 2: year ascending
+// (oldest season first), then alphabetical by name — every mode, no
+// exceptions, and OVR is never a sort key. Replaces the previous
+// rating-descending order (that plan is dead per the doc, not just
+// unimplemented — this was actually live).
 function sortRecords(a: GeneratedPlayerRecord, b: GeneratedPlayerRecord): number {
-  const ratingDiff = (b.ratings?.overall ?? 40) - (a.ratings?.overall ?? 40);
-  if (ratingDiff !== 0) return ratingDiff;
+  const seasonDiff = a.bestSeason - b.bestSeason;
+  if (seasonDiff !== 0) return seasonDiff;
 
-  const namedDiff = Number(Boolean(b.name)) - Number(Boolean(a.name));
-  if (namedDiff !== 0) return namedDiff;
-
-  return b.bestSeason - a.bestSeason;
+  return (a.name ?? '').localeCompare(b.name ?? '');
 }
 
 export function getPlayersForSpin(
@@ -325,8 +344,13 @@ export function getPlayableSpinCombosForOpenPositions(
     .map((era) => ({ teamAbbr, era })));
 }
 
-export function getViableTeamAbbrs(teamAbbrs: string[], eras: string[]): string[] {
-  return teamAbbrs.filter((teamAbbr) => DRAFT_POSITIONS.every((draftPosition) => {
+// `positions` defaults to the standard 12-slot roster — pass
+// OFFENSE_ONLY_POSITIONS for Offense Only's team-lock viability check
+// (gameStore.ts/GameSetupModal.tsx), otherwise a team lacking any
+// defensive-position record for a team/era would wrongly read as
+// "not viable" for a mode that never needs a defensive pick at all.
+export function getViableTeamAbbrs(teamAbbrs: string[], eras: string[], positions: Position[] = DRAFT_POSITIONS): string[] {
+  return teamAbbrs.filter((teamAbbr) => positions.every((draftPosition) => {
     return eras.some((era) => hasPlayersForSpin(draftPosition, teamAbbr, era));
   }));
 }

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Colors, Spacing, Typography, Font } from '../theme/colors';
 import { DRAFT_POSITIONS, Player, Position, parseYear } from '../data/players';
 import { BENCH_CAPACITY, DynastyRoster, useDynastyStore } from '../store/dynastyStore';
+import { SHOW_DEBUG_OVR } from '../config/featureFlags';
 import { getRowStatMetrics } from '../utils/statMetrics';
 import { PlayerRow } from './PlayerRow';
 import { PlayerRowStats } from './PlayerRowStats';
@@ -170,6 +171,7 @@ export function RosterList({ editor }: { editor: RosterEditor }) {
             position={pos}
             name={starter.name}
             meta={`${starter.team} · ${parseYear(starter.years)}`}
+            ovr={SHOW_DEBUG_OVR ? starter.rating : undefined}
             style={styles.rosterRow}
             selected={selected?.kind === 'starter' && selected.position === pos}
             onPress={() => setSelected({ player: starter, kind: 'starter', position: pos })}
@@ -200,6 +202,7 @@ export function RosterList({ editor }: { editor: RosterEditor }) {
               position={player.position}
               name={player.name}
               meta={`${player.team} · ${parseYear(player.years)}`}
+              ovr={SHOW_DEBUG_OVR ? player.rating : undefined}
               style={styles.rosterRow}
               selected={selected?.kind === 'bench' && selected.player.id === player.id}
               onPress={() => setSelected({ player, kind: 'bench' })}

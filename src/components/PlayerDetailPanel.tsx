@@ -36,15 +36,16 @@ interface PlayerDetailPanelProps {
   // is currently disabled (no bench/roster replacement for the slot).
   actionsNote?: string;
   onClose?: () => void;
-  // docs/handoff/05-game-loop-bugfixes.md P1 (resolved): OVR is never shown
-  // by default here (it's gated behind the Dynasty-only Scouting Report
-  // perk, which doesn't reach this draft-screen panel). Gridiron IQ
-  // ("stats hidden") additionally hides the whole box-score breakdown —
-  // name/team/years only.
-  hideStats?: boolean;
+  // Temporary, testing-only (docs/handoff/09-ovr-visibility-reversal.md) —
+  // gold, inline after the name, one Typography step larger. Caller-gated
+  // behind SHOW_DEBUG_OVR (pass undefined when off), same convention as
+  // PlayerRow's `ovr` prop. Stats are no longer hidden in any mode (that
+  // was Gridiron IQ's doing — retired, see docs/handoff/10-offense-only-
+  // mode.md), so there's no more hideStats prop here.
+  ovr?: number;
 }
 
-export function PlayerDetailPanel({ player, fallbackStatMetrics, quickAssignSlots, onAssign, actions, actionsNote, onClose, hideStats = false }: PlayerDetailPanelProps) {
+export function PlayerDetailPanel({ player, fallbackStatMetrics, quickAssignSlots, onAssign, actions, actionsNote, onClose, ovr }: PlayerDetailPanelProps) {
   if (!player) {
     return (
       <View style={styles.emptyWrap}>
@@ -64,7 +65,10 @@ export function PlayerDetailPanel({ player, fallbackStatMetrics, quickAssignSlot
 
       <View style={styles.headerRow}>
         <View style={styles.titleWrap}>
-          <Text style={styles.name}>{player.name}</Text>
+          <View style={styles.nameLine}>
+            <Text style={styles.name}>{player.name}</Text>
+            {ovr != null && <Text style={styles.debugOvr}>{ovr}</Text>}
+          </View>
           <Text style={styles.meta}>
             {player.team} · {parseYear(player.years)}
           </Text>
@@ -74,33 +78,31 @@ export function PlayerDetailPanel({ player, fallbackStatMetrics, quickAssignSlot
         </View>
       </View>
 
-      {!hideStats && (
-        <View style={styles.statsBox}>
-          <Text style={styles.statsLabel}>STATS</Text>
-          <View style={styles.statGrid}>
-            {fallbackStatMetrics.map((metric, index) => {
-              const isLastCol = (index + 1) % STAT_GRID_COLS === 0 || index === fallbackStatMetrics.length - 1;
-              const isLastRow = Math.floor(index / STAT_GRID_COLS) === rowCount - 1;
-              return (
-                <View
-                  key={metric.key}
-                  style={[
-                    styles.statItem,
-                    !isLastCol && styles.statItemDividerRight,
-                    !isLastRow && styles.statItemDividerBottom,
-                  ]}
-                >
-                  <Text style={styles.statValue}>{metric.value}</Text>
-                  <Text style={styles.statLabel}>{metric.label}</Text>
-                </View>
-              );
-            })}
-            {fallbackStatMetrics.length === 0 && (
-              <Text style={styles.statsEmptyText}>No stat breakdown available.</Text>
-            )}
-          </View>
+      <View style={styles.statsBox}>
+        <Text style={styles.statsLabel}>STATS</Text>
+        <View style={styles.statGrid}>
+          {fallbackStatMetrics.map((metric, index) => {
+            const isLastCol = (index + 1) % STAT_GRID_COLS === 0 || index === fallbackStatMetrics.length - 1;
+            const isLastRow = Math.floor(index / STAT_GRID_COLS) === rowCount - 1;
+            return (
+              <View
+                key={metric.key}
+                style={[
+                  styles.statItem,
+                  !isLastCol && styles.statItemDividerRight,
+                  !isLastRow && styles.statItemDividerBottom,
+                ]}
+              >
+                <Text style={styles.statValue}>{metric.value}</Text>
+                <Text style={styles.statLabel}>{metric.label}</Text>
+              </View>
+            );
+          })}
+          {fallbackStatMetrics.length === 0 && (
+            <Text style={styles.statsEmptyText}>No stat breakdown available.</Text>
+          )}
         </View>
-      )}
+      </View>
 
       {quickAssignSlots ? (
         <View style={styles.quickAssignWrap}>
@@ -192,9 +194,16 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   titleWrap: { flexShrink: 1 },
+  nameLine: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 },
   name: {
     color: Colors.textPrimary,
     fontSize: Typography['3xl'],
+    fontFamily: Font.primaryBold,
+    flexShrink: 1,
+  },
+  debugOvr: {
+    color: Colors.gold,
+    fontSize: Typography['4xl'],
     fontFamily: Font.primaryBold,
   },
   meta: {
