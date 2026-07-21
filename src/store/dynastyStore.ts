@@ -24,7 +24,7 @@ import {
   pullPlayerPack, PackPlayer, PackRarity, PackTierId, PACK_TIERS,
   TODO_BALANCE_DUPE_REFUND_RINGS, TODO_BALANCE_ERA_LOCK_SURCHARGE_RINGS,
 } from '../data/packs';
-import { todaySeedBase } from '../utils/seededRandom';
+import { isNextConsecutiveDay, todaySeedBase } from '../utils/seededRandom';
 
 export type DynastyRoster = Partial<Record<Position, Player>>;
 
@@ -94,6 +94,63 @@ export const BENCH_CAPACITY = 6;
 // (data/packs.ts), so this is packs, not individual cards.
 export const TODO_BALANCE_SEASON_END_PACKS = 1;
 
+// docs/handoff/13-ad-monetization-economy.md, section 3 — the season-end
+// pack's count stays TODO_BALANCE_SEASON_END_PACKS (1) always; watching the
+// ad only upgrades that same pack's tier, never adds a second pack (so this
+// can't double as a quantity-inflation lever on top of
+// TODO_BALANCE_INITIAL_DRAFT_BONUS_PACKS). No ad path to Legend from this
+// placement — top tier stays reserved for milestone/HOF-retirement
+// progression so it doesn't feel ad-farmable once per season.
+export const TODO_BALANCE_SEASON_END_PACK_TIER = {
+  base: 'rookie',
+  adUpgrade: 'pro',
+} satisfies Record<'base' | 'adUpgrade', PackTierId>;
+
+// docs/handoff/13-ad-monetization-economy.md, section 1 — Shop's always-
+// available "Watch an ad for Rings" button. Reward scales on a daily
+// watch streak rather than a flat per-watch amount. Two open questions the
+// doc left undecided are resolved here as the simplest options (both
+// explicitly "not decided" in the doc, confirmed with the user for this
+// pass): a missed calendar day fully resets the streak to Day 1 rather than
+// a softer partial rollback, and the Day 7+ reward holds flat forever
+// rather than creeping upward — either alternative needs an extra invented
+// number (how many tiers to roll back, or a creep rate/ceiling) that
+// nothing in the doc specifies. Proposed values, not confirmed game
+// balance — product sign-off still needed before real use.
+export const TODO_BALANCE_SHOP_AD_STREAK_RINGS = {
+  day1: 15,
+  day2: 25,
+  day3: 35,
+  day4: 50,
+  day5: 65,
+  day6: 80,
+  day7Plus: 100,
+} as const;
+
+export const TODO_BALANCE_SHOP_AD_MAX_WATCHES_PER_DAY = 3;
+
+function shopAdStreakRingsForDay(streakDay: number): number {
+  const table = TODO_BALANCE_SHOP_AD_STREAK_RINGS;
+  if (streakDay <= 1) return table.day1;
+  if (streakDay === 2) return table.day2;
+  if (streakDay === 3) return table.day3;
+  if (streakDay === 4) return table.day4;
+  if (streakDay === 5) return table.day5;
+  if (streakDay === 6) return table.day6;
+  return table.day7Plus;
+}
+
+// Shared by watchShopAdForRings() and computeShopAdPreview() so the "what
+// happens if I watch right now" preview the Shop UI shows before the watch
+// can't drift from what actually happens on watch. Same-day repeat watches
+// don't advance the streak (only the first watch of a new calendar day
+// does); a gap of more than one calendar day resets to Day 1.
+function nextShopAdStreakDay(lastWatchDate: number | null, streakDay: number, today: number): number {
+  if (lastWatchDate === today) return streakDay;
+  if (lastWatchDate !== null && isNextConsecutiveDay(lastWatchDate, today)) return streakDay + 1;
+  return 1;
+}
+
 // Confirmed with the user: completing the one-time initial draft awards
 // more packs than a normal season-end (2 vs. 1) since the fresh 12-player
 // roster has no bench depth at all yet and packs are the only way to build
@@ -115,6 +172,13 @@ interface DynastyState {
   hallOfFame: HallOfFameEntry[];
   ownedPacks: OwnedPack[];
   lastDailyClaimDate: number | null;
+  // Shop ad-streak (docs/handoff/13, section 1). lastShopAdWatchDate +
+  // shopAdWatchesToday gate the per-day watch cap; shopAdStreakDay is the
+  // TODO_BALANCE_SHOP_AD_STREAK_RINGS lookup, reset to 1 whenever a
+  // calendar day is skipped between watches.
+  shopAdStreakDay: number;
+  lastShopAdWatchDate: number | null;
+  shopAdWatchesToday: number;
 
   earnRings: (amount: number, source: string) => void;
   // eraLock adds TODO_BALANCE_ERA_LOCK_SURCHARGE_RINGS to the tier's base
@@ -137,7 +201,10 @@ interface DynastyState {
   // for "Start season N" as it does for the initial draft (confirmed with
   // the user), computing `results` itself from the current roster and
   // handing them here rather than this store simulating a second time.
-  applyNextSeasonResults: (results: boolean[]) => void;
+  // `packTierId` defaults to TODO_BALANCE_SEASON_END_PACK_TIER.base (Rookie)
+  // — ResultScreen passes the ad-upgrade tier explicitly once the player has
+  // made that choice (docs/handoff/13, section 3).
+  applyNextSeasonResults: (results: boolean[], packTierId?: PackTierId) => void;
   // Bench management (docs/handoff/08, point 3) — the Roster tab
   // (RosterManager.tsx) is a staged editor: every Bench/Start/Retire/
   // Release action there only mutates local component state, and this is
@@ -158,6 +225,13 @@ interface DynastyState {
   // re-minting Rings for an identical (seeded) result. Returns true the
   // first time it's called on a given calendar day, false on any repeat.
   claimDailyChallenge: () => boolean;
+  // Shop's "watch an ad for Rings" button (docs/handoff/13, section 1).
+  // Caller is responsible for checking computeShopAdPreview()'s
+  // watchesRemainingToday before invoking this (that's what the button's
+  // disabled state is driven by) — this only re-derives the same gate
+  // itself and returns 0 (no-op) if it's somehow called past the cap.
+  // Returns the Rings amount actually earned.
+  watchShopAdForRings: () => number;
   // Wipes all Dynasty progress back to a fresh save (Season 1, no roster,
   // no Rings). Dev/testing affordance for now — see DynastyHomeScreen's
   // __DEV__-gated button — there's no player-facing confirmation UX yet.
@@ -173,7 +247,28 @@ const INITIAL_DYNASTY_STATE: PersistedDynastyState = {
   hallOfFame: [],
   ownedPacks: [],
   lastDailyClaimDate: null,
+  shopAdStreakDay: 0,
+  lastShopAdWatchDate: null,
+  shopAdWatchesToday: 0,
 };
+
+// Pure preview of what watchShopAdForRings() would do right now, without
+// mutating anything — the Shop button needs this to show "Day N · +R
+// Rings" and disable itself once the daily cap is hit, before the player
+// commits to watching.
+export function computeShopAdPreview(
+  state: Pick<DynastyState, 'lastShopAdWatchDate' | 'shopAdStreakDay' | 'shopAdWatchesToday'>,
+): { watchesRemainingToday: number; nextStreakDay: number; nextReward: number } {
+  const today = todaySeedBase();
+  const isNewDay = state.lastShopAdWatchDate !== today;
+  const watchesToday = isNewDay ? 0 : state.shopAdWatchesToday;
+  const nextStreakDay = nextShopAdStreakDay(state.lastShopAdWatchDate, state.shopAdStreakDay, today);
+  return {
+    watchesRemainingToday: Math.max(0, TODO_BALANCE_SHOP_AD_MAX_WATCHES_PER_DAY - watchesToday),
+    nextStreakDay,
+    nextReward: shopAdStreakRingsForDay(nextStreakDay),
+  };
+}
 
 function toRosterPlayer(packPlayer: PackPlayer): Player {
   return {
@@ -221,14 +316,18 @@ function applySeasonOutcome(
   results: boolean[],
   packAward: number = TODO_BALANCE_SEASON_END_PACKS,
   packSource: PackSource = 'season_reward',
+  packTierId: PackTierId = TODO_BALANCE_SEASON_END_PACK_TIER.base,
 ): Pick<DynastyState, 'allTimeRecord' | 'currentSeason' | 'ownedPacks'> {
   const wins = results.filter(Boolean).length;
   const losses = results.length - wins;
   const nextSeason = state.currentSeason + 1;
-  // Season-end and initial-draft-bonus packs are always Rookie tier, never
-  // era-locked — higher tiers and era locks are ring purchases only, not a
-  // reward source (yet).
-  const newPacks = Array.from({ length: packAward }, () => makeOwnedPack('rookie', nextSeason, packSource));
+  // Season-end packs default to Rookie tier; ResultScreen passes
+  // TODO_BALANCE_SEASON_END_PACK_TIER.adUpgrade instead once the player
+  // watches the ad (docs/handoff/13, section 3). Draft-bonus packs
+  // (completeInitialDraft) never pass a tier override, so they stay Rookie
+  // always. Never era-locked either way — higher tiers and era locks are
+  // ring purchases only, not a reward source (yet).
+  const newPacks = Array.from({ length: packAward }, () => makeOwnedPack(packTierId, nextSeason, packSource));
 
   return {
     allTimeRecord: {
@@ -271,12 +370,13 @@ type PersistedDynastyState = Omit<
   DynastyState,
   | 'earnRings' | 'buyPack' | 'openPack'
   | 'applyNextSeasonResults' | 'claimDailyChallenge' | 'resetDynasty' | 'completeInitialDraft'
-  | 'commitLineup' | 'resolvePackPulls'
+  | 'commitLineup' | 'resolvePackPulls' | 'watchShopAdForRings'
 >;
 
 const PERSISTED_KEYS: (keyof PersistedDynastyState)[] = [
   'rings', 'allTimeRecord', 'currentSeason', 'roster', 'bench',
   'hallOfFame', 'ownedPacks', 'lastDailyClaimDate',
+  'shopAdStreakDay', 'lastShopAdWatchDate', 'shopAdWatchesToday',
 ];
 
 function pickPersistedState(state: DynastyState): PersistedDynastyState {
@@ -303,6 +403,25 @@ export const useDynastyStore = create<DynastyState>()(
         if (get().lastDailyClaimDate === today) return false;
         set({ lastDailyClaimDate: today });
         return true;
+      },
+
+      watchShopAdForRings: () => {
+        const { lastShopAdWatchDate, shopAdStreakDay, shopAdWatchesToday, rings } = get();
+        const today = todaySeedBase();
+        const isNewDay = lastShopAdWatchDate !== today;
+        const watchesToday = isNewDay ? 0 : shopAdWatchesToday;
+        if (watchesToday >= TODO_BALANCE_SHOP_AD_MAX_WATCHES_PER_DAY) return 0;
+
+        const nextStreakDay = nextShopAdStreakDay(lastShopAdWatchDate, shopAdStreakDay, today);
+        const reward = shopAdStreakRingsForDay(nextStreakDay);
+
+        set({
+          rings: rings + reward,
+          lastShopAdWatchDate: today,
+          shopAdWatchesToday: watchesToday + 1,
+          shopAdStreakDay: nextStreakDay,
+        });
+        return reward;
       },
 
       buyPack: (tierId, eraLock) => {
@@ -349,8 +468,8 @@ export const useDynastyStore = create<DynastyState>()(
 
       // Pure-accumulation model (confirmed): the roster carries over
       // completely untouched — this never touches `roster`/`bench`.
-      applyNextSeasonResults: (results) => {
-        set((s) => applySeasonOutcome(s, results));
+      applyNextSeasonResults: (results, packTierId) => {
+        set((s) => applySeasonOutcome(s, results, undefined, undefined, packTierId));
       },
 
       commitLineup: (roster, bench, retiredPlayers) => {

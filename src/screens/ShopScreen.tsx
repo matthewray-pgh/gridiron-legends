@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Modal, Pressable, StyleProp, ViewStyle } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, StyleProp, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -9,7 +9,10 @@ import {
   PackRarity, PackTier, PackTierId, TODO_BALANCE_ERA_LOCK_SURCHARGE_RINGS,
 } from '../data/packs';
 import { GENERATED_ERA_OPTIONS, GeneratedEra } from '../data/players';
-import { OwnedPack, PackSource, totalOwnedPacks, useDynastyStore } from '../store/dynastyStore';
+import {
+  computeShopAdPreview, OwnedPack, PackSource, TODO_BALANCE_SHOP_AD_MAX_WATCHES_PER_DAY, totalOwnedPacks, useDynastyStore,
+} from '../store/dynastyStore';
+import { SHOP_AD_RINGS_ENABLED } from '../config/featureFlags';
 import { RARITY_COLOR } from '../components/PackPlayerCard';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { SelectablePill } from '../components/SelectablePill';
@@ -17,6 +20,9 @@ import { PrimaryButton } from '../components/PrimaryButton';
 import { SecondaryButton } from '../components/SecondaryButton';
 import { BrandBackground } from '../components/BrandBackground';
 import { FieldFooterBand } from '../components/FieldFooterBand';
+import { PackOddsSheet } from '../components/PackOddsSheet';
+import { RewardedAdModal } from '../components/RewardedAdModal';
+import { useRewardedAd } from '../hooks/useRewardedAd';
 import { useResponsive } from '../hooks/useResponsive';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -39,20 +45,6 @@ function totalCost(tier: PackTier, eraLock: GeneratedEra | null): number {
   return tier.cost + (eraLock ? TODO_BALANCE_ERA_LOCK_SURCHARGE_RINGS : 0);
 }
 
-function oddsPercents(weights: Record<PackRarity, number>): Record<PackRarity, number> {
-  const total = PACK_RARITIES.reduce((sum, r) => sum + weights[r], 0);
-  const result = {} as Record<PackRarity, number>;
-  PACK_RARITIES.forEach((r) => { result[r] = Math.round((weights[r] / total) * 100); });
-  return result;
-}
-
-function guaranteeBoxText(tier: PackTier): string {
-  if (!tier.guaranteedMinRarity) {
-    return 'No guarantee on this pack — every card rolls independently at the odds above.';
-  }
-  return `${tier.description}. If all ${PACK_CARD_COUNT} cards roll below that, the lowest-rarity card is upgraded automatically.`;
-}
-
 function eraNoteText(tier: PackTier, era: GeneratedEra): string {
   const guaranteeClause = tier.guaranteedMinRarity ? `Same ${tier.badge} guarantee, just` : 'Just';
   return `Era lock doesn't change these odds — only which players are eligible to be pulled. ${guaranteeClause} every card comes from ${era}.`;
@@ -64,6 +56,46 @@ function OddsBar({ weights }: { weights: Record<PackRarity, number> }) {
       {PACK_RARITIES.map((rarity) => (
         <View key={rarity} style={{ flex: weights[rarity], backgroundColor: RARITY_COLOR[rarity] }} />
       ))}
+    </View>
+  );
+}
+
+// Shop's always-available "Watch an ad for Rings" placement
+// (docs/handoff/13-ad-monetization-economy.md, section 1) — reward scales
+// on the daily watch streak rather than a flat per-watch amount. Shared by
+// both layouts like TierCard/PendingPackRow above.
+function ShopAdCard({ preview, onWatch, disabled, justEarned, style }: {
+  preview: { watchesRemainingToday: number; nextStreakDay: number; nextReward: number };
+  onWatch: () => void;
+  disabled: boolean;
+  justEarned: number | null;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const dayLabel = preview.nextStreakDay >= 7 ? 'DAY 7+' : `DAY ${preview.nextStreakDay}`;
+  return (
+    <View style={[styles.adCard, style]}>
+      <View style={styles.adCardTop}>
+        <Text style={styles.adCardTitle}>Watch an ad for Rings</Text>
+        <View style={styles.adCardStreakBadge}>
+          <Text style={styles.adCardStreakText}>{dayLabel} STREAK</Text>
+        </View>
+      </View>
+      <Text style={styles.adCardSub}>
+        {preview.watchesRemainingToday > 0
+          ? `${preview.watchesRemainingToday}/${TODO_BALANCE_SHOP_AD_MAX_WATCHES_PER_DAY} watches left today`
+          : 'Come back tomorrow for more'}
+      </Text>
+      {justEarned !== null && <Text style={styles.adCardEarned}>+{justEarned} 💍 EARNED</Text>}
+      <TouchableOpacity
+        style={[styles.adWatchBtn, disabled && styles.adWatchBtnDisabled]}
+        onPress={onWatch}
+        disabled={disabled}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.adWatchBtnText}>
+          {preview.watchesRemainingToday > 0 ? `▶ WATCH AD · +${preview.nextReward} 💍` : 'NO WATCHES LEFT TODAY'}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -172,10 +204,16 @@ export function ShopScreen() {
   const ownedPacks = useDynastyStore((s) => s.ownedPacks);
   const currentSeason = useDynastyStore((s) => s.currentSeason);
   const buyPack = useDynastyStore((s) => s.buyPack);
+  const shopAdStreakDay = useDynastyStore((s) => s.shopAdStreakDay);
+  const lastShopAdWatchDate = useDynastyStore((s) => s.lastShopAdWatchDate);
+  const shopAdWatchesToday = useDynastyStore((s) => s.shopAdWatchesToday);
+  const watchShopAdForRings = useDynastyStore((s) => s.watchShopAdForRings);
 
   const [tab, setTab] = useState<ShopTab>('store');
   const [selectedEra, setSelectedEra] = useState<GeneratedEra | null>(null);
   const [oddsSheetTierId, setOddsSheetTierId] = useState<PackTierId | null>(null);
+  const [adRingsJustEarned, setAdRingsJustEarned] = useState<number | null>(null);
+  const { requestAd, adModalProps } = useRewardedAd(SHOP_AD_RINGS_ENABLED);
 
   // Same "drafted at least once" gate PackOpeningScreen uses (see its
   // hasCompletedInitialDraft comment) — packs build out the bench, which
@@ -183,12 +221,33 @@ export function ShopScreen() {
   const hasCompletedInitialDraft = currentSeason > 1;
   const pendingCount = totalOwnedPacks(ownedPacks);
   const oddsSheetTier = oddsSheetTierId ? PACK_TIERS.find((t) => t.id === oddsSheetTierId) ?? null : null;
+  const adPreview = computeShopAdPreview({ lastShopAdWatchDate, shopAdStreakDay, shopAdWatchesToday });
 
   function handleBuy(tierId: PackTierId) {
     if (!hasCompletedInitialDraft) return;
     buyPack(tierId, selectedEra ?? undefined);
     setOddsSheetTierId(null);
   }
+
+  async function handleWatchShopAd() {
+    if (adPreview.watchesRemainingToday <= 0) return;
+    const watched = await requestAd();
+    if (!watched) return;
+    const earned = watchShopAdForRings();
+    if (earned > 0) {
+      setAdRingsJustEarned(earned);
+      setTimeout(() => setAdRingsJustEarned(null), 2500);
+    }
+  }
+
+  const shopAdCard = SHOP_AD_RINGS_ENABLED && (
+    <ShopAdCard
+      preview={adPreview}
+      onWatch={handleWatchShopAd}
+      disabled={adPreview.watchesRemainingToday <= 0}
+      justEarned={adRingsJustEarned}
+    />
+  );
 
   const eraChips = (
     <>
@@ -238,6 +297,8 @@ export function ShopScreen() {
       ) : isWide ? (
         <ScrollView contentContainerStyle={styles.scrollContentWide} showsVerticalScrollIndicator={false}>
           <View style={styles.wideWrap}>
+            {shopAdCard}
+
             <View style={styles.eraBarWide}>
               <Text style={styles.eraBarLabel}>ERA FILTER</Text>
               <View style={styles.eraChipsWide}>{eraChips}</View>
@@ -308,6 +369,8 @@ export function ShopScreen() {
 
           {tab === 'store' ? (
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+              {shopAdCard}
+
               <Text style={styles.eraLabel}>Era filter (applies to any tier below)</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.eraRow}>
                 {eraChips}
@@ -367,67 +430,62 @@ export function ShopScreen() {
         </>
       )}
 
-      <Modal visible={oddsSheetTier !== null} transparent animationType={isWide ? 'fade' : 'slide'} onRequestClose={() => setOddsSheetTierId(null)}>
-        <Pressable style={[styles.sheetOverlay, isWide && styles.sheetOverlayWide]} onPress={() => setOddsSheetTierId(null)}>
-          <Pressable style={[styles.sheet, isWide && styles.sheetWide]} onPress={(e) => e.stopPropagation()}>
-            {oddsSheetTier && (
-              <>
-                {!isWide && <View style={styles.sheetHandle} />}
-                <Text style={[styles.sheetTitle, { color: TIER_ACCENT[oddsSheetTier.id] }]}>{oddsSheetTier.label.toUpperCase()} ODDS</Text>
-                {selectedEra && <Text style={styles.sheetSubtitle}>ERA LOCKED · {selectedEra}</Text>}
-                <Text style={styles.sheetPrice}>
-                  {selectedEra
-                    ? `${oddsSheetTier.cost} 💍 base + ${TODO_BALANCE_ERA_LOCK_SURCHARGE_RINGS} 💍 era lock · ${PACK_CARD_COUNT} cards`
-                    : `${oddsSheetTier.cost} 💍 · ${PACK_CARD_COUNT} cards`}
-                </Text>
+      <PackOddsSheet
+        visible={oddsSheetTier !== null}
+        tier={oddsSheetTier}
+        accentColor={oddsSheetTier ? TIER_ACCENT[oddsSheetTier.id] : Colors.gold}
+        isWide={isWide}
+        onClose={() => setOddsSheetTierId(null)}
+        subtitle={selectedEra ? `ERA LOCKED · ${selectedEra}` : undefined}
+        priceLine={oddsSheetTier ? (
+          selectedEra
+            ? `${oddsSheetTier.cost} 💍 base + ${TODO_BALANCE_ERA_LOCK_SURCHARGE_RINGS} 💍 era lock · ${PACK_CARD_COUNT} cards`
+            : `${oddsSheetTier.cost} 💍 · ${PACK_CARD_COUNT} cards`
+        ) : undefined}
+        note={selectedEra && oddsSheetTier && (
+          <View style={styles.eraNoteBox}>
+            <Text style={styles.eraNoteBoxText}>{eraNoteText(oddsSheetTier, selectedEra)}</Text>
+          </View>
+        )}
+        footer={oddsSheetTier && (
+          <View style={styles.sheetBuyRow}>
+            <SecondaryButton label="CLOSE" onPress={() => setOddsSheetTierId(null)} style={styles.sheetCloseBtn} />
+            <PrimaryButton
+              label={`BUY · ${totalCost(oddsSheetTier, selectedEra)} 💍`}
+              onPress={() => handleBuy(oddsSheetTier.id)}
+              disabled={rings < totalCost(oddsSheetTier, selectedEra)}
+              style={styles.sheetBuyBtn}
+            />
+          </View>
+        )}
+      />
 
-                <View style={styles.oddsTable}>
-                  {PACK_RARITIES.map((rarity) => {
-                    const pct = oddsPercents(oddsSheetTier.weights)[rarity];
-                    return (
-                      <View key={rarity} style={styles.oddsRow}>
-                        <View style={[styles.oddsDot, { backgroundColor: RARITY_COLOR[rarity] }]} />
-                        <Text style={styles.oddsRowLabel}>{rarity[0].toUpperCase() + rarity.slice(1)}</Text>
-                        <View style={styles.oddsRowBarWrap}>
-                          <View style={[styles.oddsRowBarFill, { width: `${pct}%`, backgroundColor: RARITY_COLOR[rarity] }]} />
-                        </View>
-                        <Text style={styles.oddsRowPct}>{pct}%</Text>
-                      </View>
-                    );
-                  })}
-                </View>
-
-                <View style={styles.guaranteeBox}>
-                  <Text style={styles.guaranteeBoxTitle}>Guarantee</Text>
-                  <Text style={styles.guaranteeBoxText}>{guaranteeBoxText(oddsSheetTier)}</Text>
-                </View>
-
-                {selectedEra && (
-                  <View style={styles.eraNoteBox}>
-                    <Text style={styles.eraNoteBoxText}>{eraNoteText(oddsSheetTier, selectedEra)}</Text>
-                  </View>
-                )}
-
-                <View style={styles.sheetBuyRow}>
-                  <SecondaryButton label="CLOSE" onPress={() => setOddsSheetTierId(null)} style={styles.sheetCloseBtn} />
-                  <PrimaryButton
-                    label={`BUY · ${totalCost(oddsSheetTier, selectedEra)} 💍`}
-                    onPress={() => handleBuy(oddsSheetTier.id)}
-                    disabled={rings < totalCost(oddsSheetTier, selectedEra)}
-                    style={styles.sheetBuyBtn}
-                  />
-                </View>
-              </>
-            )}
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <RewardedAdModal {...adModalProps} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bgPrimary },
+
+  adCard: {
+    backgroundColor: Colors.bgCard, borderWidth: 1.5, borderColor: Colors.gold, borderRadius: Radius.lg,
+    padding: 16, marginBottom: Spacing.lg,
+  },
+  adCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  adCardTitle: { fontSize: Typography.md, color: Colors.textPrimary, fontFamily: Font.primaryBold, letterSpacing: 0.3 },
+  adCardStreakBadge: { borderWidth: 1, borderColor: Colors.gold, borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 3 },
+  adCardStreakText: { fontSize: Typography.xs, color: Colors.gold, fontFamily: Font.mono, letterSpacing: 0.5 },
+  adCardSub: { fontSize: Typography.sm, color: Colors.textMuted, fontFamily: Font.secondaryRegular, marginBottom: 12 },
+  adCardEarned: {
+    fontSize: Typography.sm, color: Colors.gold, fontFamily: Font.primaryBold, marginBottom: 10, letterSpacing: 0.5,
+  },
+  adWatchBtn: {
+    minHeight: 46, borderRadius: Radius.md, borderWidth: 1, borderColor: '#F5DC7A',
+    backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20,
+  },
+  adWatchBtnDisabled: { backgroundColor: 'transparent', borderColor: Colors.border },
+  adWatchBtnText: { color: Colors.bgDark, fontFamily: Font.primaryBold, fontSize: Typography.base, letterSpacing: 0.6 },
   toolbar: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.md,

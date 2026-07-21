@@ -9,15 +9,24 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { GameMode, useGameStore } from '../store/gameStore';
 import { useStatsStore } from '../store/statsStore';
-import { TODO_BALANCE_RINGS_SOURCES, useDynastyStore } from '../store/dynastyStore';
-import { SHOW_DEBUG_OVR } from '../config/featureFlags';
+import {
+  TODO_BALANCE_RINGS_SOURCES, TODO_BALANCE_SEASON_END_PACK_TIER, useDynastyStore,
+} from '../store/dynastyStore';
+import { PACK_TIERS, PackTierId } from '../data/packs';
+import { SEASON_END_AD_UPGRADE_ENABLED, SHOW_DEBUG_OVR } from '../config/featureFlags';
 import { useResponsive } from '../hooks/useResponsive';
+import { useRewardedAd } from '../hooks/useRewardedAd';
 import { dailyRandom } from '../utils/seededRandom';
 import { TOTAL_SEASON_GAMES, simulateSeasonResults } from '../utils/seasonSim';
 import { BrandBackground } from '../components/BrandBackground';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { SecondaryButton } from '../components/SecondaryButton';
+import { PackOddsSheet } from '../components/PackOddsSheet';
+import { RewardedAdModal } from '../components/RewardedAdModal';
 import type { RootStackParamList } from '../navigation/types';
+
+const SEASON_REWARD_BASE_TIER = PACK_TIERS.find((t) => t.id === TODO_BALANCE_SEASON_END_PACK_TIER.base) ?? PACK_TIERS[0];
+const SEASON_REWARD_UPGRADE_TIER = PACK_TIERS.find((t) => t.id === TODO_BALANCE_SEASON_END_PACK_TIER.adUpgrade) ?? PACK_TIERS[0];
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type ResultRouteProp = RouteProp<RootStackParamList, 'Result'>;
@@ -36,7 +45,11 @@ function simulateSeason(avgRating: number, mode: GameMode): boolean[] {
   return simulateSeasonResults(avgRating, (gameIndex) => dailyRandom('season', gameIndex));
 }
 
-type Phase = 'roster' | 'simulating' | 'done';
+// 'seasonReward' sits between 'simulating' and 'done' only for a Dynasty
+// continuation season (docs/handoff/13-ad-monetization-economy.md, section
+// 3): the season-end pack's tier is now a player choice (accept Rookie, or
+// watch an ad for Pro) instead of being applied automatically.
+type Phase = 'roster' | 'simulating' | 'seasonReward' | 'done';
 
 export function ResultScreen() {
   const navigation = useNavigation<Nav>();
@@ -68,6 +81,8 @@ export function ResultScreen() {
   // with no UI feedback — this just remembers what happened so the reward
   // banner can report it once the reveal finishes.
   const [dailyRewardEarned, setDailyRewardEarned] = useState(false);
+  const [seasonOddsSheetOpen, setSeasonOddsSheetOpen] = useState(false);
+  const { requestAd: requestSeasonRewardAd, adModalProps: seasonRewardAdModalProps } = useRewardedAd(SEASON_END_AD_UPGRADE_ENABLED);
 
   const rosterEntries = Object.entries(roster);
   const avgRating =
@@ -88,6 +103,19 @@ export function ResultScreen() {
   useEffect(() => {
     if (phase !== 'simulating' || results.length === 0) return;
     if (revealedCount >= TOTAL_GAMES) {
+      // Season-end pack tier is now a player choice for every season after
+      // the first (docs/handoff/13, section 3: accept the base Rookie pack,
+      // or watch an ad to upgrade to Pro) — hold here instead of applying
+      // the outcome immediately. handleAcceptSeasonPack/handleWatchSeason-
+      // RewardAd below finish this once the player decides. When the
+      // placement is flagged off (no ad inventory / kill switch), there's
+      // nothing to choose, so fall straight back to the pre-existing
+      // behavior: base tier, no extra step.
+      if (mode === 'dynasty' && isDynastyContinuation && SEASON_END_AD_UPGRADE_ENABLED) {
+        setPhase('seasonReward');
+        return;
+      }
+
       setPhase('done');
       const wins = results.filter(Boolean).length;
 
@@ -134,7 +162,8 @@ export function ResultScreen() {
 
   const wins = results.slice(0, revealedCount).filter(Boolean).length;
   const losses = revealedCount - wins;
-  const isPerfect = phase === 'done' && wins === TOTAL_GAMES;
+  const isRevealComplete = phase === 'done' || phase === 'seasonReward';
+  const isPerfect = isRevealComplete && wins === TOTAL_GAMES;
   const record = `${wins}-${losses}`;
 
   function buildShareText() {
@@ -146,6 +175,21 @@ export function ResultScreen() {
     try {
       await Share.share({ message: buildShareText() });
     } catch (_) {}
+  }
+
+  function handleAcceptSeasonPack() {
+    applyNextSeasonResults(results, TODO_BALANCE_SEASON_END_PACK_TIER.base);
+    setPhase('done');
+  }
+
+  async function handleWatchSeasonRewardAd() {
+    setSeasonOddsSheetOpen(false);
+    const watched = await requestSeasonRewardAd();
+    applyNextSeasonResults(
+      results,
+      watched ? TODO_BALANCE_SEASON_END_PACK_TIER.adUpgrade : TODO_BALANCE_SEASON_END_PACK_TIER.base,
+    );
+    setPhase('done');
   }
 
   function handlePlayAgain() {
@@ -188,7 +232,7 @@ export function ResultScreen() {
         <Text style={[styles.record, { color: isPerfect ? Colors.win : losses > 4 ? Colors.loss : Colors.textPrimary }]}>
           {record}
         </Text>
-        {phase === 'done' && (
+        {isRevealComplete && (
           <Text style={[styles.verdict, { color: isPerfect ? Colors.win : Colors.textSecondary }]}>
             {isPerfect
               ? '🏆 PERFECT SEASON! YOU DID IT!'
@@ -251,6 +295,28 @@ export function ResultScreen() {
     </View>
   );
 
+  // Season-end pack reward choice (docs/handoff/13-ad-monetization-economy.md,
+  // section 3) — a single binary choice: accept the base Rookie pack now,
+  // or view the Pro pack's odds and watch an ad to upgrade to it. The odds
+  // sheet is shown before the ad plays specifically because this is the one
+  // ad placement tied to a chance-based reward (pack tier = odds).
+  const seasonRewardSection = phase === 'seasonReward' && (
+    <View style={styles.seasonRewardCard}>
+      <Text style={styles.seasonRewardTitle}>SEASON REWARD</Text>
+      <Text style={styles.seasonRewardSub}>
+        Every completed season earns a {SEASON_REWARD_BASE_TIER.label} — watch an ad to upgrade this one to a {SEASON_REWARD_UPGRADE_TIER.label} instead.
+      </Text>
+      <View style={styles.seasonRewardActions}>
+        <SecondaryButton label={`ACCEPT ${SEASON_REWARD_BASE_TIER.label.toUpperCase()}`} onPress={handleAcceptSeasonPack} style={styles.seasonRewardBtn} />
+        <PrimaryButton
+          label={`▶ WATCH AD FOR ${SEASON_REWARD_UPGRADE_TIER.label.toUpperCase()}`}
+          onPress={() => setSeasonOddsSheetOpen(true)}
+          style={styles.seasonRewardBtn}
+        />
+      </View>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -275,8 +341,25 @@ export function ResultScreen() {
         )}
 
         {dailyRewardBanner}
+        {seasonRewardSection}
         {actionsRow}
       </ScrollView>
+
+      <PackOddsSheet
+        visible={seasonOddsSheetOpen}
+        tier={SEASON_REWARD_UPGRADE_TIER}
+        accentColor={Colors.gold}
+        isWide={isWide}
+        onClose={() => setSeasonOddsSheetOpen(false)}
+        priceLine={`Ad-upgraded season reward · same 1-pack award, Pro tier instead of Rookie`}
+        footer={
+          <View style={styles.seasonRewardSheetActions}>
+            <SecondaryButton label="MAYBE LATER" onPress={() => setSeasonOddsSheetOpen(false)} style={styles.seasonRewardSheetBtn} />
+            <PrimaryButton label="▶ WATCH AD" onPress={handleWatchSeasonRewardAd} style={styles.seasonRewardSheetBtn} />
+          </View>
+        }
+      />
+      <RewardedAdModal {...seasonRewardAdModalProps} />
     </SafeAreaView>
   );
 }
@@ -370,5 +453,19 @@ const styles = StyleSheet.create({
   },
   actions: { flexDirection: 'row', gap: 10, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg, paddingTop: Spacing.sm },
   shareBtn: { flex: 1 },
+
+  seasonRewardCard: {
+    marginHorizontal: Spacing.lg, marginTop: Spacing.sm, marginBottom: Spacing.sm,
+    backgroundColor: Colors.bgCard, borderWidth: 1.5, borderColor: Colors.gold, borderRadius: Radius.lg, padding: 16,
+  },
+  seasonRewardTitle: {
+    fontSize: Typography.xs, color: Colors.gold, letterSpacing: 1.2, textTransform: 'uppercase',
+    fontFamily: Font.mono, marginBottom: 6,
+  },
+  seasonRewardSub: { fontSize: Typography.sm, color: Colors.textSecondary, fontFamily: Font.secondaryRegular, lineHeight: 19, marginBottom: 14 },
+  seasonRewardActions: { flexDirection: 'row', gap: 10 },
+  seasonRewardBtn: { flex: 1 },
+  seasonRewardSheetActions: { flexDirection: 'row', gap: 10 },
+  seasonRewardSheetBtn: { flex: 1 },
   againBtnWrap: { flex: 1 },
 });
