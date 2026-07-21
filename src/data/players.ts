@@ -167,6 +167,7 @@ export function formatStats(record: GeneratedPlayerRecord, draftPosition: Positi
 
   switch (draftPosition) {
     case 'QB':
+    case 'QB2':
       return joinStatParts([
         stats.completions > 0 ? `${formatStatValue(stats.completions)} comp` : null,
         stats.attempts > 0 ? `${formatStatValue(stats.attempts)} att` : null,
@@ -176,6 +177,7 @@ export function formatStats(record: GeneratedPlayerRecord, draftPosition: Positi
         stats.rushingYards > 0 ? `${formatStatValue(stats.rushingYards)} rush yds` : null,
       ]);
     case 'RB':
+    case 'RB2':
       return joinStatParts([
         stats.rushingYards > 0 ? `${formatStatValue(stats.rushingYards)} rush yds` : null,
         stats.rushingTD > 0 ? `${formatStatValue(stats.rushingTD)} rush TD` : null,
@@ -184,6 +186,7 @@ export function formatStats(record: GeneratedPlayerRecord, draftPosition: Positi
         stats.receivingYards > 0 ? `${formatStatValue(stats.receivingYards)} rec yds` : null,
       ]);
     case 'WR':
+    case 'WR2':
     case 'TE':
     case 'FLEX':
     case 'FLEX2':
@@ -344,14 +347,57 @@ export function getPlayableSpinCombosForOpenPositions(
     .map((era) => ({ teamAbbr, era })));
 }
 
+// docs/handoff/12-offense-only-bugfixes.md — checking each slot
+// independently (the old getViableTeamAbbrs body) let a team with exactly
+// one real QB pass viability for *both* QB and QB2, since
+// GENERATED_POSITION_MAP maps them to the same underlying pool (['QB'])
+// and the old check only ever asked "does a QB exist," never "does a
+// *second, different* QB exist." Groups `positions` by their exact shared
+// GENERATED_POSITION_MAP value first (QB+QB2 group together, FLEX+FLEX2
+// group together separately from native RB/RB2 — this doesn't model
+// FLEX's cross-category overlap with native RB/WR/TE slots via full
+// bipartite matching, just combined demand within each exact shared
+// pool), then verifies *distinct* supply meets the group's combined
+// demand instead of re-checking "does at least one exist" per slot.
+function groupPositionsBySharedPool(positions: Position[]): Position[][] {
+  const groups = new Map<string, Position[]>();
+  positions.forEach((position) => {
+    const key = [...GENERATED_POSITION_MAP[position]].sort().join('|');
+    const group = groups.get(key);
+    if (group) group.push(position);
+    else groups.set(key, [position]);
+  });
+  return [...groups.values()];
+}
+
+// Counts distinct real players (by playerId, not record id — a single
+// player can have more than one generated record) with a qualifying,
+// displayable record for this team across any of the given eras.
+function distinctPlayerCount(generatedPositions: GeneratedPosition[], anyMemberPosition: Position, teamAbbr: string, eras: string[]): number {
+  const playerIds = new Set<string>();
+  GENERATED_RECORDS.forEach((record) => {
+    if (
+      record.team === teamAbbr
+      && eras.includes(record.era)
+      && generatedPositions.includes(record.position as GeneratedPosition)
+      && formatStats(record, anyMemberPosition) !== NO_SEASON_STATS
+    ) {
+      playerIds.add(record.playerId);
+    }
+  });
+  return playerIds.size;
+}
+
 // `positions` defaults to the standard 12-slot roster — pass
 // OFFENSE_ONLY_POSITIONS for Offense Only's team-lock viability check
 // (gameStore.ts/GameSetupModal.tsx), otherwise a team lacking any
 // defensive-position record for a team/era would wrongly read as
 // "not viable" for a mode that never needs a defensive pick at all.
 export function getViableTeamAbbrs(teamAbbrs: string[], eras: string[], positions: Position[] = DRAFT_POSITIONS): string[] {
-  return teamAbbrs.filter((teamAbbr) => positions.every((draftPosition) => {
-    return eras.some((era) => hasPlayersForSpin(draftPosition, teamAbbr, era));
+  const groups = groupPositionsBySharedPool(positions);
+  return teamAbbrs.filter((teamAbbr) => groups.every((group) => {
+    const generatedPositions = GENERATED_POSITION_MAP[group[0]];
+    return distinctPlayerCount(generatedPositions, group[0], teamAbbr, eras) >= group.length;
   }));
 }
 

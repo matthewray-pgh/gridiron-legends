@@ -138,6 +138,14 @@ export interface GameState {
   roster: Partial<Record<Position, Player>>;
   isComplete: boolean;
 
+  // docs/handoff/12-offense-only-bugfixes.md fix #2 — rollSpin() used to
+  // handle a failed combo search (pickSpinResult returning null) by
+  // silently resetting to the idle 'pre' state, indistinguishable from
+  // "haven't spun yet." That read as a freeze: tap Spin, nothing visible
+  // happens, tap again, same result. Set true on a genuine mid-draft spin
+  // failure so SpinScreen can show a real message + recovery path instead.
+  spinFailed: boolean;
+
   // Two-Minute Drill ("Lock It In") state — see TwoMinuteDrillSpinScreen.
   teamLockResult: LockResult;
   eraLockResult: LockResult;
@@ -148,6 +156,10 @@ export interface GameState {
   beginDraftSession: (params: { teamScope: TeamScope; selectedEras: EraToken[] }) => void;
   rollSpin: () => void;
   rerollSpin: () => void;
+  // Recovery path for a mid-draft spin failure under a locked team — drops
+  // back to All Teams for the remainder of the draft rather than leaving
+  // the player at a dead end with no way forward.
+  releaseTeamLock: () => void;
   setSpinState: (state: SpinState) => void;
   beginDrillRound: () => void;
   lockDrillTrack: (which: 'team' | 'era', hit: boolean) => void;
@@ -172,6 +184,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   playerIndex: -1, // -1 = no candidate selected (see setPlayerIndex)
   roster: {},
   isComplete: false,
+  spinFailed: false,
 
   teamLockResult: 'pending',
   eraLockResult: 'pending',
@@ -193,6 +206,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       playerIndex: -1, // -1 = no candidate selected (see setPlayerIndex)
       roster: {},
       isComplete: false,
+      spinFailed: false,
       teamLockResult: 'pending',
       eraLockResult: 'pending',
       drillPending: null,
@@ -205,19 +219,23 @@ export const useGameStore = create<GameState>((set, get) => ({
     const openPositions = get().openPositions();
 
     if (openPositions.length === 0) {
-      set({ currentSpin: null, spinState: 'picked' });
+      set({ currentSpin: null, spinState: 'picked', spinFailed: false });
       return;
     }
 
     const picked = pickSpinResult({ mode, roundSalt: positionIndex, teamScope, selectedEras, lockedTeam, openPositions });
     if (!picked) {
-      set({ currentSpin: null, spinState: 'pre' });
+      // docs/handoff/12-offense-only-bugfixes.md fix #2 — used to silently
+      // reset to 'pre' here, indistinguishable from not having spun yet.
+      // spinFailed surfaces a real message + recovery path instead.
+      set({ currentSpin: null, spinState: 'pre', spinFailed: true });
       return;
     }
 
     set({
       lockedTeam: picked.nextLockedTeam,
       currentSpin: picked.spin,
+      spinFailed: false,
       // playerIndex: 0, — disabled: this auto-selected (and visually
       // highlighted) the pool's first candidate on every reveal, which
       // — since candidates are sorted by rating descending — amounted to
@@ -236,6 +254,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       currentSpin: null,
     });
   },
+
+  releaseTeamLock: () => set({ teamScope: 'all', lockedTeam: null, spinFailed: false }),
 
   setSpinState: (state) => set({ spinState: state }),
 
@@ -350,8 +370,16 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (!eligiblePositions.includes(position)) return;
 
     // Two-Minute Drill era-lock bonus: a one-time OVR boost on this pick only.
+    // docs/handoff/11-roster-management-restructure.md section 1: `.position`
+    // must stay the player's true native position, never overwritten to
+    // whichever slot they're drafted into — the roster's own
+    // Record<Position, Player> (keyed by slot) already tracks placement,
+    // `.position` doesn't also need to. A WR drafted into FLEX keeps
+    // `.position === 'WR'` so Dynasty's roster editor can later offer moving
+    // them back to a native WR slot instead of only ever "WR drafted into
+    // FLEX, forever a FLEX player."
     const boostedRating = drillOvrBonusPending > 0 ? player.rating + drillOvrBonusPending : player.rating;
-    const nextRoster = { ...roster, [position]: { ...player, position, rating: boostedRating } };
+    const nextRoster = { ...roster, [position]: { ...player, rating: boostedRating } };
     const activePositions = positionsForMode(mode);
     const draftedCount = activePositions.filter((slot) => nextRoster[slot]).length;
     const isComplete = draftedCount >= activePositions.length;
@@ -380,6 +408,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       playerIndex: -1, // -1 = no candidate selected (see setPlayerIndex)
       roster: {},
       isComplete: false,
+      spinFailed: false,
       teamLockResult: 'pending',
       eraLockResult: 'pending',
       drillPending: null,
