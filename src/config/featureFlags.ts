@@ -19,6 +19,17 @@ export const LEADERBOARD_ENABLED = false;
 // delete the display code) before launch.
 export const SHOW_DEBUG_OVR = true;
 
+// Ad monetization (docs/handoff/13-ad-monetization-economy.md) — per-
+// placement rather than one master flag (confirmed with the user: lets one
+// placement be pulled, e.g. for a policy/network reason, without also
+// pulling the other). No ad SDK is wired into the project yet, so "watching
+// an ad" is simulated (components/RewardedAdModal.tsx) — these flags are
+// also the fallback-when-ads-are-unavailable kill switch section 5 asks
+// for: flip either to false to hide that placement's ad affordance
+// entirely and fall back silently to the base reward, no error state.
+export const SHOP_AD_RINGS_ENABLED = true;
+export const SEASON_END_AD_UPGRADE_ENABLED = true;
+
 // Hall of Fame (retired-player shelf) — pulled from the UI for now while
 // Dynasty's roster-management flow settles, confirmed with the user, not
 // deleted: HallOfFameScreen.tsx, dynastyStore's `hallOfFame` data (still
