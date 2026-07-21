@@ -102,9 +102,12 @@ const D_FLEX_STAT_DISPLAY_ORDER: Array<[string, string]> = [
 
 export function getStatDisplayOrder(position: Position | undefined): Array<[string, string]> {
   switch (position) {
-    case 'QB': return QB_STAT_DISPLAY_ORDER;
-    case 'RB': return RB_STAT_DISPLAY_ORDER;
+    case 'QB':
+    case 'QB2': return QB_STAT_DISPLAY_ORDER;
+    case 'RB':
+    case 'RB2': return RB_STAT_DISPLAY_ORDER;
     case 'WR':
+    case 'WR2':
     case 'TE': return RECEIVER_STAT_DISPLAY_ORDER;
     case 'FLEX':
     case 'FLEX2': return FLEX_STAT_DISPLAY_ORDER;

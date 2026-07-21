@@ -13,6 +13,41 @@ import { SecondaryButton } from './SecondaryButton';
 
 type Selection = { player: Player; kind: 'starter' | 'bench'; position?: Position };
 
+// docs/handoff/11-roster-management-restructure.md section 2 — which native
+// positions are eligible for each roster slot. Exact-match slots (QB, EDGE,
+// ...) are just an eligibility array of one; FLEX/FLEX2 and D-FLEX are the
+// only many-to-one slots. This is the Position-space analog of
+// data/players.ts's GENERATED_POSITION_MAP (which maps slots to the raw
+// *generated* position categories used to build the candidate pool) — this
+// one operates on already-resolved Player.position values instead.
+const SLOT_ELIGIBILITY: Record<Position, Position[]> = {
+  QB: ['QB'], QB2: ['QB'],
+  RB: ['RB'], RB2: ['RB'],
+  WR: ['WR'], WR2: ['WR'],
+  TE: ['TE'],
+  FLEX: ['RB', 'WR', 'TE'],
+  FLEX2: ['RB', 'WR', 'TE'],
+  EDGE: ['EDGE'],
+  DT: ['DT'],
+  LB: ['LB'],
+  CB: ['CB'],
+  S: ['S'],
+  'D-FLEX': ['EDGE', 'DT', 'LB', 'CB', 'S'],
+};
+
+// Which starter slots in the current roster could this player legally
+// fill? Excludes the slot they already occupy (if they're a starter) —
+// that's not a "move," it's where they already are.
+function getEligibleSlots(player: Player, roster: DynastyRoster): Position[] {
+  const currentSlot = (Object.keys(roster) as Position[]).find((slot) => roster[slot]?.id === player.id);
+  return DRAFT_POSITIONS.filter((slot) => slot !== currentSlot && SLOT_ELIGIBILITY[slot].includes(player.position));
+}
+
+// Which bench players could legally fill this specific starter slot?
+function getEligibleBenchCandidates(pos: Position, bench: Player[]): Player[] {
+  return bench.filter((player) => SLOT_ELIGIBILITY[pos].includes(player.position));
+}
+
 // Dynasty's Roster tab, rebuilt as a staged editor (confirmed with the
 // user): Bench/Start/Retire/Release only mutate local pending state here —
 // nothing reaches the store until "Save Changes" commits it all atomically
@@ -55,27 +90,39 @@ export function useRosterEditor() {
   const overCapacity = pendingBench.length > BENCH_CAPACITY;
   const canSave = dirty && !overCapacity;
 
-  function benchStarter(pos: Position) {
-    const player = pendingRoster[pos];
-    if (!player) return;
-    const next = { ...pendingRoster };
-    delete next[pos];
-    setPendingRoster(next);
-    setPendingBench((prev) => [...prev, player]);
+  // docs/handoff/11-roster-management-restructure.md section 4: swaps
+  // execute immediately on tap, no confirmation step — there's no ambiguity
+  // in where the displaced player goes (bench<->slot is symmetric), and
+  // it's still fully reversible via the existing staged-editor Discard.
+
+  // Bench player -> a starter slot, whether that slot is empty (plain
+  // start, no displacement) or occupied (occupant goes to the bench) — the
+  // same operation either way, just conditionally pushing a displaced
+  // player back onto the bench.
+  function moveBenchPlayerToSlot(benchPlayer: Player, slot: Position) {
+    const occupant = pendingRoster[slot];
+    setPendingRoster((prev) => ({ ...prev, [slot]: benchPlayer }));
+    setPendingBench((prev) => {
+      const next = prev.filter((p) => p.id !== benchPlayer.id);
+      if (occupant) next.push(occupant);
+      return next;
+    });
     setDirty(true);
   }
 
-  // Every player's `.position` is set to the exact slot they belong in at
-  // draft/pack-pull time (a WR drafted into FLEX has `.position === 'FLEX'`,
-  // not 'WR') — so it's always the one correct target slot, no eligible-
-  // slot picker needed.
-  function startFromBench(player: Player) {
-    const pos = player.position;
-    const displaced = pendingRoster[pos];
-    setPendingRoster((prev) => ({ ...prev, [pos]: player }));
-    setPendingBench((prev) => {
-      const next = prev.filter((p) => p.id !== player.id);
-      if (displaced) next.push(displaced);
+  // Starter slot -> a different starter slot (e.g. native WR <-> FLEX).
+  // Callers (selectedActions below) have already verified this is legal in
+  // both directions before offering it — if the target's occupied, the
+  // occupant is guaranteed eligible for `fromPos` too.
+  function moveStarterToSlot(fromPos: Position, toPos: Position) {
+    const mover = pendingRoster[fromPos];
+    if (!mover) return;
+    const occupant = pendingRoster[toPos];
+    setPendingRoster((prev) => {
+      const next = { ...prev };
+      delete next[fromPos];
+      next[toPos] = mover;
+      if (occupant) next[fromPos] = occupant;
       return next;
     });
     setDirty(true);
@@ -135,15 +182,58 @@ export function useRosterEditor() {
     if (retireDisabled) actionsNote = `This is the only replacement for the open ${selected.player.position} slot — retire is blocked until you have another.`;
   }
 
-  const selectedActions: PlayerDetailAction[] = !selected ? [] : selected.kind === 'starter'
-    ? [
-      { label: 'Bench', onPress: () => { benchStarter(selected.position!); setSelected(null); } },
-      { label: 'Retire', destructive: true, disabled: retireDisabled, onPress: () => { retireStarter(selected.position!); setSelected(null); } },
-    ]
-    : [
-      { label: 'Starter', onPress: () => { startFromBench(selected.player); setSelected(null); } },
-      { label: 'Retire', destructive: true, disabled: retireDisabled, onPress: () => { releaseBenchPlayer(selected.player); setSelected(null); } },
-    ];
+  // docs/handoff/11-roster-management-restructure.md section 3: the detail
+  // panel's action list is now a dynamic set of valid moves for whoever's
+  // selected, not a fixed Bench/Start + Retire pair.
+  const selectedActions: PlayerDetailAction[] = [];
+  if (selected) {
+    if (selected.kind === 'bench') {
+      const benchPlayer = selected.player;
+      getEligibleSlots(benchPlayer, pendingRoster).forEach((slot) => {
+        const occupant = pendingRoster[slot];
+        selectedActions.push({
+          label: occupant ? `Swap with ${occupant.name} — ${slot}` : `Start at ${slot}`,
+          onPress: () => { moveBenchPlayerToSlot(benchPlayer, slot); setSelected(null); },
+        });
+      });
+    } else {
+      const fromPos = selected.position!;
+      const starter = selected.player;
+
+      getEligibleBenchCandidates(fromPos, pendingBench).forEach((benchPlayer) => {
+        selectedActions.push({
+          label: `Swap with ${benchPlayer.name}`,
+          onPress: () => { moveBenchPlayerToSlot(benchPlayer, fromPos); setSelected(null); },
+        });
+      });
+
+      // Starter-to-starter moves (e.g. native WR <-> FLEX) — a swap must be
+      // validated in both directions: the mover must be eligible for the
+      // target slot (guaranteed by getEligibleSlots) AND, if the target is
+      // occupied, that occupant must be eligible for the slot they'd be
+      // displaced into (`fromPos`). A TE sitting in FLEX can't be bumped
+      // into a strict WR slot just because a WR wants into FLEX.
+      getEligibleSlots(starter, pendingRoster).forEach((toPos) => {
+        const occupant = pendingRoster[toPos];
+        if (occupant && !SLOT_ELIGIBILITY[fromPos].includes(occupant.position)) return;
+        selectedActions.push({
+          label: occupant ? `Swap with ${occupant.name} — ${toPos}` : `Move to ${toPos}`,
+          onPress: () => { moveStarterToSlot(fromPos, toPos); setSelected(null); },
+        });
+      });
+    }
+
+    selectedActions.push({
+      label: 'Retire',
+      destructive: true,
+      disabled: retireDisabled,
+      onPress: () => {
+        if (selected.kind === 'starter') retireStarter(selected.position!);
+        else releaseBenchPlayer(selected.player);
+        setSelected(null);
+      },
+    });
+  }
 
   return {
     pendingRoster, pendingBench, overCapacity, canSave, dirty,

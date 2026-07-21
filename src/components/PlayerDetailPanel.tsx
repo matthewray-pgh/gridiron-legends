@@ -124,25 +124,32 @@ export function PlayerDetailPanel({ player, fallbackStatMetrics, quickAssignSlot
           </View>
         </View>
       ) : actions && (
-        <View style={styles.quickAssignWrap}>
-          <View style={styles.quickAssignGrid}>
+        <View style={styles.actionsWrap}>
+          <Text style={styles.quickAssignLabel}>Moves</Text>
+          <View style={styles.actionsList}>
             {actions.map((action) => (
               <TouchableOpacity
                 key={action.label}
                 style={[
-                  styles.quickAssignBtn,
-                  action.destructive && styles.quickAssignBtnDestructive,
-                  action.disabled && styles.quickAssignBtnDisabled,
+                  styles.actionRow,
+                  action.destructive && styles.actionRowDestructive,
+                  action.disabled && styles.actionRowDisabled,
                 ]}
                 onPress={action.onPress}
                 disabled={action.disabled}
                 activeOpacity={0.85}
               >
-                <Text style={[styles.quickAssignBtnText, action.destructive && styles.quickAssignBtnTextDestructive]}>
+                <Text
+                  style={[styles.actionRowText, action.destructive && styles.actionRowTextDestructive]}
+                  numberOfLines={1}
+                >
                   {action.label}
                 </Text>
               </TouchableOpacity>
             ))}
+            {actions.length === 0 && (
+              <Text style={styles.quickAssignEmpty}>No eligible moves right now.</Text>
+            )}
           </View>
           {!!actionsNote && <Text style={styles.actionsNoteText}>{actionsNote}</Text>}
         </View>
@@ -304,6 +311,40 @@ const styles = StyleSheet.create({
     color: Colors.loss,
   },
   quickAssignBtnDisabled: {
+    opacity: 0.35,
+  },
+  // docs/handoff/11-roster-management-restructure.md section 3 — the move
+  // picker's labels are full sentences ("Swap with T. Hill — FLEX"), not
+  // short codes like Quick Assign's position pills, so this is a stacked
+  // list of full-width rows instead of a wrapped pill grid.
+  actionsWrap: {
+    gap: 6,
+    marginTop: 16,
+  },
+  actionsList: {
+    gap: 8,
+  },
+  actionRow: {
+    borderWidth: 1,
+    borderColor: Colors.gold,
+    backgroundColor: '#2A210F',
+    borderRadius: Radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  actionRowText: {
+    color: Colors.gold,
+    fontSize: Typography.md,
+    fontFamily: Font.primarySemiBold,
+  },
+  actionRowDestructive: {
+    borderColor: Colors.loss,
+    backgroundColor: '#2A1210',
+  },
+  actionRowTextDestructive: {
+    color: Colors.loss,
+  },
+  actionRowDisabled: {
     opacity: 0.35,
   },
   actionsNoteText: {

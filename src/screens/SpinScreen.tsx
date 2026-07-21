@@ -17,6 +17,8 @@ export function SpinScreen() {
   const { isWide } = useResponsive();
   const {
     mode,
+    teamScope,
+    lockedTeam,
     positionIndex,
     currentSpin,
     rollSpin,
@@ -24,6 +26,9 @@ export function SpinScreen() {
     spinState,
     setSpinState,
     rerollsRemaining,
+    spinFailed,
+    releaseTeamLock,
+    resetGame,
   } = useGameStore();
 
   const [isAnimating, setIsAnimating] = useState(false);
@@ -108,7 +113,7 @@ export function SpinScreen() {
   const eraTranslateY = eraReel.interpolate({ inputRange: [0, 1], outputRange: [0, -20] });
 
   function triggerSpin() {
-    if (isAnimating || spinState === 'revealed') return;
+    if (isAnimating || spinState === 'revealed' || spinFailed) return;
     setIsAnimating(true);
     setSpinState('spinning');
     setPreviewTeam('?');
@@ -173,7 +178,32 @@ export function SpinScreen() {
           </SpinCard>
         </View>
 
-        {spinState !== 'revealed' ? (
+        {spinFailed ? (
+          // docs/handoff/12-offense-only-bugfixes.md fix #2 — a real dead
+          // end (no combo search results) gets a real message and a way
+          // forward instead of quietly resetting to the same-looking idle
+          // state as "haven't spun yet."
+          <View style={styles.failureBox}>
+            <Text style={styles.failureTitle}>No eligible players remain</Text>
+            <Text style={styles.failureText}>
+              {teamScope === 'single'
+                ? `${lockedTeam?.abbr ?? 'This team'} has no players left for this position with the selected eras.`
+                : 'No players are available for this position with the selected eras.'}
+            </Text>
+            {teamScope === 'single' && (
+              <TouchableOpacity style={styles.releaseLockBtn} onPress={releaseTeamLock} activeOpacity={0.85}>
+                <Text style={styles.releaseLockBtnText}>Release Team Lock &amp; Continue</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={styles.backHomeBtn}
+              onPress={() => { resetGame(); navigation.navigate('Home'); }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.backHomeBtnText}>Back to Home</Text>
+            </TouchableOpacity>
+          </View>
+        ) : spinState !== 'revealed' ? (
           <>
             <TouchableOpacity style={styles.spinBtn} onPress={triggerSpin} activeOpacity={0.85}>
               <ChamferButtonBackground />
@@ -282,6 +312,32 @@ const styles = StyleSheet.create({
     fontSize: Typography.xl,
     fontFamily: Font.primaryBold,
     letterSpacing: 2,
+  },
+  failureBox: {
+    marginTop: 28, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.loss,
+    backgroundColor: '#2A1210', padding: Spacing.lg, gap: 10,
+  },
+  failureTitle: {
+    textAlign: 'center', color: Colors.loss, fontFamily: Font.primaryBold,
+    fontSize: Typography.lg, letterSpacing: 0.5,
+  },
+  failureText: {
+    textAlign: 'center', color: Colors.textSecondary, fontFamily: Font.secondaryRegular,
+    fontSize: Typography.sm, lineHeight: 19,
+  },
+  releaseLockBtn: {
+    marginTop: 6, minHeight: 48, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.gold,
+    backgroundColor: '#2A210F', alignItems: 'center', justifyContent: 'center',
+  },
+  releaseLockBtnText: {
+    color: Colors.gold, fontFamily: Font.primaryBold, fontSize: Typography.md, letterSpacing: 0.5,
+  },
+  backHomeBtn: {
+    minHeight: 44, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.borderMid,
+    backgroundColor: Colors.bgCard, alignItems: 'center', justifyContent: 'center',
+  },
+  backHomeBtnText: {
+    color: Colors.textSecondary, fontFamily: Font.primaryBold, fontSize: Typography.md, letterSpacing: 0.5,
   },
   bottomRow: { marginTop: 18, alignItems: 'center', gap: 8 },
   rerollBtn: {
