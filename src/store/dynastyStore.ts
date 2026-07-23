@@ -393,9 +393,19 @@ export const useDynastyStore = create<DynastyState>()(
 
       earnRings: (amount) => set((s) => ({ rings: s.rings + amount })),
 
+      // docs/handoff/14-reset-icon-rewards-undefeated.md, section 1: Rings
+      // are the one balance a reset doesn't touch — everything else (roster,
+      // bench, record, Hall of Fame, owned packs, season counter) goes back
+      // to a fresh Season 1. The removeItem then setItem (rather than a
+      // single write) is deliberate, not redundant: it wipes the old save
+      // wholesale first, then writes the preserved Rings balance back on its
+      // own, so a crash between the two calls fails safe (an empty save, not
+      // a corrupt partial one).
       resetDynasty: () => {
-        set(INITIAL_DYNASTY_STATE);
+        const { rings } = get();
+        set({ ...INITIAL_DYNASTY_STATE, rings });
         AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
+        AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(pickPersistedState(get()))).catch(() => {});
       },
 
       claimDailyChallenge: () => {

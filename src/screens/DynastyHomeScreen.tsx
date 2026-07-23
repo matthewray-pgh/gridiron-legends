@@ -102,7 +102,7 @@ export function DynastyHomeScreen() {
   // so on web this confirmation never appeared and Reset never fired.
   // window.confirm() is the standard web-platform substitute for exactly
   // this case; native platforms keep the real Alert.
-  const RESET_MESSAGE = 'This clears your roster, bench, Rings, record, and Hall of Fame back to Season 1. This cannot be undone.';
+  const RESET_MESSAGE = 'This clears your roster, bench, record, and Hall of Fame back to Season 1. Your Rings balance is kept. This cannot be undone.';
   function handleResetDynasty() {
     if (Platform.OS === 'web') {
       if (window.confirm(`Reset Dynasty?\n\n${RESET_MESSAGE}`)) resetDynasty();

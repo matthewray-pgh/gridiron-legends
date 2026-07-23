@@ -1,4 +1,10 @@
 // Undefeated brand tokens: midnight black, steel silver, championship gold, and gridiron blue.
+//
+// bgDark and gold are also duplicated as plain hex literals outside this TS
+// module, since neither app.json nor a static web manifest can import from
+// here: app.json's web.themeColor and public/manifest.json's
+// background_color/theme_color (docs/handoff/14-reset-icon-rewards-undefeated.md,
+// section 2). Keep those in sync by hand if either value changes here.
 export const Colors = {
   // Backgrounds
   bgPrimary: '#0B0F14',
