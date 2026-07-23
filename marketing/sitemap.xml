@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Only the static landing page is listed here — the app itself
+  (/play) is a client-side-rendered SPA and isn't meaningfully
+  indexable page-by-page (see the SEO discussion in doc form: Expo
+  web ships as CSR by default). If individual app screens ever get
+  server-rendered or get their own static routes, add them here.
+
+  TODO: update <loc> to the real production domain before launch,
+  and bump <lastmod> whenever this page's content changes.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://undefeatedgridironlegends.com/</loc>
+    <lastmod>2026-07-22</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>
