@@ -21,7 +21,7 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GeneratedEra, Player, Position, ratingToTier } from '../data/players';
 import {
-  pullPlayerPack, PackPlayer, PackRarity, PackTierId, PACK_TIERS,
+  pullPlayerPack, ratingToRarity, PackPlayer, PackRarity, PackTierId, PACK_TIERS,
   TODO_BALANCE_DUPE_REFUND_RINGS, TODO_BALANCE_ERA_LOCK_SURCHARGE_RINGS,
 } from '../data/packs';
 import { isNextConsecutiveDay, todaySeedBase } from '../utils/seededRandom';
@@ -129,6 +129,16 @@ export const TODO_BALANCE_SHOP_AD_STREAK_RINGS = {
 
 export const TODO_BALANCE_SHOP_AD_MAX_WATCHES_PER_DAY = 3;
 
+// docs/handoff/19-season-flow-pack-rebalance-shop-polish_1.md, section 7 —
+// a one-time first-watch-of-the-day bonus stacked on top of the streak
+// table above, rather than a rescale: making Day 1 itself worth flat 100
+// would equal today's *best* streak day immediately, collapsing the reason
+// to keep the streak going. Stacking preserves the escalation's intent
+// while still making the first watch of a session feel like a bigger
+// payoff. Flagged as the conservative option, not the only one discussed —
+// confirm this direction (vs. a full-curve rescale) before treating final.
+export const TODO_BALANCE_SHOP_AD_FIRST_WATCH_BONUS = 50;
+
 function shopAdStreakRingsForDay(streakDay: number): number {
   const table = TODO_BALANCE_SHOP_AD_STREAK_RINGS;
   if (streakDay <= 1) return table.day1;
@@ -157,6 +167,23 @@ function nextShopAdStreakDay(lastWatchDate: number | null, streakDay: number, to
 // it. Replaces, not adds to, the normal per-season pack award for season 1
 // specifically — see completeInitialDraft().
 export const TODO_BALANCE_INITIAL_DRAFT_BONUS_PACKS = 2;
+
+// docs/handoff/19-season-flow-pack-rebalance-shop-polish_1.md, section 3 —
+// retirement had "no payout currently implemented" (docs/handoff/08-dynasty-
+// gameplay-redesign.md). Reuses the same rarity bands packs.ts pulls from
+// (ratingToRarity), so a retired player's payout is graded the same way a
+// pack pull's rarity is. TODO_BALANCE placeholder, not confirmed game
+// balance.
+export const TODO_BALANCE_RETIRE_RINGS_BY_RARITY: Record<PackRarity, number> = {
+  common: 20,
+  rare: 50,
+  elite: 120,
+  legend: 300,
+};
+
+function retireRingsReward(player: Player): number {
+  return TODO_BALANCE_RETIRE_RINGS_BY_RARITY[ratingToRarity(player.rating)];
+}
 
 interface DynastyState {
   rings: number;
@@ -210,8 +237,10 @@ interface DynastyState {
   // Release action there only mutates local component state, and this is
   // the single atomic commit that lands the whole edit session at once.
   // `retiredPlayers` covers both starters retired and bench players
-  // released — both go to the Hall of Fame the same way.
-  commitLineup: (roster: DynastyRoster, bench: Player[], retiredPlayers: Player[]) => void;
+  // released — both go to the Hall of Fame the same way. Returns the total
+  // Rings earned from this commit's retirements (TODO_BALANCE_RETIRE_RINGS_
+  // BY_RARITY) so the caller can surface it to the player.
+  commitLineup: (roster: DynastyRoster, bench: Player[], retiredPlayers: Player[]) => number;
   // Batch-applies a whole pack's worth of start/bench choices in one shot
   // (confirmed with the user: all cards from a pack are shown together with
   // a forced choice per card + a single "save" commit, not a sequential
@@ -263,10 +292,12 @@ export function computeShopAdPreview(
   const isNewDay = state.lastShopAdWatchDate !== today;
   const watchesToday = isNewDay ? 0 : state.shopAdWatchesToday;
   const nextStreakDay = nextShopAdStreakDay(state.lastShopAdWatchDate, state.shopAdStreakDay, today);
+  const isFirstWatchToday = watchesToday === 0;
   return {
     watchesRemainingToday: Math.max(0, TODO_BALANCE_SHOP_AD_MAX_WATCHES_PER_DAY - watchesToday),
     nextStreakDay,
-    nextReward: shopAdStreakRingsForDay(nextStreakDay),
+    nextReward: shopAdStreakRingsForDay(nextStreakDay)
+      + (isFirstWatchToday ? TODO_BALANCE_SHOP_AD_FIRST_WATCH_BONUS : 0),
   };
 }
 
@@ -423,7 +454,9 @@ export const useDynastyStore = create<DynastyState>()(
         if (watchesToday >= TODO_BALANCE_SHOP_AD_MAX_WATCHES_PER_DAY) return 0;
 
         const nextStreakDay = nextShopAdStreakDay(lastShopAdWatchDate, shopAdStreakDay, today);
-        const reward = shopAdStreakRingsForDay(nextStreakDay);
+        const isFirstWatchToday = watchesToday === 0;
+        const reward = shopAdStreakRingsForDay(nextStreakDay)
+          + (isFirstWatchToday ? TODO_BALANCE_SHOP_AD_FIRST_WATCH_BONUS : 0);
 
         set({
           rings: rings + reward,
@@ -484,18 +517,21 @@ export const useDynastyStore = create<DynastyState>()(
       },
 
       commitLineup: (roster, bench, retiredPlayers) => {
-        const { currentSeason, allTimeRecord, hallOfFame } = get();
+        const { currentSeason, allTimeRecord, hallOfFame, rings } = get();
         const newEntries = retiredPlayers.map((player) =>
           makeHallOfFameEntry(player, currentSeason, allTimeRecord),
         );
-        set({ roster, bench, hallOfFame: [...hallOfFame, ...newEntries] });
+        const reward = retiredPlayers.reduce((sum, player) => sum + retireRingsReward(player), 0);
+        set({ roster, bench, hallOfFame: [...hallOfFame, ...newEntries], rings: rings + reward });
+        return reward;
       },
 
       resolvePackPulls: (resolutions) => {
-        const { currentSeason, allTimeRecord } = get();
+        const { currentSeason, allTimeRecord, rings } = get();
         let nextRoster = { ...get().roster };
         let nextBench = get().bench;
-        let nextHallOfFame = get().hallOfFame;
+        const startingHallOfFame = get().hallOfFame;
+        let nextHallOfFame = startingHallOfFame;
 
         resolutions.forEach(({ player, placement }) => {
           if (placement === 'start') {
@@ -513,7 +549,15 @@ export const useDynastyStore = create<DynastyState>()(
           }
         });
 
-        set({ roster: nextRoster, bench: nextBench, hallOfFame: nextHallOfFame });
+        // Auto-release-when-bench-is-full (makeRoomOnBench above) retires
+        // players the same as the manual roster-tab path, so it pays the
+        // same Rings reward (docs/handoff/19-season-flow-pack-rebalance-
+        // shop-polish_1.md, section 3) — the newly appended entries are
+        // exactly the players makeRoomOnBench auto-released this batch.
+        const autoReleased = nextHallOfFame.slice(startingHallOfFame.length);
+        const reward = autoReleased.reduce((sum, entry) => sum + retireRingsReward(entry.player), 0);
+
+        set({ roster: nextRoster, bench: nextBench, hallOfFame: nextHallOfFame, rings: rings + reward });
       },
   }),
 );

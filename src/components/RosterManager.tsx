@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Colors, Spacing, Typography, Font } from '../theme/colors';
+import { Colors, Radius, Spacing, Typography, Font } from '../theme/colors';
 import { DRAFT_POSITIONS, Player, Position, parseYear } from '../data/players';
 import { BENCH_CAPACITY, DynastyRoster, useDynastyStore } from '../store/dynastyStore';
 import { SHOW_DEBUG_OVR } from '../config/featureFlags';
@@ -74,6 +74,10 @@ export function useRosterEditor() {
   const [pendingRetirees, setPendingRetirees] = useState<Player[]>([]);
   const [dirty, setDirty] = useState(false);
   const [selected, setSelected] = useState<Selection | null>(null);
+  // Rings earned from this commit's retirements/releases (docs/handoff/
+  // 19-season-flow-pack-rebalance-shop-polish_1.md, section 3) — the player
+  // should see what they earned, not have Rings silently increment.
+  const [retireRewardEarned, setRetireRewardEarned] = useState<number | null>(null);
 
   // Resync from the store when there's no open edit session — e.g. a pack
   // opened elsewhere just wrote to roster/bench directly. If the user has
@@ -147,7 +151,11 @@ export function useRosterEditor() {
 
   function handleSave() {
     if (!canSave) return;
-    commitLineup(pendingRoster, pendingBench, pendingRetirees);
+    const reward = commitLineup(pendingRoster, pendingBench, pendingRetirees);
+    if (reward > 0) {
+      setRetireRewardEarned(reward);
+      setTimeout(() => setRetireRewardEarned(null), 2500);
+    }
     setPendingRetirees([]);
     setDirty(false);
   }
@@ -238,7 +246,7 @@ export function useRosterEditor() {
   return {
     pendingRoster, pendingBench, overCapacity, canSave, dirty,
     selected, setSelected, selectedActions, actionsNote,
-    handleSave, handleDiscard,
+    handleSave, handleDiscard, retireRewardEarned,
   };
 }
 
@@ -248,10 +256,19 @@ export type RosterEditor = ReturnType<typeof useRosterEditor>;
 // detail opens in a Modal — see DynastyHomeScreen) and wide (rows in
 // widePaneLeft, detail is the persistent widePaneRight) layouts.
 export function RosterList({ editor }: { editor: RosterEditor }) {
-  const { pendingRoster, pendingBench, overCapacity, dirty, canSave, selected, setSelected, handleSave, handleDiscard } = editor;
+  const {
+    pendingRoster, pendingBench, overCapacity, dirty, canSave, selected, setSelected,
+    handleSave, handleDiscard, retireRewardEarned,
+  } = editor;
 
   return (
     <>
+      {retireRewardEarned !== null && (
+        <View style={styles.retireRewardBanner}>
+          <Text style={styles.retireRewardText}>+{retireRewardEarned} 💍 EARNED FROM RETIREMENT</Text>
+        </View>
+      )}
+
       <Text style={styles.sectionLabel}>Full roster</Text>
       {DRAFT_POSITIONS.map((pos) => {
         const starter = pendingRoster[pos];
@@ -320,6 +337,11 @@ const styles = StyleSheet.create({
   },
   emptyText: { color: Colors.textMuted, fontSize: Typography.base, fontFamily: Font.secondaryRegular, marginBottom: Spacing.lg, lineHeight: 20 },
   warningText: { color: Colors.loss, fontSize: Typography.sm, fontFamily: Font.secondarySemiBold, marginBottom: Spacing.sm },
+  retireRewardBanner: {
+    marginBottom: Spacing.md, paddingVertical: 10, borderRadius: Radius.md,
+    borderWidth: 1, borderColor: Colors.gold, backgroundColor: Colors.gold + '1A', alignItems: 'center',
+  },
+  retireRewardText: { fontSize: Typography.md, color: Colors.gold, fontFamily: Font.primaryBold, letterSpacing: 0.5 },
 
   rosterRow: { marginBottom: 6 },
   benchSectionLabel: { marginTop: Spacing.md },

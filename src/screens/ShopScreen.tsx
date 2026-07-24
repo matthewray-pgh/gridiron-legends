@@ -13,7 +13,6 @@ import {
 } from '../store/dynastyStore';
 import { SHOP_AD_RINGS_ENABLED } from '../config/featureFlags';
 import { PackShieldBadge, TIER_ACCENT } from '../components/PackShieldBadge';
-import { SegmentedControl } from '../components/SegmentedControl';
 import { SelectablePill } from '../components/SelectablePill';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { SecondaryButton } from '../components/SecondaryButton';
@@ -26,12 +25,12 @@ import { useResponsive } from '../hooks/useResponsive';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-type ShopTab = 'store' | 'mine';
 
-// Caps the Store tab's horizontal "waiting to open" strip (docs/handoff/
+// Caps the Store's horizontal "waiting to open" strip (docs/handoff/
 // 18-shop-pack-shelf-redesign.md section 2) — beyond this many owned
-// packs, the last slot becomes a "See all N" tile into the My Packs tab
-// instead of scrolling indefinitely.
+// packs, the last slot becomes a "See all N" tile that opens the My Packs
+// bottom sheet (docs/handoff/19-season-flow-pack-rebalance-shop-polish_1.md
+// section 4) instead of scrolling indefinitely.
 const WAITING_STRIP_CAP = 4;
 
 const SOURCE_LABEL: Record<PackSource, string> = {
@@ -206,15 +205,14 @@ function OwnedPackTile({ pack, tier, onPress, style }: {
 // mockups.html for narrow, gridiron-legends-shop-web.html for wide): Pack
 // Store (buy tiers, each with its own odds + optional guarantee floor, plus
 // an era-lock price modifier that narrows the pull pool without touching
-// odds) and My Packs (pending pack instances waiting to be opened — each
-// tracked individually since an era lock makes two packs of the same tier
-// not interchangeable).
+// odds) is the only view now (docs/handoff/19-season-flow-pack-rebalance-
+// shop-polish_1.md, section 4 — the old My Packs tab was dropped as
+// redundant with the waiting-to-open strip already on this screen). Pending
+// pack instances beyond the strip's cap surface via the "See all" bottom
+// sheet instead of a second tab.
 //
-// Narrow keeps Store/My Packs as tabs since there's only room for one at a
-// time. Wide has room for both at once (docs' persistent sidebar), so My
-// Packs stops being a tab there and just sits beside the tier grid — the
-// reference mockup's tabRow is vestigial (its own JS comment admits both
-// panes stay visible "for the mockup's sake"); this makes that real.
+// Wide keeps its persistent "My Packs" sidebar unaffected — it already
+// shows every pending pack at once, so it never needed the sheet either.
 export function ShopScreen() {
   const navigation = useNavigation<Nav>();
   const { isWide } = useResponsive();
@@ -227,11 +225,14 @@ export function ShopScreen() {
   const shopAdWatchesToday = useDynastyStore((s) => s.shopAdWatchesToday);
   const watchShopAdForRings = useDynastyStore((s) => s.watchShopAdForRings);
 
-  const [tab, setTab] = useState<ShopTab>('store');
   const [selectedEra, setSelectedEra] = useState<GeneratedEra | null>(null);
   const [oddsSheetTierId, setOddsSheetTierId] = useState<PackTierId | null>(null);
   const [adRingsJustEarned, setAdRingsJustEarned] = useState<number | null>(null);
   const [adSheetOpen, setAdSheetOpen] = useState(false);
+  // "See all" opens a bottom sheet listing every owned pack (docs/handoff/
+  // 19-season-flow-pack-rebalance-shop-polish_1.md, section 4) — supersedes
+  // doc 18's My Packs tab, which is now redundant with the waiting strip.
+  const [packsSheetOpen, setPacksSheetOpen] = useState(false);
   const { requestAd, adModalProps } = useRewardedAd(SHOP_AD_RINGS_ENABLED);
 
   // Same "drafted at least once" gate PackOpeningScreen uses (see its
@@ -281,7 +282,7 @@ export function ShopScreen() {
           return <WaitingPackTile key={pack.id} tier={tier} onPress={() => openPendingPack(pack.id)} />;
         })}
         {pendingCount > WAITING_STRIP_CAP && (
-          <SeeAllTile count={pendingCount} onPress={() => setTab('mine')} />
+          <SeeAllTile count={pendingCount} onPress={() => setPacksSheetOpen(true)} />
         )}
       </ScrollView>
     </>
@@ -394,79 +395,36 @@ export function ShopScreen() {
           </View>
         </ScrollView>
       ) : (
-        <>
-          <View style={styles.tabsWrap}>
-            <SegmentedControl
-              options={[
-                { value: 'store', label: 'PACK STORE' },
-                { value: 'mine', label: `MY PACKS · ${pendingCount}` },
-              ]}
-              value={tab}
-              onChange={setTab}
-            />
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {waitingStrip}
+          {shopAdPill}
+
+          <Text style={styles.eraLabel}>Era filter (applies to any tier below)</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.eraRow}>
+            {eraChips}
+          </ScrollView>
+          {eraNote}
+
+          <Text style={styles.sectionLabel}>BUY A PACK</Text>
+          <View style={styles.tierShelfGrid}>
+            {PACK_TIERS.map((tier) => {
+              const cost = totalCost(tier, selectedEra);
+              const affordable = rings >= cost;
+              return (
+                <PackTile
+                  key={tier.id}
+                  tier={tier}
+                  cost={cost}
+                  affordable={affordable}
+                  onBuy={() => handleBuy(tier.id)}
+                  onViewOdds={() => setOddsSheetTierId(tier.id)}
+                />
+              );
+            })}
           </View>
 
-          {tab === 'store' ? (
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-              {waitingStrip}
-              {shopAdPill}
-
-              <Text style={styles.eraLabel}>Era filter (applies to any tier below)</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.eraRow}>
-                {eraChips}
-              </ScrollView>
-              {eraNote}
-
-              <Text style={styles.sectionLabel}>BUY A PACK</Text>
-              <View style={styles.tierShelfGrid}>
-                {PACK_TIERS.map((tier) => {
-                  const cost = totalCost(tier, selectedEra);
-                  const affordable = rings >= cost;
-                  return (
-                    <PackTile
-                      key={tier.id}
-                      tier={tier}
-                      cost={cost}
-                      affordable={affordable}
-                      onBuy={() => handleBuy(tier.id)}
-                      onViewOdds={() => setOddsSheetTierId(tier.id)}
-                    />
-                  );
-                })}
-              </View>
-
-              <FieldFooterBand />
-            </ScrollView>
-          ) : (
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-              <View style={styles.pendingHero}>
-                <Text style={styles.pendingCount}>{pendingCount}</Text>
-                <Text style={styles.pendingHeroLabel}>Packs waiting to be opened</Text>
-              </View>
-
-              {pendingCount === 0 ? (
-                <Text style={styles.emptyHint}>No packs waiting — buy one in the Pack Store.</Text>
-              ) : (
-                <View style={styles.tierShelfGrid}>
-                  {ownedPacks.map((pack: OwnedPack) => {
-                    const tier = findTier(pack.tierId);
-                    if (!tier) return null;
-                    return (
-                      <OwnedPackTile
-                        key={pack.id}
-                        pack={pack}
-                        tier={tier}
-                        onPress={() => openPendingPack(pack.id)}
-                      />
-                    );
-                  })}
-                </View>
-              )}
-
-              <FieldFooterBand />
-            </ScrollView>
-          )}
-        </>
+          <FieldFooterBand />
+        </ScrollView>
       )}
 
       <PackOddsSheet
@@ -518,6 +476,35 @@ export function ShopScreen() {
         </Pressable>
       </Modal>
 
+      {/* My Packs sheet (docs/handoff/19-season-flow-pack-rebalance-shop-
+          polish_1.md, section 4) — "See all" beyond WAITING_STRIP_CAP opens
+          this instead of navigating into a separate tab; same tile family
+          as the strip/shelf (OwnedPackTile), laid out as a scrollable grid.
+          Reuses PackOddsSheet's overlay/sheet styles. Wide layout never
+          renders this — sidebarCardWide already shows every pending pack. */}
+      <Modal visible={packsSheetOpen} transparent animationType="slide" onRequestClose={() => setPacksSheetOpen(false)}>
+        <Pressable style={styles.sheetOverlay} onPress={() => setPacksSheetOpen(false)}>
+          <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>My Packs</Text>
+            <ScrollView contentContainerStyle={styles.tierShelfGrid}>
+              {ownedPacks.map((pack: OwnedPack) => {
+                const tier = findTier(pack.tierId);
+                if (!tier) return null;
+                return (
+                  <OwnedPackTile
+                    key={pack.id}
+                    pack={pack}
+                    tier={tier}
+                    onPress={() => { setPacksSheetOpen(false); openPendingPack(pack.id); }}
+                  />
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <RewardedAdModal {...adModalProps} />
     </SafeAreaView>
   );
@@ -546,10 +533,11 @@ const styles = StyleSheet.create({
   adWatchBtnText: { color: Colors.bgDark, fontFamily: Font.primaryBold, fontSize: Typography.base, letterSpacing: 0.6 },
 
   adPill: {
-    alignSelf: 'flex-start', backgroundColor: Colors.bgCardDeep, borderWidth: 1, borderColor: Colors.border,
-    borderRadius: Radius.full, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 10,
+    alignSelf: 'flex-start', backgroundColor: 'rgba(212,160,23,0.12)',
+    borderWidth: 1, borderColor: Colors.gold, borderRadius: Radius.full,
+    paddingHorizontal: 12, paddingVertical: 7, marginBottom: 10,
   },
-  adPillText: { color: Colors.textMuted, fontFamily: Font.mono, fontSize: Typography.xs },
+  adPillText: { color: Colors.gold, fontFamily: Font.secondarySemiBold, fontSize: Typography.xs },
 
   sectionLabel: {
     fontSize: Typography.xs, color: Colors.textMuted, fontFamily: Font.mono,
@@ -599,8 +587,6 @@ const styles = StyleSheet.create({
   stage: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, paddingHorizontal: Spacing.lg },
   emptyText: { color: Colors.textMuted, fontSize: Typography.base, fontFamily: Font.secondaryRegular, textAlign: 'center' },
 
-  tabsWrap: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.md },
-
   scrollContent: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl },
 
   eraLabel: {
@@ -638,15 +624,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6, paddingVertical: 1,
   },
   packTileEraTagText: { fontSize: Typography.xs, color: Colors.gold, fontFamily: Font.mono },
-
-  pendingHero: {
-    marginTop: Spacing.lg, marginBottom: 8, alignItems: 'center', padding: 18, borderRadius: Radius.lg,
-    borderWidth: 1.5, borderStyle: 'dashed', borderColor: Colors.border,
-  },
-  pendingCount: { fontFamily: Font.primaryBold, fontSize: Typography['3xl'], color: Colors.gold },
-  pendingHeroLabel: {
-    fontSize: Typography.xs, color: Colors.textMuted, letterSpacing: 1, textTransform: 'uppercase', fontFamily: Font.mono,
-  },
 
   emptyHint: { color: Colors.textMuted, fontSize: Typography.sm, fontFamily: Font.secondaryRegular, marginTop: Spacing.md, textAlign: 'center' },
 

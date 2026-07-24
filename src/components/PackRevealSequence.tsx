@@ -4,6 +4,7 @@ import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { PackRarity } from '../data/packs';
 import { PackPullResult } from '../store/dynastyStore';
 import { PackPlayerCard, RARITY_COLOR } from './PackPlayerCard';
+import { SecondaryButton } from './SecondaryButton';
 
 const BURST_DOT_COUNT = 12;
 const RIP_DURATION = 480;
@@ -180,13 +181,7 @@ export function PackRevealSequence({ onOpen, onDone, cardCount, subtitle }: Pack
   return (
     <View style={styles.wrap}>
       {phase === 'reveal' && hasRevealedOnceThisSession && !skipRequested && (
-        <TouchableOpacity
-          style={styles.skipBtn}
-          onPress={handleSkip}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={styles.skipBtnText}>SKIP ›</Text>
-        </TouchableOpacity>
+        <SecondaryButton label="SKIP ›" onPress={handleSkip} style={styles.skipBtn} />
       )}
 
       {phase === 'reveal' && (
@@ -379,6 +374,8 @@ const styles = StyleSheet.create({
     color: Colors.textMuted, fontSize: Typography.sm, fontFamily: Font.mono, letterSpacing: 0.5,
   },
 
-  skipBtn: { position: 'absolute', top: 8, right: 8, padding: 8, zIndex: 10 },
-  skipBtnText: { color: Colors.textMuted, fontFamily: Font.mono, fontSize: Typography.xs, letterSpacing: 1 },
+  // Real SecondaryButton now (was a bare text link) — sized for its own
+  // min tap height/padding rather than the old small text-link footprint,
+  // still pinned top-right/absolute over the reveal stage.
+  skipBtn: { position: 'absolute', top: 8, right: 8, minHeight: 40, paddingHorizontal: 16, zIndex: 10 },
 });
