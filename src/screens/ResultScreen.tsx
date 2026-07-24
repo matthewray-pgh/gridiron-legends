@@ -21,7 +21,6 @@ import { TOTAL_SEASON_GAMES, simulateSeasonResults } from '../utils/seasonSim';
 import { BrandBackground } from '../components/BrandBackground';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { SecondaryButton } from '../components/SecondaryButton';
-import { PackOddsSheet } from '../components/PackOddsSheet';
 import { RewardedAdModal } from '../components/RewardedAdModal';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -81,7 +80,6 @@ export function ResultScreen() {
   // with no UI feedback — this just remembers what happened so the reward
   // banner can report it once the reveal finishes.
   const [dailyRewardEarned, setDailyRewardEarned] = useState(false);
-  const [seasonOddsSheetOpen, setSeasonOddsSheetOpen] = useState(false);
   const { requestAd: requestSeasonRewardAd, adModalProps: seasonRewardAdModalProps } = useRewardedAd(SEASON_END_AD_UPGRADE_ENABLED);
 
   const rosterEntries = Object.entries(roster);
@@ -183,7 +181,6 @@ export function ResultScreen() {
   }
 
   async function handleWatchSeasonRewardAd() {
-    setSeasonOddsSheetOpen(false);
     const watched = await requestSeasonRewardAd();
     applyNextSeasonResults(
       results,
@@ -307,10 +304,10 @@ export function ResultScreen() {
         Every completed season earns a {SEASON_REWARD_BASE_TIER.label} — watch an ad to upgrade this one to a {SEASON_REWARD_UPGRADE_TIER.label} instead.
       </Text>
       <View style={styles.seasonRewardActions}>
-        <SecondaryButton label={`ACCEPT ${SEASON_REWARD_BASE_TIER.label.toUpperCase()}`} onPress={handleAcceptSeasonPack} style={styles.seasonRewardBtn} />
+        <SecondaryButton label={SEASON_REWARD_BASE_TIER.label.toUpperCase()} onPress={handleAcceptSeasonPack} style={styles.seasonRewardBtn} />
         <PrimaryButton
           label={`▶ WATCH AD FOR ${SEASON_REWARD_UPGRADE_TIER.label.toUpperCase()}`}
-          onPress={() => setSeasonOddsSheetOpen(true)}
+          onPress={handleWatchSeasonRewardAd}
           style={styles.seasonRewardBtn}
         />
       </View>
@@ -345,20 +342,6 @@ export function ResultScreen() {
         {actionsRow}
       </ScrollView>
 
-      <PackOddsSheet
-        visible={seasonOddsSheetOpen}
-        tier={SEASON_REWARD_UPGRADE_TIER}
-        accentColor={Colors.gold}
-        isWide={isWide}
-        onClose={() => setSeasonOddsSheetOpen(false)}
-        priceLine={`Ad-upgraded season reward · same 1-pack award, Pro tier instead of Rookie`}
-        footer={
-          <View style={styles.seasonRewardSheetActions}>
-            <SecondaryButton label="MAYBE LATER" onPress={() => setSeasonOddsSheetOpen(false)} style={styles.seasonRewardSheetBtn} />
-            <PrimaryButton label="▶ WATCH AD" onPress={handleWatchSeasonRewardAd} style={styles.seasonRewardSheetBtn} />
-          </View>
-        }
-      />
       <RewardedAdModal {...seasonRewardAdModalProps} />
     </SafeAreaView>
   );
@@ -465,7 +448,5 @@ const styles = StyleSheet.create({
   seasonRewardSub: { fontSize: Typography.sm, color: Colors.textSecondary, fontFamily: Font.secondaryRegular, lineHeight: 19, marginBottom: 14 },
   seasonRewardActions: { flexDirection: 'row', gap: 10 },
   seasonRewardBtn: { flex: 1 },
-  seasonRewardSheetActions: { flexDirection: 'row', gap: 10 },
-  seasonRewardSheetBtn: { flex: 1 },
   againBtnWrap: { flex: 1 },
 });

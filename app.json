@@ -24,6 +24,7 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
+      "name": "Undefeated: Gridiron Legends",
       "favicon": "./assets/favicon.png",
       "themeColor": "#D4A017"
     },

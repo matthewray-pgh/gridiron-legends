@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, StyleProp, ViewStyle } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, StyleProp, ViewStyle, Modal, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -97,6 +97,51 @@ function ShopAdCard({ preview, onWatch, disabled, justEarned, style }: {
         </Text>
       </TouchableOpacity>
     </View>
+  );
+}
+
+// Compact trigger for the ad-for-Rings card (item 5, docs/handoff/15-shop-
+// pack-flow-streamlining.md) — the full ShopAdCard now only renders inside
+// the bottom sheet this opens, so it stops competing with the tier list's
+// Buy buttons for scroll priority and visual weight.
+function ShopAdPill({ preview, onPress, justEarned }: {
+  preview: { watchesRemainingToday: number; nextReward: number };
+  onPress: () => void;
+  justEarned: number | null;
+}) {
+  return (
+    <TouchableOpacity style={styles.adPill} onPress={onPress} activeOpacity={0.85}>
+      <Text style={styles.adPillText}>
+        {justEarned !== null
+          ? `+${justEarned} 💍 earned`
+          : preview.watchesRemainingToday > 0
+            ? `▶ Watch an ad · +${preview.nextReward} 💍`
+            : 'No ad watches left today'}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+// Nudge to open a pack right after buying it (item 1) and a standing
+// reminder that packs are waiting whenever the player returns to the Store
+// (item 4) — same banner, same docs/handoff/15-shop-pack-flow-streamlining.md.
+function PendingPacksBanner({ count, latestPackId, onOpen }: {
+  count: number;
+  latestPackId: string | null;
+  onOpen: (packId: string) => void;
+}) {
+  if (count === 0) return null;
+  return (
+    <TouchableOpacity
+      style={styles.pendingBanner}
+      onPress={() => onOpen(latestPackId ?? '')}
+      activeOpacity={0.85}
+    >
+      <Text style={styles.pendingBannerText}>
+        {count === 1 ? '1 pack waiting' : `${count} packs waiting`} — Open now
+      </Text>
+      <Text style={styles.pendingBannerArrow}>›</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -213,6 +258,8 @@ export function ShopScreen() {
   const [selectedEra, setSelectedEra] = useState<GeneratedEra | null>(null);
   const [oddsSheetTierId, setOddsSheetTierId] = useState<PackTierId | null>(null);
   const [adRingsJustEarned, setAdRingsJustEarned] = useState<number | null>(null);
+  const [adSheetOpen, setAdSheetOpen] = useState(false);
+  const [justBoughtPackId, setJustBoughtPackId] = useState<string | null>(null);
   const { requestAd, adModalProps } = useRewardedAd(SHOP_AD_RINGS_ENABLED);
 
   // Same "drafted at least once" gate PackOpeningScreen uses (see its
@@ -225,12 +272,14 @@ export function ShopScreen() {
 
   function handleBuy(tierId: PackTierId) {
     if (!hasCompletedInitialDraft) return;
-    buyPack(tierId, selectedEra ?? undefined);
+    const newPackId = buyPack(tierId, selectedEra ?? undefined);
     setOddsSheetTierId(null);
+    if (newPackId) setJustBoughtPackId(newPackId);
   }
 
   async function handleWatchShopAd() {
     if (adPreview.watchesRemainingToday <= 0) return;
+    setAdSheetOpen(false);
     const watched = await requestAd();
     if (!watched) return;
     const earned = watchShopAdForRings();
@@ -240,12 +289,20 @@ export function ShopScreen() {
     }
   }
 
-  const shopAdCard = SHOP_AD_RINGS_ENABLED && (
-    <ShopAdCard
-      preview={adPreview}
-      onWatch={handleWatchShopAd}
-      disabled={adPreview.watchesRemainingToday <= 0}
-      justEarned={adRingsJustEarned}
+  const shopAdPill = SHOP_AD_RINGS_ENABLED && (
+    <ShopAdPill preview={adPreview} justEarned={adRingsJustEarned} onPress={() => setAdSheetOpen(true)} />
+  );
+
+  function openPendingPack(packId: string) {
+    setJustBoughtPackId(null);
+    navigation.navigate('PackOpening', { packId });
+  }
+
+  const pendingPacksBanner = (
+    <PendingPacksBanner
+      count={pendingCount}
+      latestPackId={justBoughtPackId ?? ownedPacks[0]?.id ?? null}
+      onOpen={openPendingPack}
     />
   );
 
@@ -297,7 +354,8 @@ export function ShopScreen() {
       ) : isWide ? (
         <ScrollView contentContainerStyle={styles.scrollContentWide} showsVerticalScrollIndicator={false}>
           <View style={styles.wideWrap}>
-            {shopAdCard}
+            {pendingPacksBanner}
+            {shopAdPill}
 
             <View style={styles.eraBarWide}>
               <Text style={styles.eraBarLabel}>ERA FILTER</Text>
@@ -369,7 +427,8 @@ export function ShopScreen() {
 
           {tab === 'store' ? (
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-              {shopAdCard}
+              {pendingPacksBanner}
+              {shopAdPill}
 
               <Text style={styles.eraLabel}>Era filter (applies to any tier below)</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.eraRow}>
@@ -460,6 +519,25 @@ export function ShopScreen() {
         )}
       />
 
+      {/* Ad-for-Rings sheet (item 5) — reuses the same overlay/sheet look as
+          PackOddsSheet above (styles.sheetOverlay/sheet/sheetWide/sheetHandle,
+          previously unused leftovers from before that sheet was its own
+          component) rather than a new sheet primitive, since ShopAdCard's
+          content shape doesn't fit PackOddsSheet's tier-odds-specific props. */}
+      <Modal visible={adSheetOpen} transparent animationType={isWide ? 'fade' : 'slide'} onRequestClose={() => setAdSheetOpen(false)}>
+        <Pressable style={[styles.sheetOverlay, isWide && styles.sheetOverlayWide]} onPress={() => setAdSheetOpen(false)}>
+          <Pressable style={[styles.sheet, isWide && styles.sheetWide]} onPress={(e) => e.stopPropagation()}>
+            {!isWide && <View style={styles.sheetHandle} />}
+            <ShopAdCard
+              preview={adPreview}
+              onWatch={handleWatchShopAd}
+              disabled={adPreview.watchesRemainingToday <= 0}
+              justEarned={adRingsJustEarned}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <RewardedAdModal {...adModalProps} />
     </SafeAreaView>
   );
@@ -486,6 +564,21 @@ const styles = StyleSheet.create({
   },
   adWatchBtnDisabled: { backgroundColor: 'transparent', borderColor: Colors.border },
   adWatchBtnText: { color: Colors.bgDark, fontFamily: Font.primaryBold, fontSize: Typography.base, letterSpacing: 0.6 },
+
+  adPill: {
+    alignSelf: 'flex-start', backgroundColor: Colors.bgCardDeep, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: Radius.full, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 10,
+  },
+  adPillText: { color: Colors.textMuted, fontFamily: Font.mono, fontSize: Typography.xs },
+
+  pendingBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: Colors.bgCardDeep, borderWidth: 1, borderColor: Colors.gold,
+    borderRadius: Radius.md, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 10,
+  },
+  pendingBannerText: { color: Colors.gold, fontFamily: Font.primaryBold, fontSize: Typography.sm, letterSpacing: 0.4 },
+  pendingBannerArrow: { color: Colors.gold, fontSize: Typography.lg },
+
   toolbar: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.md,

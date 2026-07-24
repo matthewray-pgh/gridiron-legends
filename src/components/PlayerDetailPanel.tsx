@@ -256,8 +256,8 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   statLabel: {
-    color: Colors.textMuted,
-    fontSize: Typography.sm,
+    color: Colors.textSecondary,
+    fontSize: Typography.base,
     letterSpacing: 0.4,
     fontFamily: Font.secondaryBold,
     marginTop: 4,
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
   actionRowText: {
     color: Colors.gold,
     fontSize: Typography.md,
-    fontFamily: Font.primarySemiBold,
+    fontFamily: Font.secondarySemiBold,
   },
   actionRowDestructive: {
     borderColor: Colors.loss,
@@ -348,13 +348,13 @@ const styles = StyleSheet.create({
     opacity: 0.35,
   },
   actionsNoteText: {
-    color: Colors.textDim,
+    color: Colors.textMuted,
     fontSize: Typography.sm,
     fontFamily: Font.secondaryRegular,
     marginTop: 4,
   },
   quickAssignEmpty: {
-    color: Colors.textDim,
+    color: Colors.textMuted,
     fontSize: Typography.sm,
     fontFamily: Font.secondarySemiBold,
   },
