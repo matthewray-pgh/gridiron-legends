@@ -33,12 +33,18 @@ const PRIMARY_DRAFT_POSITION: Record<string, Position> = {
 
 // TODO_BALANCE: rating bands mapped to pack rarity are placeholders — not
 // yet confirmed by product. docs/handoff/03-legacy-mode.md > DECISION NEEDED
-// (pack pull odds / conversion values).
+// (pack pull odds / conversion values). Re-anchored higher
+// (docs/handoff/19-season-flow-pack-rebalance-shop-polish_1.md, section 2):
+// a drafted roster's avgRating fallback is ~90, which sat inside the old
+// `legend` band — every common/rare pull after that was structurally
+// guaranteed to be worse than what was already rostered. Pool-size check
+// (per band, per era, against GENERATED_RECORDS) confirmed hundreds of
+// distinct players remain in every band per era at these bounds.
 const RARITY_RATING_BANDS: Record<PackRarity, { min: number; max: number }> = {
-  common: { min: 0, max: 64 },
-  rare: { min: 65, max: 79 },
-  elite: { min: 80, max: 89 },
-  legend: { min: 90, max: 100 },
+  common: { min: 60, max: 74 },
+  rare: { min: 75, max: 84 },
+  elite: { min: 85, max: 92 },
+  legend: { min: 93, max: 100 },
 };
 
 // TODO_BALANCE: dupe-pull Rings refund value is a placeholder — see
@@ -74,7 +80,11 @@ export interface PackTier {
 
 // TODO_BALANCE: tier costs and odds are placeholders pending product
 // balancing — see docs/handoff/03-legacy-mode.md > DECISION NEEDED
-// ("Packs") and docs/handoff/gridiron-legends-shop-mockups.html.
+// ("Packs") and docs/handoff/gridiron-legends-shop-mockups.html. Weights
+// shifted toward higher rarities across all three tiers (docs/handoff/
+// 19-season-flow-pack-rebalance-shop-polish_1.md, section 2) — still
+// placeholder numbers pending real playtesting, just re-anchored to higher
+// floors / more high-tier weight per pack rather than the original values.
 export const PACK_TIERS: PackTier[] = [
   {
     id: 'rookie',
@@ -82,7 +92,7 @@ export const PACK_TIERS: PackTier[] = [
     shortCode: 'RKI',
     badge: 'BASE',
     cost: 100,
-    weights: { common: 45, rare: 35, elite: 15, legend: 5 },
+    weights: { common: 30, rare: 40, elite: 22, legend: 8 },
     description: 'No guarantee — standard odds',
   },
   {
@@ -91,7 +101,7 @@ export const PACK_TIERS: PackTier[] = [
     shortCode: 'PRO',
     badge: 'RARE+',
     cost: 280,
-    weights: { common: 20, rare: 40, elite: 30, legend: 10 },
+    weights: { common: 10, rare: 35, elite: 40, legend: 15 },
     guaranteedMinRarity: 'rare',
     description: 'Guaranteed: 1+ Rare or better',
   },
@@ -101,13 +111,17 @@ export const PACK_TIERS: PackTier[] = [
     shortCode: 'LEG',
     badge: 'ELITE+',
     cost: 650,
-    weights: { common: 5, rare: 20, elite: 45, legend: 30 },
+    weights: { common: 0, rare: 10, elite: 45, legend: 45 },
     guaranteedMinRarity: 'elite',
     description: 'Guaranteed: 1+ Elite or better',
   },
 ];
 
-function ratingToRarity(rating: number): PackRarity {
+// Exported for dynastyStore.ts's retire-for-Rings reward (docs/handoff/
+// 19-season-flow-pack-rebalance-shop-polish_1.md, section 3) — a retired
+// player's payout is graded by the same rarity bands a pack pull's rarity
+// is, one shared notion of "how good is this player" rather than two.
+export function ratingToRarity(rating: number): PackRarity {
   const found = PACK_RARITIES.find((rarity) => {
     const band = RARITY_RATING_BANDS[rarity];
     return rating >= band.min && rating <= band.max;

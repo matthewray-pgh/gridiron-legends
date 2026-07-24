@@ -177,7 +177,8 @@ export function ResultScreen() {
 
   function handleAcceptSeasonPack() {
     applyNextSeasonResults(results, TODO_BALANCE_SEASON_END_PACK_TIER.base);
-    setPhase('done');
+    resetGame();
+    navigation.replace('DynastyHome');
   }
 
   async function handleWatchSeasonRewardAd() {
@@ -186,7 +187,8 @@ export function ResultScreen() {
       results,
       watched ? TODO_BALANCE_SEASON_END_PACK_TIER.adUpgrade : TODO_BALANCE_SEASON_END_PACK_TIER.base,
     );
-    setPhase('done');
+    resetGame();
+    navigation.replace('DynastyHome');
   }
 
   function handlePlayAgain() {
