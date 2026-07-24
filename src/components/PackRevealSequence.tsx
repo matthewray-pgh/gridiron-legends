@@ -8,6 +8,12 @@ import { PackPlayerCard, RARITY_COLOR } from './PackPlayerCard';
 const BURST_DOT_COUNT = 12;
 const RIP_DURATION = 480;
 
+// Session-lifetime, not per-mount and not persisted — the first pack opened
+// after a fresh app load always plays the full sequence uninterrupted; every
+// pack after that (including ones in later sessions after a reload) shows
+// the skip control once reveal starts. Intentionally resets on app restart.
+let hasRevealedOnceThisSession = false;
+
 // Rarity-scaled reveal flourish (docs/handoff/gridiron-legends-pack-
 // animation.html): higher rarities get a bigger glow pulse, and legend
 // additionally gets a screen shake + banner. Common/rare/elite all use the
@@ -47,6 +53,7 @@ export function PackRevealSequence({ onOpen, onDone, cardCount, subtitle }: Pack
   const [pulls, setPulls] = useState<PackPullResult[] | null>(null);
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
+  const [skipRequested, setSkipRequested] = useState(false);
 
   const packPulse = useRef(new Animated.Value(0)).current;
   const leftRip = useRef(new Animated.Value(0)).current;
@@ -138,9 +145,16 @@ export function PackRevealSequence({ onOpen, onDone, cardCount, subtitle }: Pack
         flip.setValue(0);
         setIndex((i) => i + 1);
       } else {
+        hasRevealedOnceThisSession = true;
         onDone(pulls);
       }
     }, HOLD_AFTER_FLIP[card.rarity]);
+  }
+
+  function handleSkip() {
+    if (!pulls) return;
+    setSkipRequested(true);
+    onDone(pulls);
   }
 
   const packScale = packPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] });
@@ -165,6 +179,16 @@ export function PackRevealSequence({ onOpen, onDone, cardCount, subtitle }: Pack
 
   return (
     <View style={styles.wrap}>
+      {phase === 'reveal' && hasRevealedOnceThisSession && !skipRequested && (
+        <TouchableOpacity
+          style={styles.skipBtn}
+          onPress={handleSkip}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={styles.skipBtnText}>SKIP ›</Text>
+        </TouchableOpacity>
+      )}
+
       {phase === 'reveal' && (
         <View style={styles.dotsRow}>
           {Array.from({ length: cardCount }).map((_, i) => (
@@ -354,4 +378,7 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: -32, left: 0, right: 0, textAlign: 'center',
     color: Colors.textMuted, fontSize: Typography.sm, fontFamily: Font.mono, letterSpacing: 0.5,
   },
+
+  skipBtn: { position: 'absolute', top: 8, right: 8, padding: 8, zIndex: 10 },
+  skipBtnText: { color: Colors.textMuted, fontFamily: Font.mono, fontSize: Typography.xs, letterSpacing: 1 },
 });

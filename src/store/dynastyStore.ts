@@ -184,7 +184,7 @@ interface DynastyState {
   // eraLock adds TODO_BALANCE_ERA_LOCK_SURCHARGE_RINGS to the tier's base
   // cost and narrows that pack's own pull pool once opened — the odds
   // themselves are unaffected (data/packs.ts pullPlayerPack).
-  buyPack: (tierId: PackTierId, eraLock?: GeneratedEra) => boolean;
+  buyPack: (tierId: PackTierId, eraLock?: GeneratedEra) => string | null;
   // Opens the given pack instance, returning its PACK_CARD_COUNT card
   // results (or null if that pack id isn't owned). Duplicate cards are
   // auto-resolved into Rings here; non-duplicate cards are placed via
@@ -436,15 +436,16 @@ export const useDynastyStore = create<DynastyState>()(
 
       buyPack: (tierId, eraLock) => {
         const tier = PACK_TIERS.find((t) => t.id === tierId);
-        if (!tier) return false;
+        if (!tier) return null;
         const cost = tier.cost + (eraLock ? TODO_BALANCE_ERA_LOCK_SURCHARGE_RINGS : 0);
         const { rings, ownedPacks, currentSeason } = get();
-        if (rings < cost) return false;
+        if (rings < cost) return null;
+        const newPack = makeOwnedPack(tierId, currentSeason, 'purchase', eraLock);
         set({
           rings: rings - cost,
-          ownedPacks: [...ownedPacks, makeOwnedPack(tierId, currentSeason, 'purchase', eraLock)],
+          ownedPacks: [...ownedPacks, newPack],
         });
-        return true;
+        return newPack.id;
       },
 
       openPack: (packId) => {

@@ -17,7 +17,6 @@ import { HeroBand } from '../components/HeroBand';
 import { ModeCard } from '../components/ModeCard';
 import { LeaderboardTeaser } from '../components/LeaderboardTeaser';
 import { SiteFooter } from '../components/SiteFooter';
-import { FieldFooterBand } from '../components/FieldFooterBand';
 import { BrandBackground } from '../components/BrandBackground';
 import { GameSetupModal } from '../components/GameSetupModal';
 import { PrimaryButton } from '../components/PrimaryButton';
@@ -332,11 +331,6 @@ export function HomeScreen() {
             <Text style={styles.disclaimer}>
               Not affiliated with or endorsed by the NFL, NFLPA, or any team.
             </Text>
-
-            {/* Wide already gets the field background via SiteFooter below —
-                narrow has no footer at all otherwise, so it gets the same
-                art as a plain decorative band instead. */}
-            <FieldFooterBand />
           </View>
         )}
 

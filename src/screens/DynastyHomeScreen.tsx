@@ -24,14 +24,39 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 // Season record + all-time record — shown above the roster on narrow, and
 // reused inside the wide right pane's default state (docs/handoff/
-// gridiron-legends-dynasty-web.html).
-function SeasonCard({ season, wins, losses }: { season: number; wins: number; losses: number }) {
+// gridiron-legends-dynasty-web.html). Carries the Start Season action too,
+// once a roster exists, so the CTA sits with the season it starts instead
+// of trailing the roster list below.
+function SeasonCard({
+  season,
+  wins,
+  losses,
+  onStartSeason,
+  startDisabled,
+  warning,
+}: {
+  season: number;
+  wins: number;
+  losses: number;
+  onStartSeason?: () => void;
+  startDisabled?: boolean;
+  warning?: React.ReactNode;
+}) {
   return (
     <View style={styles.card}>
       <View style={styles.cardTop}>
         <Text style={styles.seasonLabel}>SEASON {season}</Text>
         <Text style={styles.record}>{wins}-{losses} all-time</Text>
       </View>
+      {onStartSeason && (
+        <PrimaryButton
+          label={`Start season ${season}`}
+          onPress={onStartSeason}
+          disabled={startDisabled}
+          style={styles.startSeasonBtn}
+        />
+      )}
+      {warning}
     </View>
   );
 }
@@ -219,16 +244,16 @@ export function DynastyHomeScreen() {
                 />
               ) : (
                 <>
-                  <SeasonCard season={currentSeason} wins={allTimeRecord.wins} losses={allTimeRecord.losses} />
+                  <SeasonCard
+                    season={currentSeason}
+                    wins={allTimeRecord.wins}
+                    losses={allTimeRecord.losses}
+                    onStartSeason={handleStartSeason}
+                    startDisabled={!rosterComplete}
+                  />
                   {HALL_OF_FAME_ENABLED && (
                     <HallOfFameTeaser count={hallOfFame.length} onPress={() => navigation.navigate('HallOfFame')} />
                   )}
-                  <PrimaryButton
-                    label={`Start season ${currentSeason}`}
-                    onPress={handleStartSeason}
-                    disabled={!rosterComplete}
-                    style={styles.startSeasonBtn}
-                  />
                   <Text style={styles.paneHint}>Select a roster or bench player on the left to bench, start, or retire them.</Text>
                   <SecondaryButton
                     label="Reset Dynasty & start over"
@@ -243,22 +268,20 @@ export function DynastyHomeScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <SeasonCard season={hasRoster ? currentSeason : 0} wins={allTimeRecord.wins} losses={allTimeRecord.losses} />
+          <SeasonCard
+            season={hasRoster ? currentSeason : 0}
+            wins={allTimeRecord.wins}
+            losses={allTimeRecord.losses}
+            onStartSeason={hasRoster ? handleStartSeason : undefined}
+            startDisabled={!rosterComplete}
+            warning={hasRoster ? rosterWarning : undefined}
+          />
           {HALL_OF_FAME_ENABLED && (
             <HallOfFameTeaser count={hallOfFame.length} onPress={() => navigation.navigate('HallOfFame')} />
           )}
 
           {hasRoster ? (
-            <>
-              <RosterList editor={editor} />
-              {rosterWarning}
-              <PrimaryButton
-                label={`Start season ${currentSeason}`}
-                onPress={handleStartSeason}
-                disabled={!rosterComplete}
-                style={styles.startSeasonBtn}
-              />
-            </>
+            <RosterList editor={editor} />
           ) : (
             <>
               <Text style={styles.emptyText}>No roster yet — start your Dynasty draft to build your first 12 starters.</Text>
@@ -350,7 +373,7 @@ const styles = StyleSheet.create({
   hofArrow: { color: Colors.textMuted, fontSize: Typography.xl },
 
   warningText: { color: Colors.loss, fontSize: Typography.sm, fontFamily: Font.secondarySemiBold, marginTop: Spacing.md },
-  startSeasonBtn: { marginTop: Spacing.md, marginBottom: Spacing.md },
+  startSeasonBtn: { marginTop: Spacing.md },
   startDynastyBtn: { marginBottom: Spacing.md },
   resetBtn: { marginTop: Spacing.sm },
 
