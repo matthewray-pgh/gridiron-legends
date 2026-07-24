@@ -5,15 +5,14 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import {
-  PACK_CARD_COUNT, PACK_RARITIES, PACK_TIERS,
-  PackRarity, PackTier, PackTierId, TODO_BALANCE_ERA_LOCK_SURCHARGE_RINGS,
+  PACK_CARD_COUNT, PACK_TIERS, PackTier, PackTierId, TODO_BALANCE_ERA_LOCK_SURCHARGE_RINGS,
 } from '../data/packs';
 import { GENERATED_ERA_OPTIONS, GeneratedEra } from '../data/players';
 import {
   computeShopAdPreview, OwnedPack, PackSource, TODO_BALANCE_SHOP_AD_MAX_WATCHES_PER_DAY, totalOwnedPacks, useDynastyStore,
 } from '../store/dynastyStore';
 import { SHOP_AD_RINGS_ENABLED } from '../config/featureFlags';
-import { RARITY_COLOR } from '../components/PackPlayerCard';
+import { PackShieldBadge, TIER_ACCENT } from '../components/PackShieldBadge';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { SelectablePill } from '../components/SelectablePill';
 import { PrimaryButton } from '../components/PrimaryButton';
@@ -29,11 +28,11 @@ import type { RootStackParamList } from '../navigation/types';
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type ShopTab = 'store' | 'mine';
 
-const TIER_ACCENT: Record<PackTierId, string> = {
-  rookie: Colors.steel,
-  pro: RARITY_COLOR.rare,
-  legend: RARITY_COLOR.legend,
-};
+// Caps the Store tab's horizontal "waiting to open" strip (docs/handoff/
+// 18-shop-pack-shelf-redesign.md section 2) — beyond this many owned
+// packs, the last slot becomes a "See all N" tile into the My Packs tab
+// instead of scrolling indefinitely.
+const WAITING_STRIP_CAP = 4;
 
 const SOURCE_LABEL: Record<PackSource, string> = {
   purchase: 'Purchased',
@@ -50,20 +49,14 @@ function eraNoteText(tier: PackTier, era: GeneratedEra): string {
   return `Era lock doesn't change these odds — only which players are eligible to be pulled. ${guaranteeClause} every card comes from ${era}.`;
 }
 
-function OddsBar({ weights }: { weights: Record<PackRarity, number> }) {
-  return (
-    <View style={styles.oddsBar}>
-      {PACK_RARITIES.map((rarity) => (
-        <View key={rarity} style={{ flex: weights[rarity], backgroundColor: RARITY_COLOR[rarity] }} />
-      ))}
-    </View>
-  );
+function findTier(tierId: PackTierId): PackTier | undefined {
+  return PACK_TIERS.find((t) => t.id === tierId);
 }
 
 // Shop's always-available "Watch an ad for Rings" placement
 // (docs/handoff/13-ad-monetization-economy.md, section 1) — reward scales
 // on the daily watch streak rather than a flat per-watch amount. Shared by
-// both layouts like TierCard/PendingPackRow above.
+// both layouts like the pack tiles below.
 function ShopAdCard({ preview, onWatch, disabled, justEarned, style }: {
   preview: { watchesRemainingToday: number; nextStreakDay: number; nextReward: number };
   onWatch: () => void;
@@ -122,109 +115,89 @@ function ShopAdPill({ preview, onPress, justEarned }: {
   );
 }
 
-// Nudge to open a pack right after buying it (item 1) and a standing
-// reminder that packs are waiting whenever the player returns to the Store
-// (item 4) — same banner, same docs/handoff/15-shop-pack-flow-streamlining.md.
-function PendingPacksBanner({ count, latestPackId, onOpen }: {
-  count: number;
-  latestPackId: string | null;
-  onOpen: (packId: string) => void;
-}) {
-  if (count === 0) return null;
-  return (
-    <TouchableOpacity
-      style={styles.pendingBanner}
-      onPress={() => onOpen(latestPackId ?? '')}
-      activeOpacity={0.85}
-    >
-      <Text style={styles.pendingBannerText}>
-        {count === 1 ? '1 pack waiting' : `${count} packs waiting`} — Open now
-      </Text>
-      <Text style={styles.pendingBannerArrow}>›</Text>
-    </TouchableOpacity>
-  );
-}
-
-// One tier's buy card — shared by the narrow stacked list and the wide
-// 3-up grid (gridiron-legends-shop-web.html) so both stay pixel-identical
-// instead of forking the markup per layout.
-function TierCard({ tier, cost, affordable, accent, onBuy, onViewOdds, style }: {
+// Buy-shelf tile (docs/handoff/18-shop-pack-shelf-redesign.md section 2) —
+// replaces TierCard's bordered stat-card look. Odds/guarantee detail no
+// longer renders inline (that's PackOddsSheet's job now, exclusively);
+// tapping the tile body opens that sheet, Buy stays its own explicit
+// action so the whole tile isn't a silent buy button.
+function PackTile({ tier, cost, affordable, onBuy, onViewOdds, style }: {
   tier: PackTier;
   cost: number;
   affordable: boolean;
-  accent: string;
   onBuy: () => void;
   onViewOdds: () => void;
   style?: StyleProp<ViewStyle>;
 }) {
   return (
-    <View style={[styles.tierCard, { borderColor: accent }, style]}>
-      <View style={styles.tierTop}>
-        <View>
-          <Text style={styles.tierName}>{tier.label}</Text>
-          <Text style={styles.tierCardsCount}>{PACK_CARD_COUNT} cards</Text>
-        </View>
-        <View style={[styles.tierBadge, { borderColor: accent }]}>
-          <Text style={[styles.tierBadgeText, { color: accent }]}>{tier.badge}</Text>
-        </View>
-      </View>
-
-      <OddsBar weights={tier.weights} />
-
-      <Text style={[styles.guaranteeText, !tier.guaranteedMinRarity && styles.guaranteeTextNone]}>
-        {tier.description}
-      </Text>
-
-      {/* marginTop:'auto' keeps price/buy pinned to the card bottom when the
-          wide grid's row stretches every card to the tallest sibling's
-          height — inert on the narrow stack, which never has spare room. */}
-      <View style={styles.tierBottom}>
-        <View style={styles.tierFooter}>
-          <Text style={styles.tierPrice}>{cost} 💍</Text>
-          <TouchableOpacity onPress={onViewOdds}>
-            <Text style={styles.viewOddsLink}>View odds</Text>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity
-          style={[styles.buyBtn, !affordable && styles.buyBtnDisabled]}
-          onPress={onBuy}
-          disabled={!affordable}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.buyBtnText}>{affordable ? `BUY ${tier.label.toUpperCase()}` : 'NOT ENOUGH RINGS'}</Text>
-        </TouchableOpacity>
-      </View>
+    <View style={[styles.packTile, style]}>
+      <TouchableOpacity style={styles.packTileBody} onPress={onViewOdds} activeOpacity={0.85}>
+        <PackShieldBadge tierId={tier.id} size={64} />
+        <Text style={styles.packTileName} numberOfLines={1}>{tier.label}</Text>
+        <Text style={styles.packTilePrice}>{cost} 💍</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.packTileBuyBtn, !affordable && styles.packTileBuyBtnDisabled]}
+        onPress={onBuy}
+        disabled={!affordable}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.packTileBuyBtnText}>{affordable ? 'BUY' : 'NOT ENOUGH'}</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
-// One pending-pack row — shared by the narrow "My Packs" tab and the wide
-// always-visible sidebar.
-function PendingPackRow({ pack, tier, accent, onPress, style }: {
+// Small strip tile for a pack that's already owned and waiting to be
+// opened — no room for the full name at this size, shield badge only plus
+// a gold OPEN bar.
+function WaitingPackTile({ tier, onPress }: { tier: PackTier; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={styles.waitingTile} onPress={onPress} activeOpacity={0.85}>
+      <PackShieldBadge tierId={tier.id} size={36} />
+      <View style={styles.waitingTileOpenBar}>
+        <Text style={styles.waitingTileOpenText}>OPEN</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+// Caps the waiting strip at WAITING_STRIP_CAP real tiles — a functional
+// "See all" tile beyond that instead of scrolling indefinitely for players
+// with a lot of pending packs.
+function SeeAllTile({ count, onPress }: { count: number; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={styles.seeAllTile} onPress={onPress} activeOpacity={0.85}>
+      <Text style={styles.seeAllTileCount}>{count}</Text>
+      <Text style={styles.seeAllTileText}>SEE ALL ›</Text>
+    </TouchableOpacity>
+  );
+}
+
+// My Packs tab tile — same shield-and-gradient tile family as PackTile,
+// but the bottom shows a gold OPEN bar instead of a price, and the
+// season/source/era-lock metadata PendingPackRow used to show carries
+// forward underneath rather than being dropped.
+function OwnedPackTile({ pack, tier, onPress, style }: {
   pack: OwnedPack;
   tier: PackTier;
-  accent: string;
   onPress: () => void;
   style?: StyleProp<ViewStyle>;
 }) {
   return (
-    <TouchableOpacity style={[styles.pendingRow, style]} onPress={onPress} activeOpacity={0.85}>
-      <View style={[styles.pendingIcon, { borderColor: accent }]}>
-        <Text style={[styles.pendingIconText, { color: accent }]}>{tier.shortCode}</Text>
+    <TouchableOpacity style={[styles.packTile, style]} onPress={onPress} activeOpacity={0.85}>
+      <View style={styles.packTileBody}>
+        <PackShieldBadge tierId={tier.id} size={64} />
+        <View style={styles.waitingTileOpenBar}>
+          <Text style={styles.waitingTileOpenText}>OPEN</Text>
+        </View>
       </View>
-      <View style={styles.pendingInfo}>
-        <Text style={styles.pendingName}>{tier.label}</Text>
-        <Text style={styles.pendingSub}>{SOURCE_LABEL[pack.source]} · Season {pack.acquiredSeason}</Text>
-        {pack.eraLock && (
-          <View style={styles.pendingEraTag}>
-            <Text style={styles.pendingEraTagText}>{pack.eraLock}</Text>
-          </View>
-        )}
-      </View>
-      <View style={styles.pendingOpenBtn}>
-        <Text style={styles.pendingOpenBtnText}>OPEN</Text>
-      </View>
+      <Text style={styles.packTileName} numberOfLines={1}>{tier.label}</Text>
+      <Text style={styles.packTileMeta}>{SOURCE_LABEL[pack.source]} · Season {pack.acquiredSeason}</Text>
+      {pack.eraLock && (
+        <View style={styles.packTileEraTag}>
+          <Text style={styles.packTileEraTagText}>{pack.eraLock}</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -259,7 +232,6 @@ export function ShopScreen() {
   const [oddsSheetTierId, setOddsSheetTierId] = useState<PackTierId | null>(null);
   const [adRingsJustEarned, setAdRingsJustEarned] = useState<number | null>(null);
   const [adSheetOpen, setAdSheetOpen] = useState(false);
-  const [justBoughtPackId, setJustBoughtPackId] = useState<string | null>(null);
   const { requestAd, adModalProps } = useRewardedAd(SHOP_AD_RINGS_ENABLED);
 
   // Same "drafted at least once" gate PackOpeningScreen uses (see its
@@ -272,9 +244,8 @@ export function ShopScreen() {
 
   function handleBuy(tierId: PackTierId) {
     if (!hasCompletedInitialDraft) return;
-    const newPackId = buyPack(tierId, selectedEra ?? undefined);
+    buyPack(tierId, selectedEra ?? undefined);
     setOddsSheetTierId(null);
-    if (newPackId) setJustBoughtPackId(newPackId);
   }
 
   async function handleWatchShopAd() {
@@ -294,16 +265,26 @@ export function ShopScreen() {
   );
 
   function openPendingPack(packId: string) {
-    setJustBoughtPackId(null);
     navigation.navigate('PackOpening', { packId });
   }
 
-  const pendingPacksBanner = (
-    <PendingPacksBanner
-      count={pendingCount}
-      latestPackId={justBoughtPackId ?? ownedPacks[0]?.id ?? null}
-      onOpen={openPendingPack}
-    />
+  // Waiting-to-open strip (docs/handoff/18-shop-pack-shelf-redesign.md
+  // section 2) — supersedes doc 15's PendingPacksBanner text pill. Only
+  // rendered when there's something waiting, same guard the banner had.
+  const waitingStrip = pendingCount > 0 && (
+    <>
+      <Text style={styles.sectionLabel}>WAITING TO OPEN</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.waitingStrip} contentContainerStyle={styles.waitingStripContent}>
+        {ownedPacks.slice(0, WAITING_STRIP_CAP).map((pack) => {
+          const tier = findTier(pack.tierId);
+          if (!tier) return null;
+          return <WaitingPackTile key={pack.id} tier={tier} onPress={() => openPendingPack(pack.id)} />;
+        })}
+        {pendingCount > WAITING_STRIP_CAP && (
+          <SeeAllTile count={pendingCount} onPress={() => setTab('mine')} />
+        )}
+      </ScrollView>
+    </>
   );
 
   const eraChips = (
@@ -354,7 +335,6 @@ export function ShopScreen() {
       ) : isWide ? (
         <ScrollView contentContainerStyle={styles.scrollContentWide} showsVerticalScrollIndicator={false}>
           <View style={styles.wideWrap}>
-            {pendingPacksBanner}
             {shopAdPill}
 
             <View style={styles.eraBarWide}>
@@ -365,22 +345,24 @@ export function ShopScreen() {
 
             <View style={styles.layoutWide}>
               <View style={styles.tierGridWide}>
-                {PACK_TIERS.map((tier) => {
-                  const cost = totalCost(tier, selectedEra);
-                  const affordable = rings >= cost;
-                  return (
-                    <TierCard
-                      key={tier.id}
-                      tier={tier}
-                      cost={cost}
-                      affordable={affordable}
-                      accent={TIER_ACCENT[tier.id]}
-                      onBuy={() => handleBuy(tier.id)}
-                      onViewOdds={() => setOddsSheetTierId(tier.id)}
-                      style={styles.tierCardWide}
-                    />
-                  );
-                })}
+                <Text style={styles.sectionLabel}>BUY A PACK</Text>
+                <View style={styles.tierShelfGrid}>
+                  {PACK_TIERS.map((tier) => {
+                    const cost = totalCost(tier, selectedEra);
+                    const affordable = rings >= cost;
+                    return (
+                      <PackTile
+                        key={tier.id}
+                        tier={tier}
+                        cost={cost}
+                        affordable={affordable}
+                        onBuy={() => handleBuy(tier.id)}
+                        onViewOdds={() => setOddsSheetTierId(tier.id)}
+                        style={styles.tierCardWide}
+                      />
+                    );
+                  })}
+                </View>
               </View>
 
               <View style={styles.sidebarCardWide}>
@@ -391,20 +373,19 @@ export function ShopScreen() {
                 {pendingCount === 0 ? (
                   <Text style={styles.emptyHint}>Buy a pack to get started.</Text>
                 ) : (
-                  ownedPacks.map((pack: OwnedPack) => {
-                    const tier = PACK_TIERS.find((t) => t.id === pack.tierId);
-                    if (!tier) return null;
-                    return (
-                      <PendingPackRow
-                        key={pack.id}
-                        pack={pack}
-                        tier={tier}
-                        accent={TIER_ACCENT[tier.id]}
-                        onPress={() => navigation.navigate('PackOpening', { packId: pack.id })}
-                        style={styles.sidebarPendingRow}
-                      />
-                    );
-                  })
+                  <View style={styles.sidebarWaitingGrid}>
+                    {ownedPacks.map((pack: OwnedPack) => {
+                      const tier = findTier(pack.tierId);
+                      if (!tier) return null;
+                      return (
+                        <WaitingPackTile
+                          key={pack.id}
+                          tier={tier}
+                          onPress={() => openPendingPack(pack.id)}
+                        />
+                      );
+                    })}
+                  </View>
                 )}
               </View>
             </View>
@@ -427,7 +408,7 @@ export function ShopScreen() {
 
           {tab === 'store' ? (
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-              {pendingPacksBanner}
+              {waitingStrip}
               {shopAdPill}
 
               <Text style={styles.eraLabel}>Era filter (applies to any tier below)</Text>
@@ -436,17 +417,17 @@ export function ShopScreen() {
               </ScrollView>
               {eraNote}
 
-              <View style={styles.tierList}>
+              <Text style={styles.sectionLabel}>BUY A PACK</Text>
+              <View style={styles.tierShelfGrid}>
                 {PACK_TIERS.map((tier) => {
                   const cost = totalCost(tier, selectedEra);
                   const affordable = rings >= cost;
                   return (
-                    <TierCard
+                    <PackTile
                       key={tier.id}
                       tier={tier}
                       cost={cost}
                       affordable={affordable}
-                      accent={TIER_ACCENT[tier.id]}
                       onBuy={() => handleBuy(tier.id)}
                       onViewOdds={() => setOddsSheetTierId(tier.id)}
                     />
@@ -466,17 +447,16 @@ export function ShopScreen() {
               {pendingCount === 0 ? (
                 <Text style={styles.emptyHint}>No packs waiting — buy one in the Pack Store.</Text>
               ) : (
-                <View style={styles.pendingList}>
+                <View style={styles.tierShelfGrid}>
                   {ownedPacks.map((pack: OwnedPack) => {
-                    const tier = PACK_TIERS.find((t) => t.id === pack.tierId);
+                    const tier = findTier(pack.tierId);
                     if (!tier) return null;
                     return (
-                      <PendingPackRow
+                      <OwnedPackTile
                         key={pack.id}
                         pack={pack}
                         tier={tier}
-                        accent={TIER_ACCENT[tier.id]}
-                        onPress={() => navigation.navigate('PackOpening', { packId: pack.id })}
+                        onPress={() => openPendingPack(pack.id)}
                       />
                     );
                   })}
@@ -571,13 +551,31 @@ const styles = StyleSheet.create({
   },
   adPillText: { color: Colors.textMuted, fontFamily: Font.mono, fontSize: Typography.xs },
 
-  pendingBanner: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: Colors.bgCardDeep, borderWidth: 1, borderColor: Colors.gold,
-    borderRadius: Radius.md, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 10,
+  sectionLabel: {
+    fontSize: Typography.xs, color: Colors.textMuted, fontFamily: Font.mono,
+    letterSpacing: 1.2, textTransform: 'uppercase', marginTop: Spacing.lg, marginBottom: 8,
   },
-  pendingBannerText: { color: Colors.gold, fontFamily: Font.primaryBold, fontSize: Typography.sm, letterSpacing: 0.4 },
-  pendingBannerArrow: { color: Colors.gold, fontSize: Typography.lg },
+
+  // ── Waiting-to-open strip (docs/handoff/18-shop-pack-shelf-redesign.md
+  // section 2) — capped horizontal row of WaitingPackTile, "See all" once
+  // WAITING_STRIP_CAP is exceeded. Supersedes doc 15's PendingPacksBanner.
+  waitingStrip: { marginBottom: 4 },
+  waitingStripContent: { gap: 10, paddingBottom: 4, paddingRight: 4 },
+  waitingTile: {
+    width: 64, backgroundColor: Colors.bgCardDeep, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: Radius.md, alignItems: 'center', padding: 6, gap: 4,
+  },
+  waitingTileOpenBar: {
+    width: '100%', backgroundColor: Colors.gold, borderRadius: Radius.sm,
+    paddingVertical: 3, alignItems: 'center',
+  },
+  waitingTileOpenText: { color: Colors.bgDark, fontFamily: Font.primaryBold, fontSize: 9, letterSpacing: 0.5 },
+  seeAllTile: {
+    width: 64, minHeight: 76, borderWidth: 1, borderStyle: 'dashed', borderColor: Colors.border,
+    borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center', padding: 6, gap: 2,
+  },
+  seeAllTileCount: { color: Colors.textPrimary, fontFamily: Font.primaryBold, fontSize: Typography.lg },
+  seeAllTileText: { color: Colors.textMuted, fontFamily: Font.mono, fontSize: 8, letterSpacing: 0.3, textAlign: 'center' },
 
   toolbar: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
@@ -614,32 +612,32 @@ const styles = StyleSheet.create({
   eraNote: { fontSize: Typography.xs, color: Colors.textDim, fontFamily: Font.secondaryRegular, marginTop: 8 },
   eraNoteGold: { color: Colors.gold, fontFamily: Font.secondarySemiBold },
 
-  tierList: { gap: 14, marginTop: Spacing.lg },
-  tierCard: { backgroundColor: Colors.bgCard, borderWidth: 1.5, borderRadius: Radius.lg, padding: 16 },
-  tierTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
-  tierName: { fontSize: Typography.lg, color: Colors.textPrimary, fontFamily: Font.primaryBold, letterSpacing: 0.5 },
-  tierCardsCount: { fontSize: Typography.xs, color: Colors.textMuted, fontFamily: Font.mono, marginTop: 2 },
-  tierBadge: {
-    borderWidth: 1, borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 3,
+  // ── Pack shelf (docs/handoff/18-shop-pack-shelf-redesign.md section 2)
+  // — replaces the old tierList/tierCard stat-card styles. 2-column grid;
+  // a lone odd tile (e.g. Legend Pack alone on row 2) centers via
+  // justifyContent rather than stretching full-width.
+  tierShelfGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 14, marginTop: 4 },
+  packTile: {
+    width: '48%', backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: Radius.lg, padding: 12, alignItems: 'center',
   },
-  tierBadgeText: { fontSize: Typography.xs, fontFamily: Font.mono, letterSpacing: 0.5, textTransform: 'uppercase' },
-
-  oddsBar: { flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', marginVertical: 8 },
-
-  guaranteeText: { fontSize: Typography.sm, color: Colors.gold, fontFamily: Font.secondarySemiBold, marginBottom: 12 },
-  guaranteeTextNone: { color: Colors.textDim, fontFamily: Font.secondaryRegular },
-
-  tierBottom: { marginTop: 'auto' },
-  tierFooter: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  tierPrice: { fontFamily: Font.mono, fontWeight: '700', fontSize: Typography.md, color: Colors.gold },
-  viewOddsLink: { fontSize: Typography.xs, color: Colors.textMuted, fontFamily: Font.secondaryRegular, textDecorationLine: 'underline', marginLeft: 'auto' },
-
-  buyBtn: {
-    minHeight: 46, borderRadius: Radius.md, borderWidth: 1, borderColor: '#F5DC7A',
-    backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20,
+  packTileBody: { width: '100%', alignItems: 'center', gap: 6 },
+  packTileName: { color: Colors.textPrimary, fontFamily: Font.primaryBold, fontSize: Typography.md, textAlign: 'center' },
+  packTilePrice: { color: Colors.gold, fontFamily: Font.mono, fontSize: Typography.sm },
+  packTileBuyBtn: {
+    width: '100%', marginTop: 10, minHeight: 38, borderRadius: Radius.md, borderWidth: 1, borderColor: '#F5DC7A',
+    backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12,
   },
-  buyBtnDisabled: { backgroundColor: 'transparent', borderColor: Colors.border },
-  buyBtnText: { color: Colors.bgDark, fontFamily: Font.primaryBold, fontSize: Typography.base, letterSpacing: 0.6 },
+  packTileBuyBtnDisabled: { backgroundColor: 'transparent', borderColor: Colors.border },
+  packTileBuyBtnText: { color: Colors.bgDark, fontFamily: Font.primaryBold, fontSize: Typography.sm, letterSpacing: 0.5 },
+  // OwnedPackTile-only (My Packs tab) — season/source/era-lock metadata
+  // PendingPackRow used to show, carried forward beneath the tile.
+  packTileMeta: { color: Colors.textMuted, fontSize: Typography.xs, fontFamily: Font.mono, marginTop: 6, textAlign: 'center' },
+  packTileEraTag: {
+    marginTop: 3, borderWidth: 1, borderColor: Colors.gold, borderRadius: Radius.sm,
+    paddingHorizontal: 6, paddingVertical: 1,
+  },
+  packTileEraTagText: { fontSize: Typography.xs, color: Colors.gold, fontFamily: Font.mono },
 
   pendingHero: {
     marginTop: Spacing.lg, marginBottom: 8, alignItems: 'center', padding: 18, borderRadius: Radius.lg,
@@ -651,30 +649,6 @@ const styles = StyleSheet.create({
   },
 
   emptyHint: { color: Colors.textMuted, fontSize: Typography.sm, fontFamily: Font.secondaryRegular, marginTop: Spacing.md, textAlign: 'center' },
-
-  pendingList: { gap: 10, marginTop: 8 },
-  pendingRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.bgCard,
-    borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md, padding: 12,
-  },
-  pendingIcon: {
-    width: 38, height: 48, borderRadius: 6, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: Colors.bgCardDeep,
-  },
-  pendingIconText: { fontFamily: Font.primaryBold, fontSize: Typography.xs, letterSpacing: 0.5 },
-  pendingInfo: { flex: 1 },
-  pendingName: { fontFamily: Font.primaryBold, fontSize: Typography.md, color: Colors.textPrimary, letterSpacing: 0.5 },
-  pendingSub: { fontSize: Typography.xs, color: Colors.textMuted, fontFamily: Font.mono, marginTop: 1 },
-  pendingEraTag: {
-    alignSelf: 'flex-start', marginTop: 3, borderWidth: 1, borderColor: Colors.gold, borderRadius: Radius.sm,
-    paddingHorizontal: 6, paddingVertical: 1,
-  },
-  pendingEraTagText: { fontSize: Typography.xs, color: Colors.gold, fontFamily: Font.mono },
-  pendingOpenBtn: {
-    minHeight: 34, borderRadius: Radius.sm, borderWidth: 1, borderColor: '#F5DC7A',
-    backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14,
-  },
-  pendingOpenBtnText: { color: Colors.bgDark, fontFamily: Font.primaryBold, fontSize: Typography.sm, letterSpacing: 0.5 },
 
   // ── WIDE LAYOUT (docs/handoff/gridiron-legends-shop-web.html) — tier
   // grid + always-visible "My Packs" sidebar, not a reflow of the narrow
@@ -695,8 +669,14 @@ const styles = StyleSheet.create({
   eraChipsWide: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, flex: 1 },
 
   layoutWide: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing['2xl'] },
-  tierGridWide: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'stretch', gap: 18 },
-  tierCardWide: { flexBasis: '31%', flexGrow: 1 },
+  // Just the left column's width claim now — PackTile's own 3-up sizing
+  // comes from tierCardWide (passed as its `style` override) inside the
+  // nested tierShelfGrid, not from this container directly wrapping tiles.
+  tierGridWide: { flex: 1 },
+  // 3-up on wide (docs/handoff/18-shop-pack-shelf-redesign.md section 4) —
+  // same PackTile component as narrow's 2-up shelf, just a wider slice per
+  // tile via this style override, not a forked wide-specific tile.
+  tierCardWide: { width: '31%' },
   sidebarCardWide: {
     width: 300, backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
     borderRadius: Radius.lg, padding: 18,
@@ -704,7 +684,10 @@ const styles = StyleSheet.create({
 
   sidebarTitle: { fontSize: Typography.lg, color: Colors.textPrimary, fontFamily: Font.primaryBold, letterSpacing: 0.5 },
   sidebarSub: { fontSize: Typography.xs, color: Colors.textMuted, fontFamily: Font.mono, marginTop: 2, marginBottom: 14 },
-  sidebarPendingRow: { marginBottom: 10 },
+  // 2-up WaitingPackTile grid (section 4) — fits the 300px sidebar's
+  // ~264px content width better than a sparser single column at this
+  // tile's fixed ~64px size.
+  sidebarWaitingGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
 
   sheetOverlay: { flex: 1, backgroundColor: '#000000A8', justifyContent: 'flex-end' },
   sheetOverlayWide: { justifyContent: 'center', alignItems: 'center' },
