@@ -1,18 +1,14 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { PACK_CARD_COUNT, PACK_TIERS } from '../data/packs';
-import { DRAFT_POSITIONS, parseYear } from '../data/players';
-import { BENCH_CAPACITY, PackPlacement, PackPullResult, PackResolution, useDynastyStore } from '../store/dynastyStore';
-import { SHOW_DEBUG_OVR } from '../config/featureFlags';
-import { PlayerRow } from '../components/PlayerRow';
+import { PackPlacement, PackPullResult, PackResolution, useDynastyStore } from '../store/dynastyStore';
 import { PrimaryButton } from '../components/PrimaryButton';
-import { SecondaryButton } from '../components/SecondaryButton';
 import { BrandBackground } from '../components/BrandBackground';
-import { CardStack } from '../components/CardStack';
+import { PackPullGrid } from '../components/PackPullGrid';
 import { PackRevealSequence } from '../components/PackRevealSequence';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -25,16 +21,18 @@ type Route = RouteProp<RootStackParamList, 'PackOpening'>;
 // animation.html) purely for show — openPack() already committed the real
 // pull the instant the pack was tapped, so nothing about the outcome is
 // decided during this stage, just revealed. Once the last card's flipped,
-// `pulls` gets set and the screen drops into the original top-half/bottom-
-// half layout (confirmed with the user): the pulled cards up top, current
-// roster (starters + bench) scrollable underneath as reference while
-// deciding. Tapping a card there just toggles "keep it" (green border +
-// check overlay); there's no separate Start/Bench choice — each kept card
-// is auto-placed (starts if its slot is open, otherwise benches, same
-// full-bench-auto-release behavior as before) once "Add Selected to
-// Roster" is pressed. That button only enables once at least one card is
-// checked, so it can't be pressed with nothing selected and silently do
-// nothing.
+// `pulls` gets set and the screen drops into a grid of every pulled card
+// (docs/handoff/17-pack-reveal-grid-layout.md — replaces the old carousel-
+// on-top/roster-list-underneath layout; the roster reference list was
+// removed since every kept card is auto-placed with no manual start/bench
+// choice for the player to reference it against). Tapping a card toggles
+// "keep it" (green border + check overlay); there's no separate Start/
+// Bench choice — each kept card is auto-placed (starts if its slot is
+// open, otherwise benches, same full-bench-auto-release behavior as
+// before) once "Add Selected" is pressed. That button only enables once at
+// least one card is checked; a separate low-emphasis "Skip" action lets the
+// player decline every pull instead (doc 17 section 3 — previously the
+// only way off this screen once `pulls` was set).
 export function PackOpeningScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
@@ -44,7 +42,6 @@ export function PackOpeningScreen() {
   const pack = useDynastyStore((s) => s.ownedPacks.find((p) => p.id === packId));
   const currentSeason = useDynastyStore((s) => s.currentSeason);
   const roster = useDynastyStore((s) => s.roster);
-  const bench = useDynastyStore((s) => s.bench);
   const openPack = useDynastyStore((s) => s.openPack);
   const resolvePackPulls = useDynastyStore((s) => s.resolvePackPulls);
 
@@ -84,6 +81,17 @@ export function PackOpeningScreen() {
   // directly too, in case this screen is ever reached another way.
   const hasCompletedInitialDraft = currentSeason > 1;
 
+  // True once the draft gate is cleared but the pack itself can't be
+  // opened — packId doesn't resolve to an owned pack (already opened, bad
+  // deep link, etc.) and no reveal is in flight. There's nothing actionable
+  // for the player to do here, so redirect straight to Shop instead of
+  // making them tap a "Back to Shop" button.
+  const packUnavailable = hasCompletedInitialDraft && !((pack && tier) || revealStarted);
+
+  useEffect(() => {
+    if (packUnavailable) navigation.replace('Shop');
+  }, [packUnavailable, navigation]);
+
   // Called by PackRevealSequence the instant the pack is tapped — this is
   // the real, order-committing pull (openPack() consumes the pack and rolls
   // the cards). The sequence just animates through the already-decided
@@ -110,9 +118,8 @@ export function PackOpeningScreen() {
     setChecked({});
     // Without this, closing would fall back to (pack && tier) || revealStarted
     // still being true and re-mount PackRevealSequence in its idle "tap to
-    // open" state for an already-consumed pack — resetting it lets the
-    // screen correctly land on "no longer available" instead, same as
-    // before PackRevealSequence existed.
+    // open" state for an already-consumed pack — resetting it lets
+    // `packUnavailable` correctly go true instead, which redirects to Shop.
     setRevealStarted(false);
   }
 
@@ -158,74 +165,26 @@ export function PackOpeningScreen() {
               cardCount={PACK_CARD_COUNT}
               subtitle={titleSubtitle}
             />
-          ) : (
-            <>
-              <Text style={styles.emptyText}>This pack is no longer available.</Text>
-              <PrimaryButton label="Back to Shop" onPress={() => navigation.navigate('Shop')} />
-            </>
-          )}
+          ) : null}
         </View>
       ) : (
         <>
-          <View style={styles.topHalf}>
-            <CardStack pulls={pulls} checked={checked} onToggle={toggleChecked} />
+          <View style={styles.gridStage}>
+            <PackPullGrid pulls={pulls} checked={checked} onToggle={toggleChecked} />
           </View>
 
-          <View style={styles.bottomHalf}>
-            <Text style={styles.sectionLabel}>Current roster</Text>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.rosterRefList}>
-              {DRAFT_POSITIONS.map((pos) => {
-                const starter = roster[pos];
-                return starter ? (
-                  <PlayerRow
-                    key={pos}
-                    position={pos}
-                    name={starter.name}
-                    meta={`${starter.team} · ${parseYear(starter.years)}`}
-                    ovr={SHOW_DEBUG_OVR ? starter.rating : undefined}
-                    style={styles.rosterRefRow}
-                    right={<Text style={styles.rosterRefOvr}>{starter.rating} OVR</Text>}
-                  />
-                ) : (
-                  <PlayerRow key={pos} position={pos} name="Empty" meta="No starter drafted" style={styles.rosterRefRow} />
-                );
-              })}
-
-              <Text style={[styles.sectionLabel, styles.benchRefLabel]}>Bench ({bench.length}/{BENCH_CAPACITY})</Text>
-              {bench.length === 0 ? (
-                <Text style={styles.emptyText}>Bench is empty.</Text>
-              ) : (
-                bench.map((player) => (
-                  <PlayerRow
-                    key={player.id}
-                    position={player.position}
-                    name={player.name}
-                    meta={`${player.team} · ${parseYear(player.years)}`}
-                    ovr={SHOW_DEBUG_OVR ? player.rating : undefined}
-                    style={styles.rosterRefRow}
-                    right={<Text style={styles.rosterRefOvr}>{player.rating} OVR</Text>}
-                  />
-                ))
-              )}
-            </ScrollView>
-          </View>
-
-          <View style={styles.actionsRow}>
+          <View style={styles.actionBar}>
             {totalRingsRefund > 0 && (
               <Text style={styles.refundHint}>+{totalRingsRefund} 💍 from duplicates</Text>
             )}
-            <View style={styles.actionsButtonRow}>
-              <SecondaryButton label="Close" onPress={closeReveal} style={styles.ghostBtn} />
-              <PrimaryButton
-                label="Add Selected to Roster"
-                onPress={handleAddSelected}
-                disabled={checkedCount === 0}
-                style={styles.primaryBtn}
-              />
-            </View>
-            {checkedCount === 0 && (
-              <Text style={styles.disabledHint}>Select at least one card</Text>
-            )}
+            <TouchableOpacity onPress={closeReveal} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.skipAllText}>Skip — nothing will be added to your roster</Text>
+            </TouchableOpacity>
+            <PrimaryButton
+              label={`Add Selected (${checkedCount}) to Roster`}
+              onPress={handleAddSelected}
+              disabled={checkedCount === 0}
+            />
           </View>
         </>
       )}
@@ -251,25 +210,11 @@ const styles = StyleSheet.create({
   stage: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, paddingHorizontal: Spacing.lg },
   emptyText: { color: Colors.textMuted, fontSize: Typography.base, fontFamily: Font.secondaryRegular, textAlign: 'center' },
 
-  topHalf: { flex: 2, justifyContent: 'center', paddingTop: Spacing.md },
+  // Roster reference block removed (docs/handoff/17-pack-reveal-grid-
+  // layout.md section 2) — the grid now occupies the screen on its own.
+  gridStage: { flex: 1, justifyContent: 'center' },
 
-  bottomHalf: {
-    flex: 1, borderTopWidth: 1, borderTopColor: Colors.border,
-    paddingHorizontal: Spacing.lg, paddingTop: Spacing.md,
-  },
-  sectionLabel: {
-    fontSize: Typography.xs, color: Colors.textSecondary, fontFamily: Font.mono,
-    letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8,
-  },
-  benchRefLabel: { marginTop: Spacing.md },
-  rosterRefList: { paddingBottom: Spacing.md },
-  rosterRefRow: { marginBottom: 6 },
-  rosterRefOvr: { color: Colors.gold, fontSize: Typography.sm, fontFamily: Font.secondarySemiBold },
-
-  actionsRow: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg, paddingTop: Spacing.sm, gap: 6 },
-  actionsButtonRow: { flexDirection: 'row', gap: 10 },
+  actionBar: { padding: 14, gap: 10 },
   refundHint: { color: Colors.gold, fontSize: Typography.sm, textAlign: 'center', fontFamily: Font.secondarySemiBold },
-  disabledHint: { color: Colors.textMuted, fontSize: Typography.xs, textAlign: 'center', fontFamily: Font.secondaryRegular },
-  ghostBtn: { flex: 1 },
-  primaryBtn: { flex: 2 },
+  skipAllText: { color: Colors.textMuted, fontSize: Typography.sm, fontFamily: Font.secondaryMedium, textAlign: 'center' },
 });
