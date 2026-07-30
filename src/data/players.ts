@@ -98,6 +98,20 @@ export const DRAFT_POSITIONS: Position[] = [
   'QB', 'RB', 'WR', 'TE', 'FLEX', 'FLEX2', 'EDGE', 'DT', 'LB', 'CB', 'S', 'D-FLEX',
 ];
 
+const DEFENSE_POSITIONS = new Set<Position>(['EDGE', 'DT', 'LB', 'CB', 'S', 'D-FLEX']);
+
+// True for every offense slot (QB, QB2, RB, RB2, WR, WR2, TE, FLEX, FLEX2),
+// false for every defense slot — the split every full-roster listing
+// (RosterManager, ResultScreen) subheads by, matching the same offense/
+// defense phase split GameScreen's draft flow already uses (positionIndex
+// <= 5). A predicate rather than two more position arrays since callers
+// need it against different position sets (DRAFT_POSITIONS's 12 slots vs.
+// OFFENSE_ONLY_POSITIONS' 9, which includes QB2/RB2/WR2 that DRAFT_POSITIONS
+// doesn't).
+export function isOffensePosition(position: Position): boolean {
+  return !DEFENSE_POSITIONS.has(position);
+}
+
 // docs/handoff/10-offense-only-mode.md — 9-slot offense-heavy roster for
 // Offense Only mode (gameStore.ts's positionsForMode), no defensive
 // positions at all. FLEX/FLEX2 stay RB/WR/TE-only per the doc's
@@ -234,6 +248,34 @@ function formatName(record: GeneratedPlayerRecord): string {
   return (record.name ?? '').trim();
 }
 
+// GENERATED_POSITION_MAP's values are broader raw categories than the
+// Position type's own vocabulary (e.g. a 'DL' record can fill either the
+// EDGE or DT slot, a 'DB' record either CB or S) — this picks one concrete
+// label for the player's permanent identity. Best-effort where the raw
+// data is genuinely ambiguous (DL/DB) — matches data/packs.ts's own
+// PRIMARY_DRAFT_POSITION mapping for the same ambiguous cases, so the same
+// player reads with the same position whether they arrive via the spin
+// draft or a pack pull.
+// Exported so dynastyStore.ts's migratePersistedState can re-derive the
+// correct position for players saved before this normalization existed —
+// those still have the old slot-name (e.g. "FLEX") baked into their
+// persisted Player.position and won't fix themselves just by reloading.
+export function normalizeGeneratedPosition(rawPosition: string): Position {
+  switch (rawPosition) {
+    case 'QB': return 'QB';
+    case 'RB': return 'RB';
+    case 'WR': return 'WR';
+    case 'TE': return 'TE';
+    case 'EDGE': return 'EDGE';
+    case 'DL': return 'DT';
+    case 'LB': return 'LB';
+    case 'CB': return 'CB';
+    case 'S': case 'SAF': return 'S';
+    case 'DB': return 'S';
+    default: return 'RB';
+  }
+}
+
 function toPlayer(record: GeneratedPlayerRecord, draftPosition: Position): Player {
   const rating = typeof record.ratings?.overall === 'number' ? record.ratings.overall : 40;
 
@@ -246,7 +288,14 @@ function toPlayer(record: GeneratedPlayerRecord, draftPosition: Position): Playe
     statValues: { ...record.stats },
     rating,
     tier: ratingToTier(rating),
-    position: draftPosition,
+    // Always the player's true native position, never the slot they're
+    // being offered/drafted for (docs/handoff/11-roster-management-
+    // restructure.md section 1 — a WR drafted into FLEX must keep
+    // position === 'WR', not 'FLEX', so a benched player still shows their
+    // real position and Dynasty's roster editor can offer moving them back
+    // to a native slot). draftPosition stays separate (formatStats above
+    // still picks its stat-line shape from the slot being filled).
+    position: normalizeGeneratedPosition(record.position),
   };
 }
 

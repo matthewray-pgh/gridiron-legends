@@ -1,18 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, Share, StyleSheet,
+  Animated, View, Text, TouchableOpacity, ScrollView, Share, StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
-import { GameMode, useGameStore } from '../store/gameStore';
+import { GameMode, positionsForMode, useGameStore } from '../store/gameStore';
+import { Position, isOffensePosition } from '../data/players';
 import { useStatsStore } from '../store/statsStore';
 import {
   TODO_BALANCE_RINGS_SOURCES, TODO_BALANCE_SEASON_END_PACK_TIER, useDynastyStore,
 } from '../store/dynastyStore';
-import { PACK_TIERS, PackTierId } from '../data/packs';
+import { PACK_TIERS, PackTier, PackTierId } from '../data/packs';
 import { SEASON_END_AD_UPGRADE_ENABLED, SHOW_DEBUG_OVR } from '../config/featureFlags';
 import { useResponsive } from '../hooks/useResponsive';
 import { useRewardedAd } from '../hooks/useRewardedAd';
@@ -22,6 +23,8 @@ import { BrandBackground } from '../components/BrandBackground';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { SecondaryButton } from '../components/SecondaryButton';
 import { RewardedAdModal } from '../components/RewardedAdModal';
+import { PackShieldBadge } from '../components/PackShieldBadge';
+import { FadeInOut } from '../components/animation/FadeInOut';
 import type { RootStackParamList } from '../navigation/types';
 
 const SEASON_REWARD_BASE_TIER = PACK_TIERS.find((t) => t.id === TODO_BALANCE_SEASON_END_PACK_TIER.base) ?? PACK_TIERS[0];
@@ -29,6 +32,57 @@ const SEASON_REWARD_UPGRADE_TIER = PACK_TIERS.find((t) => t.id === TODO_BALANCE_
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type ResultRouteProp = RouteProp<RootStackParamList, 'Result'>;
+
+// Daily Challenge's post-round Rings reward — a fade+pop instead of the
+// banner just materializing the instant the win/loss grid finishes
+// revealing. Only pops for an actual reward; the "already completed today"
+// case is informational, not a reward, so it just fades in flat.
+function DailyRewardBanner({ earned }: { earned: boolean }) {
+  const pop = useRef(new Animated.Value(earned ? 0.7 : 1)).current;
+
+  useEffect(() => {
+    if (earned) Animated.spring(pop, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 10 }).start();
+  }, [earned, pop]);
+
+  return (
+    <FadeInOut translateY={8}>
+      <Animated.View style={[styles.rewardBanner, { transform: [{ scale: pop }] }]}>
+        <Text style={styles.rewardText}>
+          {earned
+            ? `🪙 +${TODO_BALANCE_RINGS_SOURCES.dailyChallengeCompletion} RINGS EARNED`
+            : 'Already completed today — replay earns no Rings'}
+        </Text>
+      </Animated.View>
+    </FadeInOut>
+  );
+}
+
+// The reveal beat for the season-end pack (docs handoff 13's ad-upgrade
+// choice used to apply the pack and cut straight to DynastyHome with no
+// confirmation of what tier was actually won) — a shield badge pop-in plus
+// the tier name, held until the player taps Continue. A small standalone
+// component (not an inline JSX variable) so the badge's mount-pop spring
+// can live in its own effect.
+function PackRewardCard({ tier, onContinue }: { tier: PackTier; onContinue: () => void }) {
+  const pop = useRef(new Animated.Value(0.6)).current;
+
+  useEffect(() => {
+    Animated.spring(pop, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 10 }).start();
+  }, [pop]);
+
+  return (
+    <FadeInOut translateY={10}>
+      <View style={styles.packRewardCard}>
+        <Text style={styles.seasonRewardTitle}>SEASON REWARD</Text>
+        <Animated.View style={{ transform: [{ scale: pop }] }}>
+          <PackShieldBadge tierId={tier.id} size={72} />
+        </Animated.View>
+        <Text style={styles.packRewardEarned}>You earned a {tier.label}!</Text>
+        <PrimaryButton label="CONTINUE →" onPress={onContinue} style={styles.packRewardBtn} />
+      </View>
+    </FadeInOut>
+  );
+}
 
 const TOTAL_GAMES = TOTAL_SEASON_GAMES;
 
@@ -47,8 +101,11 @@ function simulateSeason(avgRating: number, mode: GameMode): boolean[] {
 // 'seasonReward' sits between 'simulating' and 'done' only for a Dynasty
 // continuation season (docs/handoff/13-ad-monetization-economy.md, section
 // 3): the season-end pack's tier is now a player choice (accept Rookie, or
-// watch an ad for Pro) instead of being applied automatically.
-type Phase = 'roster' | 'simulating' | 'seasonReward' | 'done';
+// watch an ad for Pro) instead of being applied automatically. 'packReward'
+// follows it — a brief "you earned a [Tier] Pack" beat before navigating
+// away, so the ad-upgrade choice actually shows its outcome instead of
+// silently applying it and cutting to DynastyHome.
+type Phase = 'roster' | 'simulating' | 'seasonReward' | 'packReward' | 'done';
 
 export function ResultScreen() {
   const navigation = useNavigation<Nav>();
@@ -80,6 +137,7 @@ export function ResultScreen() {
   // with no UI feedback — this just remembers what happened so the reward
   // banner can report it once the reveal finishes.
   const [dailyRewardEarned, setDailyRewardEarned] = useState(false);
+  const [wonPackTierId, setWonPackTierId] = useState<PackTierId | null>(null);
   const { requestAd: requestSeasonRewardAd, adModalProps: seasonRewardAdModalProps } = useRewardedAd(SEASON_END_AD_UPGRADE_ENABLED);
 
   const rosterEntries = Object.entries(roster);
@@ -160,7 +218,7 @@ export function ResultScreen() {
 
   const wins = results.slice(0, revealedCount).filter(Boolean).length;
   const losses = revealedCount - wins;
-  const isRevealComplete = phase === 'done' || phase === 'seasonReward';
+  const isRevealComplete = phase === 'done' || phase === 'seasonReward' || phase === 'packReward';
   const isPerfect = isRevealComplete && wins === TOTAL_GAMES;
   const record = `${wins}-${losses}`;
 
@@ -177,16 +235,19 @@ export function ResultScreen() {
 
   function handleAcceptSeasonPack() {
     applyNextSeasonResults(results, TODO_BALANCE_SEASON_END_PACK_TIER.base);
-    resetGame();
-    navigation.replace('DynastyHome');
+    setWonPackTierId(TODO_BALANCE_SEASON_END_PACK_TIER.base);
+    setPhase('packReward');
   }
 
   async function handleWatchSeasonRewardAd() {
     const watched = await requestSeasonRewardAd();
-    applyNextSeasonResults(
-      results,
-      watched ? TODO_BALANCE_SEASON_END_PACK_TIER.adUpgrade : TODO_BALANCE_SEASON_END_PACK_TIER.base,
-    );
+    const tierId = watched ? TODO_BALANCE_SEASON_END_PACK_TIER.adUpgrade : TODO_BALANCE_SEASON_END_PACK_TIER.base;
+    applyNextSeasonResults(results, tierId);
+    setWonPackTierId(tierId);
+    setPhase('packReward');
+  }
+
+  function handleContinueFromPackReward() {
     resetGame();
     navigation.replace('DynastyHome');
   }
@@ -202,22 +263,39 @@ export function ResultScreen() {
     navigation.replace('Game');
   }
 
+  // Ordered by positionsForMode(mode) rather than Object.entries(roster) —
+  // insertion order into the roster object depends on the order slots were
+  // filled during the draft (arbitrary), not canonical slot order, which
+  // both breaks a stable display order and makes an offense/defense split
+  // impossible to derive reliably. Filters to positions the roster actually
+  // has a player in (rosterEntries was itself already "only present keys").
+  const offensePositions = positionsForMode(mode).filter((pos) => isOffensePosition(pos) && roster[pos]);
+  const defensePositions = positionsForMode(mode).filter((pos) => !isOffensePosition(pos) && roster[pos]);
+
+  function renderRosterRow(pos: Position) {
+    const player = roster[pos];
+    return (
+      <View key={pos} style={styles.rosterRow}>
+        <View style={styles.rosterLeft}>
+          <Text style={styles.rosterPos}>{pos}</Text>
+          <Text style={styles.rosterName}>{player?.name}</Text>
+          {SHOW_DEBUG_OVR && player && <Text style={styles.debugOvr}>{player.rating}</Text>}
+        </View>
+        {player && <Text style={styles.rosterOvr}>{player.rating} OVR</Text>}
+      </View>
+    );
+  }
+
   const teamCard = rosterEntries.length > 0 && (
     <View style={styles.rosterCard}>
       <View style={styles.rosterHeader}>
         <Text style={styles.rosterLabel}>YOUR TEAM</Text>
         <Text style={styles.ovrText}>OVR {avgRating}</Text>
       </View>
-      {rosterEntries.map(([pos, player]) => (
-        <View key={pos} style={styles.rosterRow}>
-          <View style={styles.rosterLeft}>
-            <Text style={styles.rosterPos}>{pos}</Text>
-            <Text style={styles.rosterName}>{player?.name}</Text>
-            {SHOW_DEBUG_OVR && player && <Text style={styles.debugOvr}>{player.rating}</Text>}
-          </View>
-          {player && <Text style={styles.rosterOvr}>{player.rating} OVR</Text>}
-        </View>
-      ))}
+      {offensePositions.length > 0 && <Text style={styles.rosterSubLabel}>Offense</Text>}
+      {offensePositions.map(renderRosterRow)}
+      {defensePositions.length > 0 && <Text style={styles.rosterSubLabel}>Defense</Text>}
+      {defensePositions.map(renderRosterRow)}
       {phase === 'roster' && (
         <Text style={styles.simSoonText}>Simulating season shortly…</Text>
       )}
@@ -274,13 +352,7 @@ export function ResultScreen() {
   );
 
   const dailyRewardBanner = phase === 'done' && mode === 'daily' && (
-    <View style={styles.rewardBanner}>
-      <Text style={styles.rewardText}>
-        {dailyRewardEarned
-          ? `🪙 +${TODO_BALANCE_RINGS_SOURCES.dailyChallengeCompletion} RINGS EARNED`
-          : 'Already completed today — replay earns no Rings'}
-      </Text>
-    </View>
+    <DailyRewardBanner earned={dailyRewardEarned} />
   );
 
   const actionsRow = phase === 'done' && (
@@ -316,6 +388,11 @@ export function ResultScreen() {
     </View>
   );
 
+  const wonPackTier = wonPackTierId ? PACK_TIERS.find((t) => t.id === wonPackTierId) ?? null : null;
+  const packRewardSection = phase === 'packReward' && wonPackTier && (
+    <PackRewardCard tier={wonPackTier} onContinue={handleContinueFromPackReward} />
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -341,6 +418,7 @@ export function ResultScreen() {
 
         {dailyRewardBanner}
         {seasonRewardSection}
+        {packRewardSection}
         {actionsRow}
       </ScrollView>
 
@@ -406,6 +484,10 @@ const styles = StyleSheet.create({
   rosterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   rosterLabel: { fontSize: Typography.sm, color: Colors.textMuted, letterSpacing: 1, fontFamily: Font.secondarySemiBold },
   ovrText: { fontSize: Typography.md, color: Colors.gold, fontFamily: Font.primaryBold },
+  rosterSubLabel: {
+    fontSize: Typography.xs, color: Colors.textDim, fontFamily: Font.mono,
+    letterSpacing: 1, textTransform: 'uppercase', marginTop: 6, marginBottom: 4,
+  },
   rosterRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: Colors.bgPrimary,
@@ -451,4 +533,14 @@ const styles = StyleSheet.create({
   seasonRewardActions: { flexDirection: 'row', gap: 10 },
   seasonRewardBtn: { flex: 1 },
   againBtnWrap: { flex: 1 },
+
+  packRewardCard: {
+    marginHorizontal: Spacing.lg, marginTop: Spacing.sm, marginBottom: Spacing.sm,
+    backgroundColor: Colors.bgCard, borderWidth: 1.5, borderColor: Colors.gold, borderRadius: Radius.lg,
+    padding: 20, alignItems: 'center', gap: 10,
+  },
+  packRewardEarned: {
+    fontSize: Typography.lg, color: Colors.textPrimary, fontFamily: Font.primaryBold, letterSpacing: 0.3,
+  },
+  packRewardBtn: { alignSelf: 'stretch', marginTop: 4 },
 });

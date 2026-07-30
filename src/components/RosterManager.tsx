@@ -1,11 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, View, Text, StyleSheet } from 'react-native';
 import { Colors, Radius, Spacing, Typography, Font } from '../theme/colors';
-import { DRAFT_POSITIONS, Player, Position, parseYear } from '../data/players';
-import { BENCH_CAPACITY, DynastyRoster, useDynastyStore } from '../store/dynastyStore';
+import { DRAFT_POSITIONS, Player, Position, isOffensePosition, parseYear } from '../data/players';
+import { BENCH_CAPACITY, DynastyRoster, retireRingsReward, useDynastyStore } from '../store/dynastyStore';
 import { SHOW_DEBUG_OVR } from '../config/featureFlags';
 import { getRowStatMetrics } from '../utils/statMetrics';
+import { useLastNonNull } from '../hooks/useAnimations';
+import { FadeInOut } from './animation/FadeInOut';
 import { PlayerRow } from './PlayerRow';
+import { RingsIcon } from './RingsIcon';
 import { PlayerRowStats } from './PlayerRowStats';
 import { PlayerDetailAction } from './PlayerDetailPanel';
 import { PrimaryButton } from './PrimaryButton';
@@ -232,7 +235,7 @@ export function useRosterEditor() {
     }
 
     selectedActions.push({
-      label: 'Retire',
+      label: <>Retire · +{retireRingsReward(selected.player)} <RingsIcon size={14} color={Colors.loss} /></>,
       destructive: true,
       disabled: retireDisabled,
       onPress: () => {
@@ -252,6 +255,29 @@ export function useRosterEditor() {
 
 export type RosterEditor = ReturnType<typeof useRosterEditor>;
 
+// Retirement's Rings payout — fade+slide in (FadeInOut) plus a spring pop
+// on the amount itself, matching ResultScreen.tsx's DailyRewardBanner
+// treatment for the same "you just earned Rings" moment elsewhere in the
+// app, rather than just materializing flat.
+function RetireRewardBanner({ visible, amount }: { visible: boolean; amount: number | null }) {
+  const pop = useRef(new Animated.Value(0.7)).current;
+
+  useEffect(() => {
+    if (visible) {
+      pop.setValue(0.7);
+      Animated.spring(pop, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 10 }).start();
+    }
+  }, [visible, pop]);
+
+  return (
+    <FadeInOut visible={visible} translateY={-6}>
+      <Animated.View style={[styles.retireRewardBanner, { transform: [{ scale: pop }] }]}>
+        <Text style={styles.retireRewardText}>+{amount} <RingsIcon size={14} /> EARNED FROM RETIREMENT</Text>
+      </Animated.View>
+    </FadeInOut>
+  );
+}
+
 // Roster + bench rows and the save bar — shared by the narrow (rows only,
 // detail opens in a Modal — see DynastyHomeScreen) and wide (rows in
 // widePaneLeft, detail is the persistent widePaneRight) layouts.
@@ -261,33 +287,37 @@ export function RosterList({ editor }: { editor: RosterEditor }) {
     handleSave, handleDiscard, retireRewardEarned,
   } = editor;
 
+  const lastRetireReward = useLastNonNull(retireRewardEarned);
+
+  function renderStarterRow(pos: Position) {
+    const starter = pendingRoster[pos];
+    return starter ? (
+      <PlayerRow
+        key={pos}
+        position={pos}
+        name={starter.name}
+        meta={`${starter.team} · ${parseYear(starter.years)}`}
+        ovr={SHOW_DEBUG_OVR ? starter.rating : undefined}
+        style={styles.rosterRow}
+        selected={selected?.kind === 'starter' && selected.position === pos}
+        onPress={() => setSelected({ player: starter, kind: 'starter', position: pos })}
+        right={<PlayerRowStats metrics={getRowStatMetrics(starter)} />}
+        testID="roster-starter-row"
+      />
+    ) : (
+      <PlayerRow key={pos} position={pos} name="Empty" meta="No starter drafted" style={styles.rosterRow} />
+    );
+  }
+
   return (
     <>
-      {retireRewardEarned !== null && (
-        <View style={styles.retireRewardBanner}>
-          <Text style={styles.retireRewardText}>+{retireRewardEarned} 💍 EARNED FROM RETIREMENT</Text>
-        </View>
-      )}
+      <RetireRewardBanner visible={retireRewardEarned !== null} amount={lastRetireReward} />
 
       <Text style={styles.sectionLabel}>Full roster</Text>
-      {DRAFT_POSITIONS.map((pos) => {
-        const starter = pendingRoster[pos];
-        return starter ? (
-          <PlayerRow
-            key={pos}
-            position={pos}
-            name={starter.name}
-            meta={`${starter.team} · ${parseYear(starter.years)}`}
-            ovr={SHOW_DEBUG_OVR ? starter.rating : undefined}
-            style={styles.rosterRow}
-            selected={selected?.kind === 'starter' && selected.position === pos}
-            onPress={() => setSelected({ player: starter, kind: 'starter', position: pos })}
-            right={<PlayerRowStats metrics={getRowStatMetrics(starter)} />}
-          />
-        ) : (
-          <PlayerRow key={pos} position={pos} name="Empty" meta="No starter drafted" style={styles.rosterRow} />
-        );
-      })}
+      <Text style={styles.subSectionLabel}>Offense</Text>
+      {DRAFT_POSITIONS.filter(isOffensePosition).map((pos) => renderStarterRow(pos))}
+      <Text style={styles.subSectionLabel}>Defense</Text>
+      {DRAFT_POSITIONS.filter((pos) => !isOffensePosition(pos)).map((pos) => renderStarterRow(pos))}
 
       <Text style={[styles.sectionLabel, styles.benchSectionLabel]}>
         Bench ({pendingBench.length}/{BENCH_CAPACITY})
@@ -314,18 +344,19 @@ export function RosterList({ editor }: { editor: RosterEditor }) {
               selected={selected?.kind === 'bench' && selected.player.id === player.id}
               onPress={() => setSelected({ player, kind: 'bench' })}
               right={<PlayerRowStats metrics={getRowStatMetrics(player)} />}
+              testID="roster-bench-row"
             />
           ))
       )}
 
-      {dirty && (
+      <FadeInOut visible={dirty} translateY={14}>
         <View style={styles.saveBar}>
           <View style={styles.saveBarButtons}>
             <SecondaryButton label="Discard" onPress={handleDiscard} style={styles.discardBtn} />
             <PrimaryButton label="Save Changes" onPress={handleSave} disabled={!canSave} style={styles.saveBtn} />
           </View>
         </View>
-      )}
+      </FadeInOut>
     </>
   );
 }
@@ -334,6 +365,13 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: Typography.xs, color: Colors.textSecondary, fontFamily: Font.mono,
     letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8,
+  },
+  // Nested under "Full roster" — dimmer/smaller than sectionLabel so the
+  // Offense/Defense split reads as a subdivision of it, not a second
+  // top-level section.
+  subSectionLabel: {
+    fontSize: Typography.xs, color: Colors.textMuted, fontFamily: Font.mono,
+    letterSpacing: 1.2, textTransform: 'uppercase', marginTop: Spacing.sm, marginBottom: 6,
   },
   emptyText: { color: Colors.textMuted, fontSize: Typography.base, fontFamily: Font.secondaryRegular, marginBottom: Spacing.lg, lineHeight: 20 },
   warningText: { color: Colors.loss, fontSize: Typography.sm, fontFamily: Font.secondarySemiBold, marginBottom: Spacing.sm },

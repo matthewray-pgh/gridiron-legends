@@ -1,6 +1,8 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, View, Text, TouchableOpacity, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { Colors, Font, Radius, Typography } from '../theme/colors';
+
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 interface PlayerRowProps {
   position: string;
@@ -20,6 +22,7 @@ interface PlayerRowProps {
   // than forking the row shell per screen.
   right?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
+  testID?: string;
 }
 
 // Shared player-listing row — originally GameScreen.tsx's draft candidate
@@ -28,13 +31,27 @@ interface PlayerRowProps {
 // the left, `right` slot for whatever the caller needs. Not pressable when
 // `onPress` is omitted (Dynasty's rows put their own buttons in `right`
 // instead of making the whole row tappable).
-export function PlayerRow({ position, name, meta, ovr, selected, onPress, right, style }: PlayerRowProps) {
+export function PlayerRow({ position, name, meta, ovr, selected, onPress, right, style, testID }: PlayerRowProps) {
+  const selectedAnim = useRef(new Animated.Value(selected ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(selectedAnim, {
+      toValue: selected ? 1 : 0,
+      duration: 180,
+      // borderColor interpolation isn't supported on the native driver.
+      useNativeDriver: false,
+    }).start();
+  }, [selected, selectedAnim]);
+
+  const borderColor = selectedAnim.interpolate({ inputRange: [0, 1], outputRange: [Colors.border, Colors.gold] });
+
   return (
-    <TouchableOpacity
-      style={[styles.rowCard, selected && styles.rowCardSelected, style]}
+    <AnimatedTouchable
+      style={[styles.rowCard, { borderColor }, style]}
       onPress={onPress}
       disabled={!onPress}
       activeOpacity={0.9}
+      testID={testID}
     >
       <View style={styles.rowLeft}>
         <View style={styles.posBadge}>
@@ -49,7 +66,7 @@ export function PlayerRow({ position, name, meta, ovr, selected, onPress, right,
         </View>
       </View>
       {right}
-    </TouchableOpacity>
+    </AnimatedTouchable>
   );
 }
 
@@ -64,9 +81,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  rowCardSelected: {
-    borderColor: Colors.gold,
   },
   rowLeft: {
     flexDirection: 'row',

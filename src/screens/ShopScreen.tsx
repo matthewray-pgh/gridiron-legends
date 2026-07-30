@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, StyleProp, ViewStyle, Modal, Pressable } from 'react-native';
+import { Animated, View, Text, TouchableOpacity, StyleSheet, ScrollView, StyleProp, ViewStyle, Modal, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import {
   PACK_CARD_COUNT, PACK_TIERS, PackTier, PackTierId, TODO_BALANCE_ERA_LOCK_SURCHARGE_RINGS,
@@ -17,11 +18,13 @@ import { SelectablePill } from '../components/SelectablePill';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { SecondaryButton } from '../components/SecondaryButton';
 import { BrandBackground } from '../components/BrandBackground';
-import { FieldFooterBand } from '../components/FieldFooterBand';
 import { PackOddsSheet } from '../components/PackOddsSheet';
 import { RewardedAdModal } from '../components/RewardedAdModal';
 import { useRewardedAd } from '../hooks/useRewardedAd';
 import { useResponsive } from '../hooks/useResponsive';
+import { useBounceOnIncrease, useCountUp, useLastNonNull, usePressScale, useShake } from '../hooks/useAnimations';
+import { FadeInOut } from '../components/animation/FadeInOut';
+import { RingsIcon } from '../components/RingsIcon';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -52,7 +55,7 @@ function findTier(tierId: PackTierId): PackTier | undefined {
   return PACK_TIERS.find((t) => t.id === tierId);
 }
 
-// Shop's always-available "Watch an ad for Rings" placement
+// Shop's always-available "Watch Reward Ad for Rings" placement
 // (docs/handoff/13-ad-monetization-economy.md, section 1) — reward scales
 // on the daily watch streak rather than a flat per-watch amount. Shared by
 // both layouts like the pack tiles below.
@@ -64,10 +67,11 @@ function ShopAdCard({ preview, onWatch, disabled, justEarned, style }: {
   style?: StyleProp<ViewStyle>;
 }) {
   const dayLabel = preview.nextStreakDay >= 7 ? 'DAY 7+' : `DAY ${preview.nextStreakDay}`;
+  const displayEarned = useLastNonNull(justEarned);
   return (
     <View style={[styles.adCard, style]}>
       <View style={styles.adCardTop}>
-        <Text style={styles.adCardTitle}>Watch an ad for Rings</Text>
+        <Text style={styles.adCardTitle}>Watch Reward Ad for Rings</Text>
         <View style={styles.adCardStreakBadge}>
           <Text style={styles.adCardStreakText}>{dayLabel} STREAK</Text>
         </View>
@@ -77,7 +81,9 @@ function ShopAdCard({ preview, onWatch, disabled, justEarned, style }: {
           ? `${preview.watchesRemainingToday}/${TODO_BALANCE_SHOP_AD_MAX_WATCHES_PER_DAY} watches left today`
           : 'Come back tomorrow for more'}
       </Text>
-      {justEarned !== null && <Text style={styles.adCardEarned}>+{justEarned} 💍 EARNED</Text>}
+      <FadeInOut visible={justEarned !== null}>
+        <Text style={styles.adCardEarned}>+{displayEarned} <RingsIcon size={13} /> EARNED</Text>
+      </FadeInOut>
       <TouchableOpacity
         style={[styles.adWatchBtn, disabled && styles.adWatchBtnDisabled]}
         onPress={onWatch}
@@ -85,31 +91,46 @@ function ShopAdCard({ preview, onWatch, disabled, justEarned, style }: {
         activeOpacity={0.85}
       >
         <Text style={styles.adWatchBtnText}>
-          {preview.watchesRemainingToday > 0 ? `▶ WATCH AD · +${preview.nextReward} 💍` : 'NO WATCHES LEFT TODAY'}
+          {preview.watchesRemainingToday > 0
+            ? <>▶ WATCH REWARD AD · +{preview.nextReward} <RingsIcon size={13} color={Colors.bgDark} /></>
+            : 'NO WATCHES LEFT TODAY'}
         </Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-// Compact trigger for the ad-for-Rings card (item 5, docs/handoff/15-shop-
-// pack-flow-streamlining.md) — the full ShopAdCard now only renders inside
-// the bottom sheet this opens, so it stops competing with the tier list's
-// Buy buttons for scroll priority and visual weight.
+// Trigger for the ad-for-Rings card (item 5, docs/handoff/15-shop-pack-
+// flow-streamlining.md) — the full ShopAdCard only renders inside the
+// bottom sheet this opens. Originally sized as a small compact pill to
+// avoid competing with the Buy buttons; flagged as too easy to miss given
+// it's a real income avenue, so this is now a full-width banner with the
+// same visual weight as the pack tiles below it rather than a footnote
+// above them.
 function ShopAdPill({ preview, onPress, justEarned }: {
   preview: { watchesRemainingToday: number; nextReward: number };
   onPress: () => void;
   justEarned: number | null;
 }) {
+  const pillState = justEarned !== null ? 'earned' : preview.watchesRemainingToday > 0 ? 'watch' : 'none';
+  const { scale, onPressIn, onPressOut } = usePressScale(0.97);
   return (
-    <TouchableOpacity style={styles.adPill} onPress={onPress} activeOpacity={0.85}>
-      <Text style={styles.adPillText}>
-        {justEarned !== null
-          ? `+${justEarned} 💍 earned`
-          : preview.watchesRemainingToday > 0
-            ? `▶ Watch an ad · +${preview.nextReward} 💍`
-            : 'No ad watches left today'}
-      </Text>
+    <TouchableOpacity onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut} activeOpacity={0.9}>
+      <Animated.View style={[styles.adPill, { transform: [{ scale }] }]}>
+        <View style={styles.adPillLeft}>
+          <MaterialCommunityIcons name="play-circle" size={26} color={Colors.gold} />
+          <FadeInOut key={pillState} duration={180} style={styles.adPillTextWrap}>
+            <Text style={styles.adPillText} numberOfLines={1}>
+              {justEarned !== null
+                ? <>+{justEarned} <RingsIcon size={14} /> earned</>
+                : preview.watchesRemainingToday > 0
+                  ? <>Watch Reward Ad · +{preview.nextReward} <RingsIcon size={14} /></>
+                  : 'No ad watches left today'}
+            </Text>
+          </FadeInOut>
+        </View>
+        {preview.watchesRemainingToday > 0 && justEarned === null && <Text style={styles.adPillChevron}>›</Text>}
+      </Animated.View>
     </TouchableOpacity>
   );
 }
@@ -127,21 +148,33 @@ function PackTile({ tier, cost, affordable, onBuy, onViewOdds, style }: {
   onViewOdds: () => void;
   style?: StyleProp<ViewStyle>;
 }) {
+  const { translateX, shake } = useShake();
+
+  // Buy stays tappable even when unaffordable — tapping it now shakes to
+  // signal "not enough Rings" rather than the tap silently doing nothing
+  // (the old `disabled` state swallowed the press entirely).
+  function handlePress() {
+    if (affordable) onBuy();
+    else shake();
+  }
+
   return (
     <View style={[styles.packTile, style]}>
       <TouchableOpacity style={styles.packTileBody} onPress={onViewOdds} activeOpacity={0.85}>
         <PackShieldBadge tierId={tier.id} size={64} />
         <Text style={styles.packTileName} numberOfLines={1}>{tier.label}</Text>
-        <Text style={styles.packTilePrice}>{cost} 💍</Text>
+        <Text style={styles.packTilePrice}>{cost} <RingsIcon size={12} /></Text>
       </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.packTileBuyBtn, !affordable && styles.packTileBuyBtnDisabled]}
-        onPress={onBuy}
-        disabled={!affordable}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.packTileBuyBtnText}>{affordable ? 'BUY' : 'NOT ENOUGH'}</Text>
-      </TouchableOpacity>
+      <Animated.View style={{ transform: [{ translateX }] }}>
+        <TouchableOpacity
+          style={[styles.packTileBuyBtn, !affordable && styles.packTileBuyBtnDisabled]}
+          onPress={handlePress}
+          activeOpacity={0.85}
+          testID={`buy-pack-${tier.id}`}
+        >
+          <Text style={styles.packTileBuyBtnText}>{affordable ? 'BUY' : 'NOT ENOUGH'}</Text>
+        </TouchableOpacity>
+      </Animated.View>
     </View>
   );
 }
@@ -183,7 +216,7 @@ function OwnedPackTile({ pack, tier, onPress, style }: {
   style?: StyleProp<ViewStyle>;
 }) {
   return (
-    <TouchableOpacity style={[styles.packTile, style]} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity style={[styles.packTile, styles.ownedPackTile, style]} onPress={onPress} activeOpacity={0.85}>
       <View style={styles.packTileBody}>
         <PackShieldBadge tierId={tier.id} size={64} />
         <View style={styles.waitingTileOpenBar}>
@@ -234,6 +267,9 @@ export function ShopScreen() {
   // doc 18's My Packs tab, which is now redundant with the waiting strip.
   const [packsSheetOpen, setPacksSheetOpen] = useState(false);
   const { requestAd, adModalProps } = useRewardedAd(SHOP_AD_RINGS_ENABLED);
+  const { translateX: sheetBuyShakeX, shake: shakeSheetBuy } = useShake();
+  const animatedRings = useCountUp(rings);
+  const { scale: ringsBounceScale, zIndex: ringsBounceZIndex } = useBounceOnIncrease(rings);
 
   // Same "drafted at least once" gate PackOpeningScreen uses (see its
   // hasCompletedInitialDraft comment) — packs build out the bench, which
@@ -273,19 +309,23 @@ export function ShopScreen() {
   // section 2) — supersedes doc 15's PendingPacksBanner text pill. Only
   // rendered when there's something waiting, same guard the banner had.
   const waitingStrip = pendingCount > 0 && (
-    <>
-      <Text style={styles.sectionLabel}>WAITING TO OPEN</Text>
+    <View style={[styles.sectionBlock, styles.sectionBlockGreen]}>
+      <Text style={[styles.sectionLabel, styles.sectionLabelGreen]}>MY PACKS</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.waitingStrip} contentContainerStyle={styles.waitingStripContent}>
-        {ownedPacks.slice(0, WAITING_STRIP_CAP).map((pack) => {
+        {ownedPacks.slice(0, WAITING_STRIP_CAP).map((pack, i) => {
           const tier = findTier(pack.tierId);
           if (!tier) return null;
-          return <WaitingPackTile key={pack.id} tier={tier} onPress={() => openPendingPack(pack.id)} />;
+          return (
+            <FadeInOut key={pack.id} delay={i * 50} translateY={8}>
+              <WaitingPackTile tier={tier} onPress={() => openPendingPack(pack.id)} />
+            </FadeInOut>
+          );
         })}
         {pendingCount > WAITING_STRIP_CAP && (
           <SeeAllTile count={pendingCount} onPress={() => setPacksSheetOpen(true)} />
         )}
       </ScrollView>
-    </>
+    </View>
   );
 
   const eraChips = (
@@ -305,7 +345,7 @@ export function ShopScreen() {
 
   const eraNote = (
     <Text style={styles.eraNote}>
-      Lock a specific era for <Text style={styles.eraNoteGold}>+{TODO_BALANCE_ERA_LOCK_SURCHARGE_RINGS} 💍</Text> — same tier odds, narrowed pool.
+      Lock a specific era for <Text style={styles.eraNoteGold}>+{TODO_BALANCE_ERA_LOCK_SURCHARGE_RINGS} <RingsIcon size={11} /></Text> — same tier odds, narrowed pool.
     </Text>
   );
 
@@ -323,9 +363,9 @@ export function ShopScreen() {
         ) : (
           <Text style={styles.toolbarTitle}>SHOP</Text>
         )}
-        <View style={styles.ringsChip}>
-          <Text style={styles.ringsText}>{rings} 💍</Text>
-        </View>
+        <Animated.View style={[styles.ringsChip, { transform: [{ scale: ringsBounceScale }], zIndex: ringsBounceZIndex }]}>
+          <Text style={styles.ringsText}>{animatedRings} <RingsIcon size={14} /></Text>
+        </Animated.View>
       </BrandBackground>
 
       {!hasCompletedInitialDraft ? (
@@ -344,54 +384,56 @@ export function ShopScreen() {
               {eraNote}
             </View>
 
-            <View style={styles.layoutWide}>
-              <View style={styles.tierGridWide}>
-                <Text style={styles.sectionLabel}>BUY A PACK</Text>
-                <View style={styles.tierShelfGrid}>
-                  {PACK_TIERS.map((tier) => {
-                    const cost = totalCost(tier, selectedEra);
-                    const affordable = rings >= cost;
-                    return (
-                      <PackTile
-                        key={tier.id}
-                        tier={tier}
-                        cost={cost}
-                        affordable={affordable}
-                        onBuy={() => handleBuy(tier.id)}
-                        onViewOdds={() => setOddsSheetTierId(tier.id)}
-                        style={styles.tierCardWide}
-                      />
-                    );
-                  })}
-                </View>
-              </View>
-
-              <View style={styles.sidebarCardWide}>
-                <Text style={styles.sidebarTitle}>My Packs</Text>
-                <Text style={styles.sidebarSub}>
-                  {pendingCount === 0 ? 'None waiting to be opened' : `${pendingCount} waiting to be opened`}
-                </Text>
-                {pendingCount === 0 ? (
-                  <Text style={styles.emptyHint}>Buy a pack to get started.</Text>
-                ) : (
-                  <View style={styles.sidebarWaitingGrid}>
-                    {ownedPacks.map((pack: OwnedPack) => {
-                      const tier = findTier(pack.tierId);
-                      if (!tier) return null;
-                      return (
-                        <WaitingPackTile
-                          key={pack.id}
-                          tier={tier}
-                          onPress={() => openPendingPack(pack.id)}
-                        />
-                      );
-                    })}
-                  </View>
-                )}
+            {/* Stacked, not side-by-side — a wide sidebar previously sat
+                next to the Buy shelf; both sections now get full-width
+                bordered blocks so they read as clearly separate systems
+                (gold = spend Rings, green = ready to open) instead of
+                competing for horizontal space. */}
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionLabel}>BUY A PACK</Text>
+              <View style={styles.tierShelfGrid}>
+                {PACK_TIERS.map((tier) => {
+                  const cost = totalCost(tier, selectedEra);
+                  const affordable = rings >= cost;
+                  return (
+                    <PackTile
+                      key={tier.id}
+                      tier={tier}
+                      cost={cost}
+                      affordable={affordable}
+                      onBuy={() => handleBuy(tier.id)}
+                      onViewOdds={() => setOddsSheetTierId(tier.id)}
+                      style={styles.tierCardWide}
+                    />
+                  );
+                })}
               </View>
             </View>
 
-            <FieldFooterBand />
+            <View style={[styles.sectionBlock, styles.sectionBlockGreen]}>
+              <Text style={[styles.sectionLabel, styles.sectionLabelGreen]}>MY PACKS</Text>
+              <Text style={styles.sidebarSub}>
+                {pendingCount === 0 ? 'None waiting to be opened' : `${pendingCount} waiting to be opened`}
+              </Text>
+              {pendingCount === 0 ? (
+                <Text style={styles.emptyHint}>Buy a pack to get started.</Text>
+              ) : (
+                <View style={styles.sidebarWaitingGrid}>
+                  {ownedPacks.map((pack: OwnedPack, i) => {
+                    const tier = findTier(pack.tierId);
+                    if (!tier) return null;
+                    return (
+                      <FadeInOut key={pack.id} delay={Math.min(i, 8) * 40} translateY={8}>
+                        <WaitingPackTile
+                          tier={tier}
+                          onPress={() => openPendingPack(pack.id)}
+                        />
+                      </FadeInOut>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
           </View>
         </ScrollView>
       ) : (
@@ -405,25 +447,25 @@ export function ShopScreen() {
           </ScrollView>
           {eraNote}
 
-          <Text style={styles.sectionLabel}>BUY A PACK</Text>
-          <View style={styles.tierShelfGrid}>
-            {PACK_TIERS.map((tier) => {
-              const cost = totalCost(tier, selectedEra);
-              const affordable = rings >= cost;
-              return (
-                <PackTile
-                  key={tier.id}
-                  tier={tier}
-                  cost={cost}
-                  affordable={affordable}
-                  onBuy={() => handleBuy(tier.id)}
-                  onViewOdds={() => setOddsSheetTierId(tier.id)}
-                />
-              );
-            })}
+          <View style={styles.sectionBlock}>
+            <Text style={styles.sectionLabel}>BUY A PACK</Text>
+            <View style={styles.tierShelfGrid}>
+              {PACK_TIERS.map((tier) => {
+                const cost = totalCost(tier, selectedEra);
+                const affordable = rings >= cost;
+                return (
+                  <PackTile
+                    key={tier.id}
+                    tier={tier}
+                    cost={cost}
+                    affordable={affordable}
+                    onBuy={() => handleBuy(tier.id)}
+                    onViewOdds={() => setOddsSheetTierId(tier.id)}
+                  />
+                );
+              })}
+            </View>
           </View>
-
-          <FieldFooterBand />
         </ScrollView>
       )}
 
@@ -435,9 +477,11 @@ export function ShopScreen() {
         onClose={() => setOddsSheetTierId(null)}
         subtitle={selectedEra ? `ERA LOCKED · ${selectedEra}` : undefined}
         priceLine={oddsSheetTier ? (
-          selectedEra
-            ? `${oddsSheetTier.cost} 💍 base + ${TODO_BALANCE_ERA_LOCK_SURCHARGE_RINGS} 💍 era lock · ${PACK_CARD_COUNT} cards`
-            : `${oddsSheetTier.cost} 💍 · ${PACK_CARD_COUNT} cards`
+          selectedEra ? (
+            <>{oddsSheetTier.cost} <RingsIcon size={11} color={Colors.textSecondary} /> base + {TODO_BALANCE_ERA_LOCK_SURCHARGE_RINGS} <RingsIcon size={11} color={Colors.textSecondary} /> era lock · {PACK_CARD_COUNT} cards</>
+          ) : (
+            <>{oddsSheetTier.cost} <RingsIcon size={11} color={Colors.textSecondary} /> · {PACK_CARD_COUNT} cards</>
+          )
         ) : undefined}
         note={selectedEra && oddsSheetTier && (
           <View style={styles.eraNoteBox}>
@@ -447,12 +491,15 @@ export function ShopScreen() {
         footer={oddsSheetTier && (
           <View style={styles.sheetBuyRow}>
             <SecondaryButton label="CLOSE" onPress={() => setOddsSheetTierId(null)} style={styles.sheetCloseBtn} />
-            <PrimaryButton
-              label={`BUY · ${totalCost(oddsSheetTier, selectedEra)} 💍`}
-              onPress={() => handleBuy(oddsSheetTier.id)}
-              disabled={rings < totalCost(oddsSheetTier, selectedEra)}
-              style={styles.sheetBuyBtn}
-            />
+            <Animated.View style={[styles.sheetBuyBtn, { transform: [{ translateX: sheetBuyShakeX }] }]}>
+              <PrimaryButton
+                label={<>BUY · {totalCost(oddsSheetTier, selectedEra)} <RingsIcon size={16} color={Colors.bgDark} /></>}
+                onPress={() => {
+                  if (rings >= totalCost(oddsSheetTier, selectedEra)) handleBuy(oddsSheetTier.id);
+                  else shakeSheetBuy();
+                }}
+              />
+            </Animated.View>
           </View>
         )}
       />
@@ -488,16 +535,17 @@ export function ShopScreen() {
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>My Packs</Text>
             <ScrollView contentContainerStyle={styles.tierShelfGrid}>
-              {ownedPacks.map((pack: OwnedPack) => {
+              {ownedPacks.map((pack: OwnedPack, i) => {
                 const tier = findTier(pack.tierId);
                 if (!tier) return null;
                 return (
-                  <OwnedPackTile
-                    key={pack.id}
-                    pack={pack}
-                    tier={tier}
-                    onPress={() => { setPacksSheetOpen(false); openPendingPack(pack.id); }}
-                  />
+                  <FadeInOut key={pack.id} delay={Math.min(i, 10) * 35} translateY={8}>
+                    <OwnedPackTile
+                      pack={pack}
+                      tier={tier}
+                      onPress={() => { setPacksSheetOpen(false); openPendingPack(pack.id); }}
+                    />
+                  </FadeInOut>
                 );
               })}
             </ScrollView>
@@ -525,7 +573,10 @@ const styles = StyleSheet.create({
   adCardEarned: {
     fontSize: Typography.sm, color: Colors.gold, fontFamily: Font.primaryBold, marginBottom: 10, letterSpacing: 0.5,
   },
+  // alignSelf: 'flex-start' so this hugs its label instead of stretching
+  // to the card's full width (adCard's default column/stretch layout).
   adWatchBtn: {
+    alignSelf: 'flex-start',
     minHeight: 46, borderRadius: Radius.md, borderWidth: 1, borderColor: '#F5DC7A',
     backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20,
   },
@@ -533,31 +584,53 @@ const styles = StyleSheet.create({
   adWatchBtnText: { color: Colors.bgDark, fontFamily: Font.primaryBold, fontSize: Typography.base, letterSpacing: 0.6 },
 
   adPill: {
-    alignSelf: 'flex-start', backgroundColor: 'rgba(212,160,23,0.12)',
-    borderWidth: 1, borderColor: Colors.gold, borderRadius: Radius.full,
-    paddingHorizontal: 12, paddingVertical: 7, marginBottom: 10,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: 'rgba(212,160,23,0.14)',
+    borderWidth: 1.5, borderColor: Colors.gold, borderRadius: Radius.lg,
+    paddingHorizontal: 16, paddingVertical: 14, marginBottom: Spacing.lg,
   },
-  adPillText: { color: Colors.gold, fontFamily: Font.secondarySemiBold, fontSize: Typography.xs },
+  adPillLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+  adPillTextWrap: { flexShrink: 1 },
+  adPillText: { color: Colors.gold, fontFamily: Font.primaryBold, fontSize: Typography.md, letterSpacing: 0.3 },
+  adPillChevron: { color: Colors.gold, fontFamily: Font.primaryBold, fontSize: Typography['2xl'], marginLeft: 8 },
 
+  // Bumped from a small mono eyebrow (xs/textMuted) to a real section
+  // title — "BUY A PACK" was reading too quiet relative to the tiles below
+  // it. Gold by default (matches this screen's "spend Rings" color
+  // language); MY PACKS overrides to green via sectionLabelGreen below.
   sectionLabel: {
-    fontSize: Typography.xs, color: Colors.textMuted, fontFamily: Font.mono,
-    letterSpacing: 1.2, textTransform: 'uppercase', marginTop: Spacing.lg, marginBottom: 8,
+    fontSize: Typography.xl, color: Colors.gold, fontFamily: Font.primaryBold,
+    letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10,
   },
+  sectionLabelGreen: { color: Colors.green },
+  // Bordered card wrapping each of BUY A PACK / MY PACKS so the two read as
+  // clearly separate sections instead of two headers in one continuous
+  // flow. Green border variant mirrors the tiles/OPEN-bar color language
+  // used elsewhere on this screen for "already owned" content.
+  sectionBlock: {
+    backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.lg,
+    padding: 16, marginTop: Spacing.lg,
+  },
+  sectionBlockGreen: { borderColor: Colors.greenMuted },
 
   // ── Waiting-to-open strip (docs/handoff/18-shop-pack-shelf-redesign.md
   // section 2) — capped horizontal row of WaitingPackTile, "See all" once
   // WAITING_STRIP_CAP is exceeded. Supersedes doc 15's PendingPacksBanner.
+  // Green border (was neutral Colors.border) + green OPEN bar (was gold) —
+  // gold is reserved for "spend Rings" actions elsewhere on this screen, so
+  // reusing it here made an already-owned pack look like another purchase
+  // tile instead of a distinct "ready to open" one.
   waitingStrip: { marginBottom: 4 },
   waitingStripContent: { gap: 10, paddingBottom: 4, paddingRight: 4 },
   waitingTile: {
-    width: 64, backgroundColor: Colors.bgCardDeep, borderWidth: 1, borderColor: Colors.border,
+    width: 64, backgroundColor: Colors.bgCardDeep, borderWidth: 1, borderColor: Colors.greenMuted,
     borderRadius: Radius.md, alignItems: 'center', padding: 6, gap: 4,
   },
   waitingTileOpenBar: {
-    width: '100%', backgroundColor: Colors.gold, borderRadius: Radius.sm,
+    width: '100%', backgroundColor: Colors.green, borderRadius: Radius.sm,
     paddingVertical: 3, alignItems: 'center',
   },
-  waitingTileOpenText: { color: Colors.bgDark, fontFamily: Font.primaryBold, fontSize: 9, letterSpacing: 0.5 },
+  waitingTileOpenText: { color: Colors.greenDark, fontFamily: Font.primaryBold, fontSize: 9, letterSpacing: 0.5 },
   seeAllTile: {
     width: 64, minHeight: 76, borderWidth: 1, borderStyle: 'dashed', borderColor: Colors.border,
     borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center', padding: 6, gap: 2,
@@ -578,11 +651,14 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 2,
   },
   toolbarTitleWide: { fontSize: Typography['3xl'], color: Colors.textPrimary, letterSpacing: 1, fontFamily: Font.primaryBold },
+  // Matches DynastyHomeScreen/PackOpeningScreen's ringsChip exactly — kept
+  // in sync across all three so the balance chip reads consistently
+  // wherever it appears.
   ringsChip: {
-    borderWidth: 1, borderColor: Colors.gold, borderRadius: Radius.full,
-    paddingHorizontal: 10, paddingVertical: 4,
+    borderWidth: 1.5, borderColor: Colors.gold, borderRadius: Radius.full,
+    paddingHorizontal: 12, paddingVertical: 6,
   },
-  ringsText: { color: Colors.gold, fontSize: Typography.sm, fontFamily: Font.secondarySemiBold },
+  ringsText: { color: Colors.gold, fontSize: Typography.md, fontFamily: Font.primaryBold },
 
   stage: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, paddingHorizontal: Spacing.lg },
   emptyText: { color: Colors.textMuted, fontSize: Typography.base, fontFamily: Font.secondaryRegular, textAlign: 'center' },
@@ -616,6 +692,10 @@ const styles = StyleSheet.create({
   },
   packTileBuyBtnDisabled: { backgroundColor: 'transparent', borderColor: Colors.border },
   packTileBuyBtnText: { color: Colors.bgDark, fontFamily: Font.primaryBold, fontSize: Typography.sm, letterSpacing: 0.5 },
+  // OwnedPackTile only — layered on top of packTile (same card shell as the
+  // Buy tiles) to give owned/ready-to-open packs their own green identity
+  // instead of reading as a bare variant of the purchase tile next to it.
+  ownedPackTile: { borderColor: Colors.greenMuted },
   // OwnedPackTile-only (My Packs tab) — season/source/era-lock metadata
   // PendingPackRow used to show, carried forward beneath the tile.
   packTileMeta: { color: Colors.textMuted, fontSize: Typography.xs, fontFamily: Font.mono, marginTop: 6, textAlign: 'center' },
@@ -645,21 +725,11 @@ const styles = StyleSheet.create({
   },
   eraChipsWide: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, flex: 1 },
 
-  layoutWide: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing['2xl'] },
-  // Just the left column's width claim now — PackTile's own 3-up sizing
-  // comes from tierCardWide (passed as its `style` override) inside the
-  // nested tierShelfGrid, not from this container directly wrapping tiles.
-  tierGridWide: { flex: 1 },
   // 3-up on wide (docs/handoff/18-shop-pack-shelf-redesign.md section 4) —
   // same PackTile component as narrow's 2-up shelf, just a wider slice per
   // tile via this style override, not a forked wide-specific tile.
   tierCardWide: { width: '31%' },
-  sidebarCardWide: {
-    width: 300, backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
-    borderRadius: Radius.lg, padding: 18,
-  },
 
-  sidebarTitle: { fontSize: Typography.lg, color: Colors.textPrimary, fontFamily: Font.primaryBold, letterSpacing: 0.5 },
   sidebarSub: { fontSize: Typography.xs, color: Colors.textMuted, fontFamily: Font.mono, marginTop: 2, marginBottom: 14 },
   // 2-up WaitingPackTile grid (section 4) — fits the 300px sidebar's
   // ~264px content width better than a sparser single column at this
@@ -677,7 +747,7 @@ const styles = StyleSheet.create({
     borderRadius: 20, borderWidth: 1.5, borderColor: Colors.rarityLegend,
   },
   sheetHandle: { width: 36, height: 4, backgroundColor: Colors.border, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
-  sheetTitle: { fontFamily: Font.primaryBold, fontSize: Typography.xl, letterSpacing: 0.5, textAlign: 'center' },
+  sheetTitle: { fontFamily: Font.primaryBold, fontSize: Typography.xl, letterSpacing: 0.5, textAlign: 'center', color: Colors.green },
   sheetSubtitle: { textAlign: 'center', fontFamily: Font.mono, color: Colors.gold, fontSize: Typography.sm, marginTop: 4 },
   sheetPrice: { textAlign: 'center', fontFamily: Font.mono, color: Colors.textSecondary, fontSize: Typography.sm, marginTop: 2, marginBottom: 18 },
 

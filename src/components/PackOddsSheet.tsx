@@ -25,7 +25,9 @@ interface PackOddsSheetProps {
   isWide: boolean;
   onClose: () => void;
   subtitle?: string;
-  priceLine?: string;
+  // ReactNode (not just string) so it can embed an inline icon (e.g.
+  // <RingsIcon />) the same way PrimaryButton's label does.
+  priceLine?: ReactNode;
   note?: ReactNode;
   footer: ReactNode;
 }

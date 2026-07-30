@@ -19,7 +19,7 @@
 // improves season over season, no aging/decay curve.
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { GeneratedEra, Player, Position, ratingToTier } from '../data/players';
+import { GENERATED_RECORDS, GeneratedEra, normalizeGeneratedPosition, Player, Position, ratingToTier } from '../data/players';
 import {
   pullPlayerPack, ratingToRarity, PackPlayer, PackRarity, PackTierId, PACK_TIERS,
   TODO_BALANCE_DUPE_REFUND_RINGS, TODO_BALANCE_ERA_LOCK_SURCHARGE_RINGS,
@@ -181,7 +181,10 @@ export const TODO_BALANCE_RETIRE_RINGS_BY_RARITY: Record<PackRarity, number> = {
   legend: 300,
 };
 
-function retireRingsReward(player: Player): number {
+// Exported so the roster editor UI (RosterManager.tsx/PlayerDetailPanel)
+// can preview a player's Rings worth before they're actually retired, not
+// just report it after the fact in commitLineup's return value.
+export function retireRingsReward(player: Player): number {
   return TODO_BALANCE_RETIRE_RINGS_BY_RARITY[ratingToRarity(player.rating)];
 }
 
@@ -562,6 +565,23 @@ export const useDynastyStore = create<DynastyState>()(
   }),
 );
 
+// Player.position used to get overwritten with whichever slot a candidate
+// was offered for (e.g. "FLEX") instead of staying their true native
+// position — fixed at the source (data/players.ts's toPlayer), but saves
+// made before that fix still have the bad value baked into roster/bench/
+// hallOfFame and won't self-correct just by reloading the fixed code.
+// Re-derives the true position from the original generated record (same
+// dataset packs.ts pulls from, looked up by the stable player id) rather
+// than guessing — this is exact, not a heuristic.
+const recordsById = new Map(GENERATED_RECORDS.map((record) => [record.id, record]));
+
+function repairPlayerPosition(player: Player): Player {
+  const record = recordsById.get(player.id);
+  if (!record) return player;
+  const truePosition = normalizeGeneratedPosition(record.position);
+  return truePosition === player.position ? player : { ...player, position: truePosition };
+}
+
 // ownedPacks has gone through a few shapes before the current per-instance
 // array: pre-pack-redesign saves had it as an array of `{id, type}` pack
 // objects (plus an `activePerks` field that no longer exists), and
@@ -585,6 +605,21 @@ function migratePersistedState(raw: unknown): Partial<DynastyState> {
     data.ownedPacks = Array.from({ length: data.ownedPacks }, () => makeOwnedPack('rookie', currentSeason, 'season_reward'));
   } else {
     data.ownedPacks = [];
+  }
+
+  if (data.roster && typeof data.roster === 'object') {
+    data.roster = Object.fromEntries(
+      Object.entries(data.roster as Record<string, Player>).map(([slot, player]) => [slot, repairPlayerPosition(player)]),
+    );
+  }
+  if (Array.isArray(data.bench)) {
+    data.bench = (data.bench as Player[]).map(repairPlayerPosition);
+  }
+  if (Array.isArray(data.hallOfFame)) {
+    data.hallOfFame = (data.hallOfFame as HallOfFameEntry[]).map((entry) => ({
+      ...entry,
+      player: repairPlayerPosition(entry.player),
+    }));
   }
 
   delete data.activePerks;

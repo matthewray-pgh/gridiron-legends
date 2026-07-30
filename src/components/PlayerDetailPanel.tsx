@@ -14,7 +14,11 @@ interface StatMetric {
 }
 
 export interface PlayerDetailAction {
-  label: string;
+  // ReactNode (not just string) so the Retire action can embed its Rings
+  // payout inline (e.g. "Retire · +120 <RingsIcon/>") — @expo/vector-icons
+  // renders as plain RN Text under the hood, so it nests fine inside this
+  // component's own <Text>, same as PrimaryButton's label.
+  label: React.ReactNode;
   onPress: () => void;
   destructive?: boolean;
   disabled?: boolean;
@@ -114,6 +118,7 @@ export function PlayerDetailPanel({ player, fallbackStatMetrics, quickAssignSlot
                 style={styles.quickAssignBtn}
                 onPress={() => onAssign?.(position)}
                 activeOpacity={0.85}
+                testID="quick-assign-btn"
               >
                 <Text style={styles.quickAssignBtnText}>{position}</Text>
               </TouchableOpacity>
@@ -127,9 +132,9 @@ export function PlayerDetailPanel({ player, fallbackStatMetrics, quickAssignSlot
         <View style={styles.actionsWrap}>
           <Text style={styles.quickAssignLabel}>Moves</Text>
           <View style={styles.actionsList}>
-            {actions.map((action) => (
+            {actions.map((action, index) => (
               <TouchableOpacity
-                key={action.label}
+                key={index}
                 style={[
                   styles.actionRow,
                   action.destructive && styles.actionRowDestructive,
@@ -138,6 +143,7 @@ export function PlayerDetailPanel({ player, fallbackStatMetrics, quickAssignSlot
                 onPress={action.onPress}
                 disabled={action.disabled}
                 activeOpacity={0.85}
+                testID="roster-action-btn"
               >
                 <Text
                   style={[styles.actionRowText, action.destructive && styles.actionRowTextDestructive]}

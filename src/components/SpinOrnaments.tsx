@@ -12,19 +12,18 @@ import Svg, {
 import { Colors, Font, Typography } from '../theme/colors';
 
 const STADIUM_BG = require('../../assets/stadium-bg.png');
-const FIELD_BG = require('../../assets/field-bottom.png');
 
 export type Tone = 'gold' | 'silver';
 
 // Which on-brand photo texture a SpinCard uses — 'stadium' (lights, used for
-// TEAM) and 'field' (yard lines, used for ERA) so the two cards read as
-// visually distinct instead of the same photo twice. Omit for the flat
-// dark-fill + clock-ticks look.
-export type SpinCardTexture = 'stadium' | 'field';
+// TEAM). ERA used to get a distinct 'field' (yard lines) texture so the two
+// cards read as visually distinct instead of the same photo twice; the
+// field art was removed app-wide per user direction, so ERA now falls back
+// to the flat dark-fill + clock-ticks look (omit `texture` entirely).
+export type SpinCardTexture = 'stadium';
 
 const TEXTURE_SOURCES: Record<SpinCardTexture, number> = {
   stadium: STADIUM_BG,
-  field: FIELD_BG,
 };
 
 const TONE_COLORS: Record<Tone, { light: string; mid: string; dark: string; label: string }> = {

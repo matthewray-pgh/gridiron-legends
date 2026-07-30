@@ -10,14 +10,13 @@ interface RewardedAdModalProps {
   onCancel: () => void;
 }
 
-// Stand-in for a real rewarded-ad SDK — none is wired into this project yet
-// (docs/handoff/13-ad-monetization-economy.md; confirmed with the user to
-// simulate rather than integrate AdMob/etc. for this pass, since that would
-// also need native config and ad-unit IDs before anything could actually
-// play). Simulates watch-to-completion with a timed "ad playing" beat, then
-// calls onComplete — every caller goes through useRewardedAd() rather than
-// this component directly, so swapping in a real SDK later only means
-// changing that hook's internals, not any call site.
+// Web-only fallback now that useRewardedAd.ts wires in the real AdMob SDK
+// for native (react-native-google-mobile-ads has no web implementation).
+// On native, adModalProps.visible never turns true — Google's own
+// full-screen ad UI is what the player actually sees there; this modal's
+// simulated countdown only ever renders on web. Every caller goes through
+// useRewardedAd() rather than this component directly, so callers don't
+// need to know which path they're on.
 export function RewardedAdModal({ visible, onComplete, onCancel }: RewardedAdModalProps) {
   const [secondsLeft, setSecondsLeft] = useState(SIMULATED_AD_SECONDS);
 

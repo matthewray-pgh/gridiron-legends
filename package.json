@@ -26,6 +26,7 @@
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
     "react-native-gesture-handler": "~2.28.0",
+    "react-native-google-mobile-ads": "^16.4.0",
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
@@ -36,6 +37,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.0",
     "@types/react": "~19.1.10",
     "typescript": "~5.9.2"
   },
@@ -45,7 +47,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "generate:data": "cd data_generator && ../.venv/bin/python generator.py",
-    "generate:data:run": "./data_generator/run_generator.sh"
+    "generate:data:run": "./data_generator/run_generator.sh",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "private": true
 }
