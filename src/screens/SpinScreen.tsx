@@ -166,7 +166,7 @@ export function SpinScreen() {
               {teamDisplay}
             </Animated.Text>
           </SpinCard>
-          <SpinCard tone="silver" label="ERA" texture="field">
+          <SpinCard tone="silver" label="ERA">
             <Animated.Text
               style={[styles.cardValue, styles.cardValueSilver, { transform: [{ translateY: eraTranslateY }] }]}
               numberOfLines={1}

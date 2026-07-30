@@ -67,6 +67,19 @@ npm run web
 npm run generate:data
 ```
 
+## Testing
+
+End-to-end tests cover the web build only, using [Playwright](https://playwright.dev/).
+
+```bash
+npx playwright install --with-deps chromium  # first time only
+npm run test:e2e
+```
+
+`npm run test:e2e:ui` opens Playwright's UI mode for debugging. The suite
+boots the app itself (`expo start --web`), so there's no need to start the
+dev server separately first.
+
 ## Data Generation
 
 Generate player-era records from nfl_data_py:

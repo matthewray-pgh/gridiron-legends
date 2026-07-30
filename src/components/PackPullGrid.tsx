@@ -3,6 +3,7 @@ import { View, StyleSheet, useWindowDimensions } from 'react-native';
 import { Spacing } from '../theme/colors';
 import { PackPullResult } from '../store/dynastyStore';
 import { PackPlayerCard } from './PackPlayerCard';
+import { FadeInOut } from './animation/FadeInOut';
 
 const COLUMNS = 3;
 const GRID_GAP = 10;
@@ -28,14 +29,16 @@ export function PackPullGrid({ pulls, checked, onToggle }: PackPullGridProps) {
   return (
     <View style={[styles.grid, { width: gridWidth }]}>
       {pulls.map((card, i) => (
-        <PackPlayerCard
-          key={i}
-          card={card}
-          width={cardWidth}
-          selected={!!checked[i]}
-          onPress={card.duplicate ? undefined : () => onToggle(i)}
-          compact
-        />
+        <FadeInOut key={i} delay={i * 70} translateY={14}>
+          <PackPlayerCard
+            card={card}
+            width={cardWidth}
+            selected={!!checked[i]}
+            onPress={card.duplicate ? undefined : () => onToggle(i)}
+            compact
+            testID={card.duplicate ? undefined : 'pack-pull-card'}
+          />
+        </FadeInOut>
       ))}
     </View>
   );

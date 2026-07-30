@@ -1,6 +1,7 @@
 import React from 'react';
-import { Text, TouchableOpacity, View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { Animated, Text, TouchableOpacity, View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { Colors, Font, Radius, Typography } from '../theme/colors';
+import { usePressScale } from '../hooks/useAnimations';
 
 interface SecondaryButtonProps {
   label: string;
@@ -21,20 +22,25 @@ interface SecondaryButtonProps {
 // secondary CTAs with a count badge) instead of forking bg/border colors
 // per screen.
 export function SecondaryButton({ label, onPress, disabled, badge, labelColor, style }: SecondaryButtonProps) {
+  const { scale, onPressIn, onPressOut } = usePressScale();
   return (
     <TouchableOpacity
       onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       disabled={disabled}
       activeOpacity={0.85}
       accessibilityRole="button"
-      style={[styles.button, disabled && styles.disabled, style]}
+      style={[disabled && styles.disabled, style]}
     >
-      <Text style={[styles.label, labelColor && { color: labelColor }]} numberOfLines={1}>{label}</Text>
-      {typeof badge === 'number' && badge > 0 && (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{badge}</Text>
-        </View>
-      )}
+      <Animated.View style={[styles.button, { transform: [{ scale }] }]}>
+        <Text style={[styles.label, labelColor && { color: labelColor }]} numberOfLines={1}>{label}</Text>
+        {typeof badge === 'number' && badge > 0 && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{badge}</Text>
+          </View>
+        )}
+      </Animated.View>
     </TouchableOpacity>
   );
 }

@@ -22,6 +22,8 @@ import { GameSetupModal } from '../components/GameSetupModal';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useResponsive } from '../hooks/useResponsive';
 import { useDailyResetCountdown } from '../hooks/useDailyResetCountdown';
+import { useCountUp } from '../hooks/useAnimations';
+import { FadeInOut } from '../components/animation/FadeInOut';
 import { DYNASTY_ENABLED, HALL_OF_FAME_ENABLED, LEADERBOARD_ENABLED } from '../config/featureFlags';
 import { totalOwnedPacks, useDynastyStore } from '../store/dynastyStore';
 import { todaySeedBase } from '../utils/seededRandom';
@@ -79,6 +81,8 @@ export function HomeScreen() {
     ? `${lockedTeam.abbr} · Round ${positionIndex + 1}/${inProgressRoundCount}`
     : `Round ${positionIndex + 1}/${inProgressRoundCount}`;
 
+  const animatedStreak = useCountUp(streak);
+
   const [setupVisible, setSetupVisible] = useState(false);
   const [pendingMode,  setPendingMode]  = useState<'daily' | 'classic' | 'offense' | 'timer'>('classic');
 
@@ -119,16 +123,19 @@ export function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {isWide ? (
+          <View style={styles.wideOuterWrap}>
           <View style={styles.wideWrap}>
             {/* ── HERO BAND ────────────────────────────────────────────
                  Always "Today's Challenge" at wide — continue-run no
                  longer competes for the hero slot (doc 04 point 4), it
                  renders in the sidebar below instead.                  */}
-            <HeroBand
-              completedToday={dailyCompletedToday}
-              onPlayPress={() => startGame('daily')}
-              onViewRulesPress={() => { /* no rules screen yet */ }}
-            />
+            <FadeInOut translateY={12}>
+              <HeroBand
+                completedToday={dailyCompletedToday}
+                onPlayPress={() => startGame('daily')}
+                onViewRulesPress={() => { /* no rules screen yet */ }}
+              />
+            </FadeInOut>
 
             <View style={styles.wideGrid}>
               {/* ── MAIN COLUMN ──────────────────────────────────────── */}
@@ -178,48 +185,54 @@ export function HomeScreen() {
               {/* ── SIDEBAR ──────────────────────────────────────────── */}
               <View style={styles.sidebarCol}>
                 {hasInProgressRun && (
-                  <View style={styles.sidebarCard}>
-                    <Text style={styles.heroLabel}>IN PROGRESS</Text>
-                    <Text style={styles.heroTitle}>CONTINUE YOUR RUN</Text>
-                    <Text style={styles.heroClock}>{continueSubtitle}</Text>
-                    <PrimaryButton label="RESUME" onPress={resumeRun} style={styles.heroBtn} />
-                  </View>
+                  <FadeInOut translateY={10}>
+                    <View style={styles.sidebarCard}>
+                      <Text style={styles.heroLabel}>IN PROGRESS</Text>
+                      <Text style={styles.heroTitle}>CONTINUE YOUR RUN</Text>
+                      <Text style={styles.heroClock}>{continueSubtitle}</Text>
+                      <PrimaryButton label="RESUME" onPress={resumeRun} style={styles.heroBtn} />
+                    </View>
+                  </FadeInOut>
                 )}
 
                 {DYNASTY_ENABLED && (
-                  <View style={[styles.dynastyBanner, styles.dynastyBannerWide]}>
-                    <Text style={styles.dynastyEyebrow}>YOUR DYNASTY</Text>
-                    <Text style={styles.dynastyTitle}>Dynasty · Season {dynastySeasonDisplay}</Text>
-                    <View style={styles.dynastyRow}>
-                      <View style={styles.dynastyChip}>
-                        <Text style={styles.dynastyChipValue}>{dynastyAllTime.wins}-{dynastyAllTime.losses}</Text>
-                        <Text style={styles.dynastyChipLabel}>All-time</Text>
+                  <FadeInOut delay={80} translateY={10}>
+                    <View style={[styles.dynastyBanner, styles.dynastyBannerWide]}>
+                      <Text style={styles.dynastyEyebrow}>YOUR DYNASTY</Text>
+                      <Text style={styles.dynastyTitle}>Dynasty · Season {dynastySeasonDisplay}</Text>
+                      <View style={styles.dynastyRow}>
+                        <FadeInOut delay={140} style={styles.dynastyChip}>
+                          <Text style={styles.dynastyChipValue}>{dynastyAllTime.wins}-{dynastyAllTime.losses}</Text>
+                          <Text style={styles.dynastyChipLabel}>All-time</Text>
+                        </FadeInOut>
+                        {HALL_OF_FAME_ENABLED && (
+                          <FadeInOut delay={180} style={styles.dynastyChip}>
+                            <Text style={styles.dynastyChipValue}>{dynastyHOFCount}</Text>
+                            <Text style={styles.dynastyChipLabel}>HOF</Text>
+                          </FadeInOut>
+                        )}
+                        <FadeInOut delay={220} style={styles.dynastyChip}>
+                          <Text style={styles.dynastyChipValue}>{dynastyPackCount}</Text>
+                          <Text style={styles.dynastyChipLabel}>Packs</Text>
+                        </FadeInOut>
+                        <FadeInOut delay={260} style={styles.dynastyChip}>
+                          <Text style={styles.dynastyChipValue}>{dynastyRings}</Text>
+                          <Text style={styles.dynastyChipLabel}>Rings</Text>
+                        </FadeInOut>
                       </View>
-                      {HALL_OF_FAME_ENABLED && (
-                        <View style={styles.dynastyChip}>
-                          <Text style={styles.dynastyChipValue}>{dynastyHOFCount}</Text>
-                          <Text style={styles.dynastyChipLabel}>HOF</Text>
-                        </View>
-                      )}
-                      <View style={styles.dynastyChip}>
-                        <Text style={styles.dynastyChipValue}>{dynastyPackCount}</Text>
-                        <Text style={styles.dynastyChipLabel}>Packs</Text>
-                      </View>
-                      <View style={styles.dynastyChip}>
-                        <Text style={styles.dynastyChipValue}>{dynastyRings}</Text>
-                        <Text style={styles.dynastyChipLabel}>Rings</Text>
-                      </View>
+                      <PrimaryButton label="ENTER DYNASTY" onPress={handleEnterDynasty} />
                     </View>
-                    <PrimaryButton label="ENTER DYNASTY" onPress={handleEnterDynasty} />
-                  </View>
+                  </FadeInOut>
                 )}
 
                 <View style={styles.sidebarScorePanel}>
-                  <ScoreBox value={String(streak).padStart(2, '0')} label="Streak" />
+                  <ScoreBox value={String(animatedStreak).padStart(2, '0')} label="Streak" />
                   <ScoreBox value={bestRecord} label="Best record" />
                 </View>
               </View>
             </View>
+          </View>
+          <SiteFooter />
           </View>
         ) : (
           <View style={styles.contentWrap}>
@@ -234,36 +247,38 @@ export function HomeScreen() {
                  separate block pushing the content down.                 */}
             <View style={styles.heroRow}>
               <View style={styles.scoreRow}>
-                <ScoreBox value={String(streak).padStart(2, '0')} label="Streak" />
+                <ScoreBox value={String(animatedStreak).padStart(2, '0')} label="Streak" />
                 <ScoreBox value={bestRecord} label="Best record" />
               </View>
 
-              <BrandBackground variant="header" style={styles.heroPanel}>
-                <View style={styles.heroAccentBar} />
-                <View style={styles.heroContent}>
-                  {heroState === 'continue' ? (
-                    <>
-                      <Text style={styles.heroLabel}>IN PROGRESS</Text>
-                      <Text style={styles.heroTitle}>CONTINUE YOUR RUN</Text>
-                      <Text style={styles.heroClock}>{continueSubtitle}</Text>
-                      <PrimaryButton label="RESUME" onPress={resumeRun} style={styles.heroBtn} />
-                    </>
-                  ) : (
-                    <>
-                      <Text style={styles.heroLabel}>
-                        {dailyCompletedToday ? 'CHALLENGE COMPLETE' : "TODAY'S CHALLENGE"}
-                      </Text>
-                      <Text style={styles.heroTitle}>DAILY ROSTER BUILD</Text>
-                      <Text style={styles.heroClock}>RESETS {dailyCountdown}</Text>
-                      <PrimaryButton
-                        label={dailyCompletedToday ? 'PLAY AGAIN' : 'PLAY NOW'}
-                        onPress={() => startGame('daily')}
-                        style={styles.heroBtn}
-                      />
-                    </>
-                  )}
-                </View>
-              </BrandBackground>
+              <FadeInOut translateY={12}>
+                <BrandBackground variant="header" style={styles.heroPanel}>
+                  <View style={styles.heroAccentBar} />
+                  <View style={styles.heroContent}>
+                    {heroState === 'continue' ? (
+                      <>
+                        <Text style={styles.heroLabel}>IN PROGRESS</Text>
+                        <Text style={styles.heroTitle}>CONTINUE YOUR RUN</Text>
+                        <Text style={styles.heroClock}>{continueSubtitle}</Text>
+                        <PrimaryButton label="RESUME" onPress={resumeRun} style={styles.heroBtn} />
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.heroLabel}>
+                          {dailyCompletedToday ? 'CHALLENGE COMPLETE' : "TODAY'S CHALLENGE"}
+                        </Text>
+                        <Text style={styles.heroTitle}>DAILY ROSTER BUILD</Text>
+                        <Text style={styles.heroClock}>RESETS {dailyCountdown}</Text>
+                        <PrimaryButton
+                          label={dailyCompletedToday ? 'PLAY AGAIN' : 'PLAY NOW'}
+                          onPress={() => startGame('daily')}
+                          style={styles.heroBtn}
+                        />
+                      </>
+                    )}
+                  </View>
+                </BrandBackground>
+              </FadeInOut>
             </View>
 
             {/* ── DYNASTY ENTRY ─────────────────────────────────────────────
@@ -274,31 +289,33 @@ export function HomeScreen() {
                  confirmed with the user, Dynasty earned more attention here
                  given how much it's grown.                               */}
             {DYNASTY_ENABLED && (
-              <View style={styles.dynastyBanner}>
-                <Text style={styles.dynastyEyebrow}>YOUR DYNASTY</Text>
-                <Text style={styles.dynastyTitle}>Dynasty · Season {dynastySeasonDisplay}</Text>
-                <View style={styles.dynastyRow}>
-                  <View style={styles.dynastyChip}>
-                    <Text style={styles.dynastyChipValue}>{dynastyAllTime.wins}-{dynastyAllTime.losses}</Text>
-                    <Text style={styles.dynastyChipLabel}>All-time</Text>
+              <FadeInOut delay={80} translateY={10}>
+                <View style={styles.dynastyBanner}>
+                  <Text style={styles.dynastyEyebrow}>YOUR DYNASTY</Text>
+                  <Text style={styles.dynastyTitle}>Dynasty · Season {dynastySeasonDisplay}</Text>
+                  <View style={styles.dynastyRow}>
+                    <FadeInOut delay={140} style={styles.dynastyChip}>
+                      <Text style={styles.dynastyChipValue}>{dynastyAllTime.wins}-{dynastyAllTime.losses}</Text>
+                      <Text style={styles.dynastyChipLabel}>All-time</Text>
+                    </FadeInOut>
+                    {HALL_OF_FAME_ENABLED && (
+                      <FadeInOut delay={180} style={styles.dynastyChip}>
+                        <Text style={styles.dynastyChipValue}>{dynastyHOFCount}</Text>
+                        <Text style={styles.dynastyChipLabel}>HOF</Text>
+                      </FadeInOut>
+                    )}
+                    <FadeInOut delay={220} style={styles.dynastyChip}>
+                      <Text style={styles.dynastyChipValue}>{dynastyPackCount}</Text>
+                      <Text style={styles.dynastyChipLabel}>Packs</Text>
+                    </FadeInOut>
+                    <FadeInOut delay={260} style={styles.dynastyChip}>
+                      <Text style={styles.dynastyChipValue}>{dynastyRings}</Text>
+                      <Text style={styles.dynastyChipLabel}>Rings</Text>
+                    </FadeInOut>
                   </View>
-                  {HALL_OF_FAME_ENABLED && (
-                    <View style={styles.dynastyChip}>
-                      <Text style={styles.dynastyChipValue}>{dynastyHOFCount}</Text>
-                      <Text style={styles.dynastyChipLabel}>HOF</Text>
-                    </View>
-                  )}
-                  <View style={styles.dynastyChip}>
-                    <Text style={styles.dynastyChipValue}>{dynastyPackCount}</Text>
-                    <Text style={styles.dynastyChipLabel}>Packs</Text>
-                  </View>
-                  <View style={styles.dynastyChip}>
-                    <Text style={styles.dynastyChipValue}>{dynastyRings}</Text>
-                    <Text style={styles.dynastyChipLabel}>Rings</Text>
-                  </View>
+                  <PrimaryButton label="ENTER DYNASTY" onPress={handleEnterDynasty} />
                 </View>
-                <PrimaryButton label="ENTER DYNASTY" onPress={handleEnterDynasty} />
-              </View>
+              </FadeInOut>
             )}
 
             {/* ── CALL SHEET RAIL ───────────────────────────────────────────
@@ -333,8 +350,6 @@ export function HomeScreen() {
             </Text>
           </View>
         )}
-
-        {isWide && <SiteFooter />}
       </ScrollView>
 
       {/* ── GAME SETUP MODAL ─────────────────────────────────────────────── */}
@@ -359,6 +374,12 @@ const styles = StyleSheet.create({
   scrollContent: { flexGrow: 1, paddingBottom: Spacing.xl, width: '100%' },
   contentWrap: { flex: 1, width: '100%', justifyContent: 'space-between' },
   contentBody: { paddingTop: Spacing.md },
+
+  // Mirrors contentWrap's flex:1/space-between anchoring — without this,
+  // SiteFooter (and the disclaimer inside it) just trailed after wideWrap's
+  // content instead of sitting pinned to the bottom of the viewport on
+  // short pages.
+  wideOuterWrap: { flex: 1, width: '100%', justifyContent: 'space-between' },
 
   // ── WIDE LAYOUT (doc 04) — genuine two-column dashboard, not a reflow
   // of the narrow stack. Superseded contentWrapWide/heroRowWide/

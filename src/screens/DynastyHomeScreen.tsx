@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Platform, Modal, Pressable } from 'react-native';
+import { Animated, View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Platform, Modal, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,7 +17,9 @@ import { GameSetupModal } from '../components/GameSetupModal';
 import { BrandBackground } from '../components/BrandBackground';
 import { PlayerDetailPanel } from '../components/PlayerDetailPanel';
 import { RosterList, useRosterEditor } from '../components/RosterManager';
-import { FieldFooterBand } from '../components/FieldFooterBand';
+import { FadeInOut } from '../components/animation/FadeInOut';
+import { useBounceOnIncrease, usePressScale } from '../hooks/useAnimations';
+import { RingsIcon } from '../components/RingsIcon';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -107,6 +109,8 @@ export function DynastyHomeScreen() {
 
   const editor = useRosterEditor();
   const [setupVisible, setSetupVisible] = useState(false);
+  const { scale: shopBtnScale, onPressIn: shopBtnPressIn, onPressOut: shopBtnPressOut } = usePressScale(0.95);
+  const { scale: ringsBounceScale, zIndex: ringsBounceZIndex } = useBounceOnIncrease(rings);
 
   // Dev-only playtesting affordance: real Rings income is currently just
   // Daily Challenge completion (40/day, see TODO_BALANCE_RINGS_SOURCES),
@@ -200,24 +204,27 @@ export function DynastyHomeScreen() {
         )}
         {hasCompletedInitialDraft && (
           <TouchableOpacity
-            style={styles.packsBtn}
             onPress={() => navigation.navigate('Shop')}
-            activeOpacity={0.7}
+            onPressIn={shopBtnPressIn}
+            onPressOut={shopBtnPressOut}
+            activeOpacity={0.85}
             accessibilityLabel="Shop"
             accessibilityRole="button"
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <MaterialCommunityIcons name="cards" size={18} color={Colors.gold} />
-            {ownedPacksCount > 0 && (
-              <View style={styles.packsBadge}>
-                <Text style={styles.packsBadgeText}>{ownedPacksCount}</Text>
-              </View>
-            )}
+            <Animated.View style={[styles.packsBtn, { transform: [{ scale: shopBtnScale }] }]}>
+              <MaterialCommunityIcons name="cards" size={18} color={Colors.bgDark} />
+              <Text style={styles.packsBtnText}>SHOP</Text>
+              {ownedPacksCount > 0 && (
+                <View style={styles.packsBadge}>
+                  <Text style={styles.packsBadgeText}>{ownedPacksCount}</Text>
+                </View>
+              )}
+            </Animated.View>
           </TouchableOpacity>
         )}
-        <View style={styles.ringsChip}>
-          <Text style={styles.ringsText}>{rings} 💍</Text>
-        </View>
+        <Animated.View style={[styles.ringsChip, { transform: [{ scale: ringsBounceScale }], zIndex: ringsBounceZIndex }]}>
+          <Text style={styles.ringsText}>{rings} <RingsIcon size={14} /></Text>
+        </Animated.View>
       </BrandBackground>
 
       {hasRoster && isWide ? (
@@ -233,36 +240,38 @@ export function DynastyHomeScreen() {
 
           <View style={styles.widePaneRight}>
             <ScrollView contentContainerStyle={styles.widePaneRightContent} showsVerticalScrollIndicator={false}>
-              {editor.selected ? (
-                <PlayerDetailPanel
-                  player={editor.selected.player}
-                  fallbackStatMetrics={getFullStatMetrics(editor.selected.player)}
-                  actions={editor.selectedActions}
-                  actionsNote={editor.actionsNote}
-                  onClose={() => editor.setSelected(null)}
-                  ovr={SHOW_DEBUG_OVR ? editor.selected.player.rating : undefined}
-                />
-              ) : (
-                <>
-                  <SeasonCard
-                    season={currentSeason}
-                    wins={allTimeRecord.wins}
-                    losses={allTimeRecord.losses}
-                    onStartSeason={handleStartSeason}
-                    startDisabled={!rosterComplete}
+              <FadeInOut key={editor.selected?.player.id ?? 'overview'} translateY={8}>
+                {editor.selected ? (
+                  <PlayerDetailPanel
+                    player={editor.selected.player}
+                    fallbackStatMetrics={getFullStatMetrics(editor.selected.player)}
+                    actions={editor.selectedActions}
+                    actionsNote={editor.actionsNote}
+                    onClose={() => editor.setSelected(null)}
+                    ovr={SHOW_DEBUG_OVR ? editor.selected.player.rating : undefined}
                   />
-                  {HALL_OF_FAME_ENABLED && (
-                    <HallOfFameTeaser count={hallOfFame.length} onPress={() => navigation.navigate('HallOfFame')} />
-                  )}
-                  <Text style={styles.paneHint}>Select a roster or bench player on the left to bench, start, or retire them.</Text>
-                  <SecondaryButton
-                    label="Reset Dynasty & start over"
-                    onPress={handleResetDynasty}
-                    labelColor={Colors.loss}
-                    style={styles.resetBtnWide}
-                  />
-                </>
-              )}
+                ) : (
+                  <>
+                    <SeasonCard
+                      season={currentSeason}
+                      wins={allTimeRecord.wins}
+                      losses={allTimeRecord.losses}
+                      onStartSeason={handleStartSeason}
+                      startDisabled={!rosterComplete}
+                    />
+                    {HALL_OF_FAME_ENABLED && (
+                      <HallOfFameTeaser count={hallOfFame.length} onPress={() => navigation.navigate('HallOfFame')} />
+                    )}
+                    <Text style={styles.paneHint}>Select a roster or bench player on the left to bench, start, or retire them.</Text>
+                    <SecondaryButton
+                      label="Reset Dynasty & start over"
+                      onPress={handleResetDynasty}
+                      labelColor={Colors.loss}
+                      style={styles.resetBtnWide}
+                    />
+                  </>
+                )}
+              </FadeInOut>
             </ScrollView>
           </View>
         </View>
@@ -295,8 +304,6 @@ export function DynastyHomeScreen() {
             labelColor={Colors.loss}
             style={styles.resetBtn}
           />
-
-          <FieldFooterBand />
         </ScrollView>
       )}
 
@@ -310,14 +317,16 @@ export function DynastyHomeScreen() {
       >
         <Pressable style={styles.modalBackdrop} onPress={() => editor.setSelected(null)}>
           <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-            <PlayerDetailPanel
-              player={editor.selected?.player ?? null}
-              fallbackStatMetrics={getFullStatMetrics(editor.selected?.player ?? null)}
-              actions={editor.selectedActions}
-              actionsNote={editor.actionsNote}
-              onClose={() => editor.setSelected(null)}
-              ovr={SHOW_DEBUG_OVR && editor.selected ? editor.selected.player.rating : undefined}
-            />
+            <FadeInOut key={editor.selected?.player.id ?? 'none'} translateY={8}>
+              <PlayerDetailPanel
+                player={editor.selected?.player ?? null}
+                fallbackStatMetrics={getFullStatMetrics(editor.selected?.player ?? null)}
+                actions={editor.selectedActions}
+                actionsNote={editor.actionsNote}
+                onClose={() => editor.setSelected(null)}
+                ovr={SHOW_DEBUG_OVR && editor.selected ? editor.selected.player.rating : undefined}
+              />
+            </FadeInOut>
           </Pressable>
         </Pressable>
       </Modal>
@@ -341,19 +350,31 @@ const styles = StyleSheet.create({
   backBtn: { padding: 4 },
   backText: { fontSize: Typography.xl, color: Colors.textMuted },
   toolbarTitle: { flex: 1, fontSize: Typography.xl, color: Colors.textPrimary, letterSpacing: 1.1, fontFamily: Font.primaryBold },
-  ringsChip: { borderWidth: 1, borderColor: Colors.gold, borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4 },
-  ringsText: { color: Colors.gold, fontSize: Typography.sm, fontFamily: Font.secondarySemiBold },
+  // Same treatment on every toolbar that shows a Rings balance (also
+  // ShopScreen, PackOpeningScreen) — bumped from a thin 1px/sm-text outline
+  // so it holds its own next to the bold filled packsBtn pill instead of
+  // reading as an afterthought by contrast.
+  ringsChip: { borderWidth: 1.5, borderColor: Colors.gold, borderRadius: Radius.full, paddingHorizontal: 12, paddingVertical: 6 },
+  ringsText: { color: Colors.gold, fontSize: Typography.md, fontFamily: Font.primaryBold },
   devBtn: { borderWidth: 1, borderColor: Colors.loss, borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4, marginRight: 8 },
   devBtnText: { color: Colors.loss, fontSize: Typography.xs, fontFamily: Font.secondarySemiBold },
+  // Upgraded from an icon-only 36x36 circle to a labeled pill — this is the
+  // app's only entry point into the Shop, and the old unlabeled icon read
+  // as decoration rather than a button (flagged as "too small and hard to
+  // find"). Gold fill (not just an outline) gives it the same CTA weight as
+  // PrimaryButton instead of blending into the toolbar's other outline
+  // chips (ringsChip, devBtn).
   packsBtn: {
-    width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: Colors.gold,
-    alignItems: 'center', justifyContent: 'center', position: 'relative',
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: Colors.gold, borderRadius: Radius.full,
+    paddingHorizontal: 14, paddingVertical: 8,
   },
+  packsBtnText: { color: Colors.bgDark, fontFamily: Font.primaryBold, fontSize: Typography.md, letterSpacing: 0.5 },
   packsBadge: {
-    position: 'absolute', top: -6, right: -6, backgroundColor: Colors.gold, borderRadius: Radius.full,
-    minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
+    backgroundColor: Colors.bgDark, borderRadius: Radius.full,
+    minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, marginLeft: 2,
   },
-  packsBadgeText: { color: Colors.bgDark, fontSize: Typography.xs, fontFamily: Font.secondaryBold },
+  packsBadgeText: { color: Colors.gold, fontSize: Typography.xs, fontFamily: Font.secondaryBold },
 
   scrollContent: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.lg },
 

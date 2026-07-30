@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Animated, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
+import { usePressScale } from '../hooks/useAnimations';
 
 interface ModeCardProps {
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
@@ -20,26 +21,34 @@ interface ModeCardProps {
 // modeGrid gap the same way the old 2-column '48%' did, so re-enabling a
 // 4th card wraps to 2+2 instead of breaking the row.
 export function ModeCard({ icon, title, description, tag, accentColor = Colors.steel, onPress }: ModeCardProps) {
+  const { scale, onPressIn, onPressOut } = usePressScale(0.97);
   return (
     <TouchableOpacity
-      style={[styles.card, { borderTopColor: accentColor }]}
       onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       activeOpacity={0.85}
+      style={styles.touchable}
     >
-      <View style={styles.headerRow}>
-        <MaterialCommunityIcons name={icon} size={30} color={accentColor} />
-        {!!tag && <Text style={[styles.tag, { color: accentColor }]}>{tag}</Text>}
-      </View>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.description}>{description}</Text>
+      <Animated.View style={[styles.card, { borderTopColor: accentColor, transform: [{ scale }] }]}>
+        <View style={styles.headerRow}>
+          <MaterialCommunityIcons name={icon} size={30} color={accentColor} />
+          {!!tag && <Text style={[styles.tag, { color: accentColor }]}>{tag}</Text>}
+        </View>
+        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.description}>{description}</Text>
+      </Animated.View>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  touchable: {
     flexBasis: '31%',
     alignSelf: 'stretch',
+  },
+  card: {
+    flex: 1,
     backgroundColor: Colors.bgCard,
     borderWidth: 1,
     borderColor: Colors.border,

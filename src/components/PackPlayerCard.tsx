@@ -8,6 +8,7 @@ import { PackRarity } from '../data/packs';
 import { PackPullResult } from '../store/dynastyStore';
 import { cardArtFor } from '../data/cardArt';
 import { SHOW_DEBUG_OVR } from '../config/featureFlags';
+import { RingsIcon } from './RingsIcon';
 
 const RARITY_LABEL: Record<PackRarity, string> = {
   common: 'COMMON', rare: 'RARE', elite: 'ELITE', legend: 'LEGEND',
@@ -36,6 +37,7 @@ interface PackPlayerCardProps {
   // either at grid-cell width without becoming illegible. Everything else
   // about the card face is identical to the full-size reveal card.
   compact?: boolean;
+  testID?: string;
 }
 
 // Player stats rendered as a row of compact value/label chips rather than
@@ -80,7 +82,7 @@ function StatRow({ stats }: { stats: string }) {
 // bottom-anchored scrim carrying name/meta/stats) — flagged back to the
 // user per that doc's instruction to call out which of the two reuse paths
 // was taken.
-export function PackPlayerCard({ card, selected = false, onPress, width = DEFAULT_WIDTH, compact = false }: PackPlayerCardProps) {
+export function PackPlayerCard({ card, selected = false, onPress, width = DEFAULT_WIDTH, compact = false, testID }: PackPlayerCardProps) {
   const scale = useRef(new Animated.Value(1)).current;
   const height = width * HEIGHT_RATIO;
 
@@ -98,7 +100,7 @@ export function PackPlayerCard({ card, selected = false, onPress, width = DEFAUL
     return (
       <View style={[styles.card, styles.cardDuplicate, { width, height, borderColor: rarityColor }, compact && styles.duplicateDimmed]}>
         <Text style={[styles.rarity, { color: rarityColor }]}>{RARITY_LABEL[card.rarity]} · DUPLICATE</Text>
-        <Text style={styles.duplicateSub}>Converted to +{card.ringsRefund} 💍</Text>
+        <Text style={styles.duplicateSub}>Converted to +{card.ringsRefund} <RingsIcon size={13} color={Colors.textMuted} /></Text>
       </View>
     );
   }
@@ -107,7 +109,7 @@ export function PackPlayerCard({ card, selected = false, onPress, width = DEFAUL
   const cardImage = cardArtFor(player.id);
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.85} disabled={!onPress}>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85} disabled={!onPress} testID={testID}>
       <Animated.View
         style={[
           styles.card,

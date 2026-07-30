@@ -23,6 +23,7 @@ import { PlayerRowStats } from '../components/PlayerRowStats';
 import { InfoChip } from '../components/InfoChip';
 import { SelectablePill } from '../components/SelectablePill';
 import { BrandBackground } from '../components/BrandBackground';
+import { FadeInOut } from '../components/animation/FadeInOut';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -176,26 +177,32 @@ export function GameScreen() {
           </View>
         ) : (
           <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
-            {groupedCandidates.map((group) => (
-              <View key={group.position} style={styles.groupWrap}>
-                <Text style={styles.groupHeader}>{group.position} · {group.entries.length}</Text>
-                {group.entries.map(({ candidate, index }) => {
-                  const selected = candidate.id === selectedCandidateId;
-                  return (
-                    <PlayerRow
-                      key={candidate.id}
-                      position={candidate.position}
-                      name={candidate.name}
-                      meta={`${candidate.team} · ${parseYear(candidate.years)}`}
-                      ovr={SHOW_DEBUG_OVR ? candidate.rating : undefined}
-                      selected={selected}
-                      onPress={() => handleSelectPlayer(index)}
-                      right={<PlayerRowStats metrics={getRowStatMetrics(candidate)} />}
-                    />
-                  );
-                })}
-              </View>
-            ))}
+            {(() => {
+              let rowCounter = 0;
+              return groupedCandidates.map((group) => (
+                <View key={group.position} style={styles.groupWrap}>
+                  <Text style={styles.groupHeader}>{group.position} · {group.entries.length}</Text>
+                  {group.entries.map(({ candidate, index }) => {
+                    const selected = candidate.id === selectedCandidateId;
+                    const delay = Math.min(rowCounter++, 10) * 30;
+                    return (
+                      <FadeInOut key={candidate.id} delay={delay} translateY={8}>
+                        <PlayerRow
+                          position={candidate.position}
+                          name={candidate.name}
+                          meta={`${candidate.team} · ${parseYear(candidate.years)}`}
+                          ovr={SHOW_DEBUG_OVR ? candidate.rating : undefined}
+                          selected={selected}
+                          onPress={() => handleSelectPlayer(index)}
+                          right={<PlayerRowStats metrics={getRowStatMetrics(candidate)} />}
+                          testID="draft-candidate-row"
+                        />
+                      </FadeInOut>
+                    );
+                  })}
+                </View>
+              ));
+            })()}
           </ScrollView>
         )}
       </>
@@ -210,7 +217,9 @@ export function GameScreen() {
             <Text style={styles.backText}>←</Text>
           </TouchableOpacity>
           <View style={styles.roundPill}>
-            <Text style={styles.roundPillText}>Round {progressLabel}  ·  {positionTypeLabel}</Text>
+            <FadeInOut key={progressLabel} duration={200}>
+              <Text style={styles.roundPillText}>Round {progressLabel}  ·  {positionTypeLabel}</Text>
+            </FadeInOut>
           </View>
         </View>
 
@@ -239,13 +248,15 @@ export function GameScreen() {
           <View style={styles.widePaneRight}>
             {renderAssignBlock(styles.assignWrapWide)}
             <ScrollView style={styles.detailPanel} contentContainerStyle={styles.detailPanelContent}>
-              <PlayerDetailPanel
-                player={selectedPlayer}
-                fallbackStatMetrics={fallbackStatMetrics}
-                quickAssignSlots={quickAssignSlots}
-                onAssign={handleAssign}
-                ovr={SHOW_DEBUG_OVR ? selectedPlayer?.rating : undefined}
-              />
+              <FadeInOut key={selectedPlayer?.id ?? 'none'} translateY={8}>
+                <PlayerDetailPanel
+                  player={selectedPlayer}
+                  fallbackStatMetrics={fallbackStatMetrics}
+                  quickAssignSlots={quickAssignSlots}
+                  onAssign={handleAssign}
+                  ovr={SHOW_DEBUG_OVR ? selectedPlayer?.rating : undefined}
+                />
+              </FadeInOut>
             </ScrollView>
           </View>
         </View>
@@ -264,14 +275,16 @@ export function GameScreen() {
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setStatsModalVisible(false)}>
           <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-            <PlayerDetailPanel
-              player={selectedPlayer}
-              fallbackStatMetrics={fallbackStatMetrics}
-              quickAssignSlots={quickAssignSlots}
-              onAssign={handleAssign}
-              onClose={() => setStatsModalVisible(false)}
-              ovr={SHOW_DEBUG_OVR ? selectedPlayer?.rating : undefined}
-            />
+            <FadeInOut key={selectedPlayer?.id ?? 'none'} translateY={8}>
+              <PlayerDetailPanel
+                player={selectedPlayer}
+                fallbackStatMetrics={fallbackStatMetrics}
+                quickAssignSlots={quickAssignSlots}
+                onAssign={handleAssign}
+                onClose={() => setStatsModalVisible(false)}
+                ovr={SHOW_DEBUG_OVR ? selectedPlayer?.rating : undefined}
+              />
+            </FadeInOut>
           </Pressable>
         </Pressable>
       </Modal>

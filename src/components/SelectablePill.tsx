@@ -1,6 +1,9 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, View, Text, TouchableOpacity, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { Colors, Font, Radius, Typography } from '../theme/colors';
+import { usePressScale } from '../hooks/useAnimations';
+
+const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 interface SelectablePillProps {
   label: string;
@@ -14,10 +17,38 @@ interface SelectablePillProps {
 }
 
 export function SelectablePill({ label, selected, filled, disabled, showCheck, onPress, style }: SelectablePillProps) {
+  const { scale: pressScale, onPressIn, onPressOut } = usePressScale(0.94);
+  const fillPulse = useRef(new Animated.Value(1)).current;
+  const wasFilled = useRef(filled);
+
+  // 0 = default, 1 = selected, 2 = filled — a single index lets border/bg
+  // interpolate smoothly across all three tones instead of snapping.
+  const stateIndex = filled ? 2 : selected ? 1 : 0;
+  const stateAnim = useRef(new Animated.Value(stateIndex)).current;
+
+  useEffect(() => {
+    Animated.timing(stateAnim, { toValue: stateIndex, duration: 180, useNativeDriver: false }).start();
+  }, [stateIndex, stateAnim]);
+
+  useEffect(() => {
+    if (filled && !wasFilled.current) {
+      Animated.sequence([
+        Animated.spring(fillPulse, { toValue: 1.15, useNativeDriver: true, speed: 40, bounciness: 10 }),
+        Animated.spring(fillPulse, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 6 }),
+      ]).start();
+    }
+    wasFilled.current = filled;
+  }, [filled, fillPulse]);
+
+  const borderColor = stateAnim.interpolate({ inputRange: [0, 1, 2], outputRange: [Colors.borderMid, Colors.gold, Colors.green] });
+  const backgroundColor = stateAnim.interpolate({ inputRange: [0, 1, 2], outputRange: [Colors.bgCardDeep, '#2A210F', Colors.bgCardDeep] });
+
   return (
-    <TouchableOpacity
-      style={[styles.pill, selected && styles.pillSelected, filled && styles.pillFilled, style]}
+    <AnimatedTouchable
+      style={[styles.pill, { borderColor, backgroundColor, transform: [{ scale: Animated.multiply(pressScale, fillPulse) }] }, style]}
       onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       disabled={disabled}
       activeOpacity={0.85}
     >
@@ -27,7 +58,7 @@ export function SelectablePill({ label, selected, filled, disabled, showCheck, o
           <Text style={styles.checkText}>✓</Text>
         </View>
       )}
-    </TouchableOpacity>
+    </AnimatedTouchable>
   );
 }
 
@@ -41,13 +72,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bgCardDeep,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  pillSelected: {
-    borderColor: Colors.gold,
-    backgroundColor: '#2A210F',
-  },
-  pillFilled: {
-    borderColor: Colors.green,
   },
   text: {
     color: Colors.textSecondary,

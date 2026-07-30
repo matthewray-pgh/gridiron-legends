@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Animated, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -10,6 +10,8 @@ import { PrimaryButton } from '../components/PrimaryButton';
 import { BrandBackground } from '../components/BrandBackground';
 import { PackPullGrid } from '../components/PackPullGrid';
 import { PackRevealSequence } from '../components/PackRevealSequence';
+import { RingsIcon } from '../components/RingsIcon';
+import { useBounceOnIncrease } from '../hooks/useAnimations';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -39,6 +41,7 @@ export function PackOpeningScreen() {
   const packId = route.params.packId;
 
   const rings = useDynastyStore((s) => s.rings);
+  const { scale: ringsBounceScale, zIndex: ringsBounceZIndex } = useBounceOnIncrease(rings);
   const pack = useDynastyStore((s) => s.ownedPacks.find((p) => p.id === packId));
   const currentSeason = useDynastyStore((s) => s.currentSeason);
   const roster = useDynastyStore((s) => s.roster);
@@ -146,9 +149,9 @@ export function PackOpeningScreen() {
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.toolbarTitle}>{titleTier ? titleTier.label.toUpperCase() : 'PACK'}</Text>
-        <View style={styles.ringsChip}>
-          <Text style={styles.ringsText}>{rings} 💍</Text>
-        </View>
+        <Animated.View style={[styles.ringsChip, { transform: [{ scale: ringsBounceScale }], zIndex: ringsBounceZIndex }]}>
+          <Text style={styles.ringsText}>{rings} <RingsIcon size={14} /></Text>
+        </Animated.View>
       </BrandBackground>
 
       {!pulls ? (
@@ -175,7 +178,7 @@ export function PackOpeningScreen() {
 
           <View style={styles.actionBar}>
             {totalRingsRefund > 0 && (
-              <Text style={styles.refundHint}>+{totalRingsRefund} 💍 from duplicates</Text>
+              <Text style={styles.refundHint}>+{totalRingsRefund} <RingsIcon size={12} /> from duplicates</Text>
             )}
             <TouchableOpacity onPress={closeReveal} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Text style={styles.skipAllText}>Skip — nothing will be added to your roster</Text>
@@ -201,11 +204,12 @@ const styles = StyleSheet.create({
   backBtn: { padding: 4 },
   backText: { fontSize: Typography.xl, color: Colors.textMuted },
   toolbarTitle: { flex: 1, fontSize: Typography.xl, color: Colors.textPrimary, letterSpacing: 1.1, fontFamily: Font.primaryBold },
+  // Matches DynastyHomeScreen/ShopScreen's ringsChip exactly.
   ringsChip: {
-    borderWidth: 1, borderColor: Colors.gold, borderRadius: Radius.full,
-    paddingHorizontal: 10, paddingVertical: 4,
+    borderWidth: 1.5, borderColor: Colors.gold, borderRadius: Radius.full,
+    paddingHorizontal: 12, paddingVertical: 6,
   },
-  ringsText: { color: Colors.gold, fontSize: Typography.sm, fontFamily: Font.secondarySemiBold },
+  ringsText: { color: Colors.gold, fontSize: Typography.md, fontFamily: Font.primaryBold },
 
   stage: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, paddingHorizontal: Spacing.lg },
   emptyText: { color: Colors.textMuted, fontSize: Typography.base, fontFamily: Font.secondaryRegular, textAlign: 'center' },
