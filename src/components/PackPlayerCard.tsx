@@ -10,9 +10,6 @@ import { cardArtFor } from '../data/cardArt';
 import { SHOW_DEBUG_OVR } from '../config/featureFlags';
 import { RingsIcon } from './RingsIcon';
 
-const RARITY_LABEL: Record<PackRarity, string> = {
-  common: 'COMMON', rare: 'RARE', elite: 'ELITE', legend: 'LEGEND',
-};
 // Exported for the rarity-tinted UI elsewhere that mirrors this card's
 // rarity colors (PackOddsSheet's odds bars, ShopScreen's tier accents).
 export const RARITY_COLOR: Record<PackRarity, string> = {
@@ -99,7 +96,7 @@ export function PackPlayerCard({ card, selected = false, onPress, width = DEFAUL
   if (card.duplicate) {
     return (
       <View style={[styles.card, styles.cardDuplicate, { width, height, borderColor: rarityColor }, compact && styles.duplicateDimmed]}>
-        <Text style={[styles.rarity, { color: rarityColor }]}>{RARITY_LABEL[card.rarity]} · DUPLICATE</Text>
+        <Text style={[styles.rarity, { color: rarityColor }]}>DUPLICATE</Text>
         <Text style={styles.duplicateSub}>Converted to +{card.ringsRefund} <RingsIcon size={13} color={Colors.textMuted} /></Text>
       </View>
     );
@@ -124,9 +121,6 @@ export function PackPlayerCard({ card, selected = false, onPress, width = DEFAUL
           )}
 
           <View style={styles.topRow}>
-            <View style={[styles.rarityPill, { borderColor: rarityColor }]}>
-              <Text style={[styles.rarityPillText, { color: rarityColor }]}>{RARITY_LABEL[card.rarity]}</Text>
-            </View>
             {SHOW_DEBUG_OVR && (
               <View style={[styles.ovrChip, { borderColor: rarityColor }]}>
                 <Text style={[styles.ovrChipText, { color: rarityColor }]}>{player.rating}</Text>
@@ -164,18 +158,10 @@ const styles = StyleSheet.create({
   // web without explicit 100%/100% dimensions.
   cardImage: { width: '100%', height: '100%', resizeMode: 'cover', borderRadius: Radius.lg },
 
-  // Right-aligned (not space-between) so the rarity pill/OVR chip never sit
-  // in the same top-left corner as checkBadge below — doc 17 calls for
-  // "rarity pill top-right, checkmark top-left" explicitly; space-between
-  // would collapse both to top-left when OVR's debug chip is hidden (the
-  // common case), since a single flex child in a space-between row sits at
-  // the start.
+  // Right-aligned so the OVR chip never sits in the same top-left corner as
+  // checkBadge below — rarity is still conveyed via the card border color
+  // (see borderColor above), just not spelled out as text on the card face.
   topRow: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 8, padding: 10 },
-  rarityPill: {
-    backgroundColor: 'rgba(11,9,6,0.72)', borderWidth: 1, borderRadius: Radius.full,
-    paddingHorizontal: 9, paddingVertical: 3,
-  },
-  rarityPillText: { fontFamily: Font.secondaryBold, fontSize: Typography.xs, letterSpacing: 1 },
   ovrChip: {
     backgroundColor: 'rgba(11,9,6,0.72)', borderWidth: 1, borderRadius: Radius.full,
     width: 34, height: 34, alignItems: 'center', justifyContent: 'center',

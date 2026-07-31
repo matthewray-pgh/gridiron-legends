@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, View, Text, StyleSheet } from 'react-native';
+import { Animated, View, Text, ScrollView, StyleSheet } from 'react-native';
 import { Colors, Radius, Spacing, Typography, Font } from '../theme/colors';
 import { DRAFT_POSITIONS, Player, Position, isOffensePosition, parseYear } from '../data/players';
 import { BENCH_CAPACITY, DynastyRoster, retireRingsReward, useDynastyStore } from '../store/dynastyStore';
@@ -247,7 +247,7 @@ export function useRosterEditor() {
   }
 
   return {
-    pendingRoster, pendingBench, overCapacity, canSave, dirty,
+    pendingRoster, pendingBench, pendingRetirees, overCapacity, canSave, dirty,
     selected, setSelected, selectedActions, actionsNote,
     handleSave, handleDiscard, retireRewardEarned,
   };
@@ -283,8 +283,7 @@ function RetireRewardBanner({ visible, amount }: { visible: boolean; amount: num
 // widePaneLeft, detail is the persistent widePaneRight) layouts.
 export function RosterList({ editor }: { editor: RosterEditor }) {
   const {
-    pendingRoster, pendingBench, overCapacity, dirty, canSave, selected, setSelected,
-    handleSave, handleDiscard, retireRewardEarned,
+    pendingRoster, pendingBench, overCapacity, selected, setSelected, retireRewardEarned,
   } = editor;
 
   const lastRetireReward = useLastNonNull(retireRewardEarned);
@@ -348,16 +347,63 @@ export function RosterList({ editor }: { editor: RosterEditor }) {
             />
           ))
       )}
-
-      <FadeInOut visible={dirty} translateY={14}>
-        <View style={styles.saveBar}>
-          <View style={styles.saveBarButtons}>
-            <SecondaryButton label="Discard" onPress={handleDiscard} style={styles.discardBtn} />
-            <PrimaryButton label="Save Changes" onPress={handleSave} disabled={!canSave} style={styles.saveBtn} />
-          </View>
-        </View>
-      </FadeInOut>
     </>
+  );
+}
+
+// Discard/Save Changes panel, split out of RosterList — it used to render
+// inline at the end of the roster+bench list, so it only appeared once
+// scrolled all the way down and disappeared again as soon as you scrolled
+// up. Rendered once by DynastyHomeScreen as a sibling of the scrollable
+// roster pane(s) instead, absolutely positioned so it stays docked to the
+// bottom of the screen regardless of scroll position — same `editor`
+// instance, same dirty/canSave gating as before.
+export function RosterSaveBar({ editor, onHeightChange }: {
+  editor: RosterEditor;
+  // Reports the bar's real rendered height back to the caller — the
+  // pending-retirements section makes this variable (grows with however
+  // many players are staged), so a static reserved-padding guess on the
+  // scrollable panes above it can't be trusted to always clear it. See
+  // DynastyHomeScreen's usage.
+  onHeightChange?: (height: number) => void;
+}) {
+  const { dirty, canSave, pendingRetirees, handleSave, handleDiscard } = editor;
+  const totalRetireValue = pendingRetirees.reduce((sum, player) => sum + retireRingsReward(player), 0);
+
+  return (
+    <FadeInOut visible={dirty} translateY={14} style={styles.saveBarFixed}>
+      <View style={styles.saveBar} onLayout={(e) => onHeightChange?.(e.nativeEvent.layout.height)}>
+        {/* Compiles this session's staged Bench/Release retirements (not yet
+            committed — see pendingRetirees above) with what they'll pay out
+            in Rings once Save Changes actually runs commitLineup(). Only the
+            retire/release path earns anything here — start/bench moves are
+            free rearranging, nothing to preview. */}
+        {pendingRetirees.length > 0 && (
+          <View style={styles.pendingRetireSection}>
+            <Text style={styles.pendingRetireLabel}>
+              Pending retirement{pendingRetirees.length > 1 ? 's' : ''}
+            </Text>
+            <ScrollView style={styles.pendingRetireList} showsVerticalScrollIndicator={false}>
+              {pendingRetirees.map((player) => (
+                <View key={player.id} style={styles.pendingRetireRow}>
+                  <Text style={styles.pendingRetireName} numberOfLines={1}>{player.name}</Text>
+                  <Text style={styles.pendingRetireValue}>+{retireRingsReward(player)} <RingsIcon size={11} color={Colors.loss} /></Text>
+                </View>
+              ))}
+            </ScrollView>
+            <View style={styles.pendingRetireTotalRow}>
+              <Text style={styles.pendingRetireTotalLabel}>Trophies earned if saved</Text>
+              <Text style={styles.pendingRetireTotalValue}>+{totalRetireValue} <RingsIcon size={13} /></Text>
+            </View>
+          </View>
+        )}
+
+        <View style={styles.saveBarButtons}>
+          <SecondaryButton label="Discard" onPress={handleDiscard} style={styles.discardBtn} />
+          <PrimaryButton label="Save Changes" onPress={handleSave} disabled={!canSave} style={styles.saveBtn} />
+        </View>
+      </View>
+    </FadeInOut>
   );
 }
 
@@ -384,10 +430,40 @@ const styles = StyleSheet.create({
   rosterRow: { marginBottom: 6 },
   benchSectionLabel: { marginTop: Spacing.md },
 
+  // Locked to the bottom of the screen (RosterSaveBar) rather than flowing
+  // inline after the roster/bench list — position:'absolute' against the
+  // nearest positioned ancestor, which is DynastyHomeScreen's SafeAreaView
+  // (edges includes 'bottom', so this sits above the home-indicator inset
+  // for free without adding a second safe-area padding on top of it).
+  saveBarFixed: {
+    position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 20,
+  },
   saveBar: {
-    marginTop: Spacing.md, paddingTop: Spacing.md, borderTopWidth: 1, borderTopColor: Colors.border,
+    paddingTop: Spacing.md, paddingBottom: Spacing.md, paddingHorizontal: Spacing.lg,
+    borderTopWidth: 1, borderTopColor: Colors.border, backgroundColor: Colors.bgPrimary,
   },
   saveBarButtons: { flexDirection: 'row', gap: 10 },
   discardBtn: { flex: 1 },
   saveBtn: { flex: 1.4 },
+
+  // Pending-retirements preview (RosterSaveBar) — capped height + its own
+  // scroll so a longer list can't push the Discard/Save buttons off-screen.
+  pendingRetireSection: { marginBottom: Spacing.md },
+  pendingRetireLabel: {
+    fontSize: Typography.xs, color: Colors.textSecondary, fontFamily: Font.mono,
+    letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 6,
+  },
+  pendingRetireList: { maxHeight: 108 },
+  pendingRetireRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 5,
+  },
+  pendingRetireName: { flex: 1, color: Colors.textPrimary, fontSize: Typography.base, fontFamily: Font.secondaryMedium, marginRight: 10 },
+  pendingRetireValue: { color: Colors.loss, fontSize: Typography.sm, fontFamily: Font.secondarySemiBold },
+  pendingRetireTotalRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginTop: 6, paddingTop: 8, borderTopWidth: 1, borderTopColor: Colors.border,
+  },
+  pendingRetireTotalLabel: { color: Colors.textSecondary, fontSize: Typography.sm, fontFamily: Font.secondarySemiBold },
+  pendingRetireTotalValue: { color: Colors.gold, fontSize: Typography.md, fontFamily: Font.primaryBold },
 });

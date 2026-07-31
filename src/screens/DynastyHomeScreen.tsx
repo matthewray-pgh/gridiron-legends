@@ -16,7 +16,7 @@ import { SecondaryButton } from '../components/SecondaryButton';
 import { GameSetupModal } from '../components/GameSetupModal';
 import { BrandBackground } from '../components/BrandBackground';
 import { PlayerDetailPanel } from '../components/PlayerDetailPanel';
-import { RosterList, useRosterEditor } from '../components/RosterManager';
+import { RosterList, RosterSaveBar, useRosterEditor } from '../components/RosterManager';
 import { FadeInOut } from '../components/animation/FadeInOut';
 import { useBounceOnIncrease, usePressScale } from '../hooks/useAnimations';
 import { RingsIcon } from '../components/RingsIcon';
@@ -104,27 +104,20 @@ export function DynastyHomeScreen() {
   const ownedPacksCount = useDynastyStore((s) => totalOwnedPacks(s.ownedPacks));
   const setGameMode = useGameStore((s) => s.setMode);
   const beginDraftSession = useGameStore((s) => s.beginDraftSession);
-  const earnRings = useDynastyStore((s) => s.earnRings);
   const resetDynasty = useDynastyStore((s) => s.resetDynasty);
 
   const editor = useRosterEditor();
   const [setupVisible, setSetupVisible] = useState(false);
+  // RosterSaveBar's real measured height (its pending-retirements section
+  // grows with however many players are staged) — drives the scroll panes'
+  // reserved bottom padding below so a tall bar can't cover/block roster
+  // rows underneath it. Stale value while the bar is hidden is harmless;
+  // the padding that reads it is itself gated on editor.dirty.
+  const [saveBarHeight, setSaveBarHeight] = useState(0);
   const { scale: shopBtnScale, onPressIn: shopBtnPressIn, onPressOut: shopBtnPressOut } = usePressScale(0.95);
   const { scale: ringsBounceScale, zIndex: ringsBounceZIndex } = useBounceOnIncrease(rings);
 
-  // Dev-only playtesting affordance: real Rings income is currently just
-  // Daily Challenge completion (40/day, see TODO_BALANCE_RINGS_SOURCES),
-  // still well below the pack costs (100/280/650) — this exists to unblock
-  // testing the pack/roster/HOF loop without grinding Daily for days.
-  // __DEV__ strips it from release builds.
-  const DEV_RINGS_GRANT = 500;
-  function handleDevGrantRings() {
-    earnRings(DEV_RINGS_GRANT, 'dev_grant');
-  }
-
-  // Player-facing "start over" — also reused by the __DEV__-gated toolbar
-  // shortcut below (same action, just a faster path for testing without
-  // scrolling to the Dynasty tab).
+  // Player-facing "start over".
   //
   // react-native-web's Alert.alert() is a hard no-op (see
   // node_modules/react-native-web/src/exports/Alert — `static alert() {}`),
@@ -197,11 +190,6 @@ export function DynastyHomeScreen() {
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.toolbarTitle}>DYNASTY</Text>
-        {__DEV__ && (
-          <TouchableOpacity style={styles.devBtn} onPress={handleDevGrantRings} activeOpacity={0.7}>
-            <Text style={styles.devBtnText}>DEV +{DEV_RINGS_GRANT}</Text>
-          </TouchableOpacity>
-        )}
         {hasCompletedInitialDraft && (
           <TouchableOpacity
             onPress={() => navigation.navigate('Shop')}
@@ -231,7 +219,7 @@ export function DynastyHomeScreen() {
         <View style={styles.wideRow}>
           <ScrollView
             style={styles.widePaneLeft}
-            contentContainerStyle={styles.widePaneLeftContent}
+            contentContainerStyle={[styles.widePaneLeftContent, editor.dirty && { paddingBottom: saveBarHeight + Spacing.lg }]}
             showsVerticalScrollIndicator={false}
           >
             <RosterList editor={editor} />
@@ -239,7 +227,10 @@ export function DynastyHomeScreen() {
           </ScrollView>
 
           <View style={styles.widePaneRight}>
-            <ScrollView contentContainerStyle={styles.widePaneRightContent} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              contentContainerStyle={[styles.widePaneRightContent, editor.dirty && { paddingBottom: saveBarHeight + Spacing.lg }]}
+              showsVerticalScrollIndicator={false}
+            >
               <FadeInOut key={editor.selected?.player.id ?? 'overview'} translateY={8}>
                 {editor.selected ? (
                   <PlayerDetailPanel
@@ -276,7 +267,10 @@ export function DynastyHomeScreen() {
           </View>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, editor.dirty && { paddingBottom: saveBarHeight + Spacing.lg }]}
+          showsVerticalScrollIndicator={false}
+        >
           <SeasonCard
             season={hasRoster ? currentSeason : 0}
             wins={allTimeRecord.wins}
@@ -306,6 +300,10 @@ export function DynastyHomeScreen() {
           />
         </ScrollView>
       )}
+
+      {/* Locked to the bottom of the screen regardless of scroll position or
+          layout (narrow/wide) — see RosterSaveBar's own comment. */}
+      {hasRoster && <RosterSaveBar editor={editor} onHeightChange={setSaveBarHeight} />}
 
       {/* Narrow-only detail sheet — wide shows the same PlayerDetailPanel in
           the persistent widePaneRight above instead. */}
@@ -356,14 +354,12 @@ const styles = StyleSheet.create({
   // reading as an afterthought by contrast.
   ringsChip: { borderWidth: 1.5, borderColor: Colors.gold, borderRadius: Radius.full, paddingHorizontal: 12, paddingVertical: 6 },
   ringsText: { color: Colors.gold, fontSize: Typography.md, fontFamily: Font.primaryBold },
-  devBtn: { borderWidth: 1, borderColor: Colors.loss, borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4, marginRight: 8 },
-  devBtnText: { color: Colors.loss, fontSize: Typography.xs, fontFamily: Font.secondarySemiBold },
   // Upgraded from an icon-only 36x36 circle to a labeled pill — this is the
   // app's only entry point into the Shop, and the old unlabeled icon read
   // as decoration rather than a button (flagged as "too small and hard to
   // find"). Gold fill (not just an outline) gives it the same CTA weight as
   // PrimaryButton instead of blending into the toolbar's other outline
-  // chips (ringsChip, devBtn).
+  // chips (ringsChip).
   packsBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: Colors.gold, borderRadius: Radius.full,

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface LeaderboardEntry {
   rank: number;
@@ -43,3 +44,33 @@ export const useStatsStore = create<StatsState>((set, get) => ({
     }));
   },
 }));
+
+// Local-only persistence via AsyncStorage, same hand-rolled load/save
+// pattern dynastyStore.ts uses (not zustand's `persist` middleware — see
+// that file's header comment for why). Only streak/bestRecord persist —
+// totalGames and leaderboard are still seeded placeholder/mock data, not
+// real tracked progress yet.
+const STORAGE_KEY = 'stats-store';
+
+type PersistedStatsState = Pick<StatsState, 'streak' | 'bestRecord'>;
+
+const PERSISTED_KEYS: (keyof PersistedStatsState)[] = ['streak', 'bestRecord'];
+
+function pickPersistedState(state: StatsState): PersistedStatsState {
+  const result = {} as PersistedStatsState;
+  for (const key of PERSISTED_KEYS) {
+    (result as Record<string, unknown>)[key] = state[key];
+  }
+  return result;
+}
+
+AsyncStorage.getItem(STORAGE_KEY)
+  .then((raw) => {
+    if (!raw) return;
+    useStatsStore.setState(JSON.parse(raw));
+  })
+  .catch(() => {});
+
+useStatsStore.subscribe((state) => {
+  AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(pickPersistedState(state))).catch(() => {});
+});

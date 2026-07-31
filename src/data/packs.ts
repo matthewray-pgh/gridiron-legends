@@ -2,8 +2,9 @@
 // "Packs"). Perk packs have been retired (for now) — every pack is a player
 // pack that opens PACK_CARD_COUNT cards at once.
 import { formatStats, GENERATED_RECORDS, GeneratedEra, Position } from './players';
+import { Colors } from '../theme/colors';
 
-export const PACK_CARD_COUNT = 4;
+export const PACK_CARD_COUNT = 5;
 
 export type PackRarity = 'common' | 'rare' | 'elite' | 'legend';
 
@@ -50,6 +51,16 @@ const RARITY_RATING_BANDS: Record<PackRarity, { min: number; max: number }> = {
 // TODO_BALANCE: dupe-pull Rings refund value is a placeholder — see
 // docs/handoff/03-legacy-mode.md > DECISION NEEDED ("dupe protection").
 export const TODO_BALANCE_DUPE_REFUND_RINGS = 25;
+
+// TODO_BALANCE: flat per-card Rings value for "Trophy In All" — the
+// PackOpeningScreen action that cashes in every pulled card at once instead
+// of adding any to the roster (replaces the old no-reward "Skip"). Deliberately
+// flat/rarity-blind and pegged to the same floor as a duplicate's guaranteed
+// refund (TODO_BALANCE_DUPE_REFUND_RINGS) — confirmed with the user: this is
+// meant to read as clearly worse than keeping cards (which reach up to
+// TODO_BALANCE_RETIRE_RINGS_BY_RARITY's legend tier once rostered and later
+// retired), not a real alternative to actually building the roster out.
+export const TODO_BALANCE_TROPHY_ALL_RINGS_PER_CARD = 25;
 
 // TODO_BALANCE: flat Rings surcharge for locking a pack purchase to one era
 // (docs/handoff/gridiron-legends-shop-mockups.html) — narrows the pull pool
@@ -116,6 +127,15 @@ export const PACK_TIERS: PackTier[] = [
     description: 'Guaranteed: 1+ Elite or better',
   },
 ];
+
+// Per-tier accent color — odds-sheet dots/border (PackOddsSheet.tsx) and
+// previously PackShieldBadge's hand-drawn shield gradient (retired in favor
+// of real pack art, data/packArt.ts).
+export const TIER_ACCENT: Record<PackTierId, string> = {
+  rookie: Colors.steel,
+  pro: Colors.rarityRare,
+  legend: Colors.rarityLegend,
+};
 
 // Exported for dynastyStore.ts's retire-for-Rings reward (docs/handoff/
 // 19-season-flow-pack-rebalance-shop-polish_1.md, section 3) — a retired

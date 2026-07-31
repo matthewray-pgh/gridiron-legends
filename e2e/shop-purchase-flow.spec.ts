@@ -21,10 +21,11 @@ test('Shop: purchase a pack with Rings and open it', async ({ page }) => {
   await expect(page.getByText('FINAL RECORD', { exact: true })).toBeVisible({ timeout: 30_000 });
   await goToFreshDynastyHome(page);
 
-  // Fresh Dynasty save has 0 Rings; __DEV__-only grant (present because the
-  // Playwright webServer runs `expo start --web`, a dev bundle) unblocks
-  // affording a pack without grinding Daily Challenge/ad-watch currency.
-  await page.getByText('DEV +500', { exact: true }).click();
+  // Fresh Dynasty save has 0 Rings; __testGrantRings (present because the
+  // Playwright webServer runs `expo start --web`, a dev bundle — same
+  // __DEV__ gate the old toolbar button used) unblocks affording a pack
+  // without grinding Daily Challenge/ad-watch currency.
+  await page.evaluate(() => (window as any).__testGrantRings?.(500));
 
   await page.getByRole('button', { name: 'Shop', exact: true }).click();
   await page.getByTestId('buy-pack-rookie').click();
