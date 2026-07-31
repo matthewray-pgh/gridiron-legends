@@ -18,9 +18,9 @@ interface PackPullGridProps {
 
 // Replaces CardStack.tsx's one-card-at-a-time swipe carousel (docs/handoff/
 // 17-pack-reveal-grid-layout.md) — every pulled card visible at once, no
-// scrolling needed to review a pack. 3 columns fits today's PACK_CARD_COUNT
-// of 4 at 2 rows-worth of height, or a possible future bump to 6 at exactly
-// 2 full rows, without a second layout pass.
+// scrolling needed to review a pack. 3 columns wraps today's PACK_CARD_COUNT
+// of 5 across 2 rows (3 + 2), and still fits a possible future bump to 6 at
+// exactly 2 full rows, without a second layout pass.
 export function PackPullGrid({ pulls, checked, onToggle }: PackPullGridProps) {
   const { width: winWidth } = useWindowDimensions();
   const gridWidth = Math.min(winWidth - Spacing.lg * 2, MAX_GRID_WIDTH);

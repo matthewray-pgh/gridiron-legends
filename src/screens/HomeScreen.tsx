@@ -152,7 +152,7 @@ export function HomeScreen() {
                   <ModeCard
                     icon="run-fast"
                     title="Offense Only"
-                    description="9-slot offense-heavy roster — no defense at all."
+                    description="9-slot offense-heavy roster — no defense."
                     tag="9 rounds · no defense"
                     onPress={() => startGame('offense')}
                   />
@@ -326,20 +326,42 @@ export function HomeScreen() {
             <View style={styles.rail}>
               {showDailyPill && (
                 <CallSheetPill
+                  icon="calendar-star"
                   title="Daily Challenge"
+                  description="Today's featured roster build — one attempt, resets daily."
                   tag={dailyCompletedToday ? 'completed' : 'today only'}
                   onPress={() => startGame('daily')}
                 />
               )}
-              <CallSheetPill title="Classic" tag="stats on" onPress={() => startGame('classic')} />
-              <CallSheetPill title="Offense Only" tag="9 rounds · no defense" onPress={() => startGame('offense')} />
               <CallSheetPill
+                icon="football-helmet"
+                title="Classic"
+                description="Full stat readouts as you build your roster."
+                tag="stats on"
+                onPress={() => startGame('classic')}
+              />
+              <CallSheetPill
+                icon="run-fast"
+                title="Offense Only"
+                description="9-slot offense-heavy roster — no defense."
+                tag="9 rounds · no defense"
+                onPress={() => startGame('offense')}
+              />
+              <CallSheetPill
+                icon="timer"
                 title="Two-Minute Drill"
+                description="Lock-it-in skill spin, racing the clock."
                 tag="skill spin"
                 onPress={() => startGame('timer')}
               />
               {LEADERBOARD_ENABLED && (
-                <CallSheetPill title="Challenge" tag="vs friends" onPress={() => navigation.navigate('Leaderboard')} />
+                <CallSheetPill
+                  icon="trophy"
+                  title="Challenge"
+                  description="Compete against friends on the leaderboard."
+                  tag="vs friends"
+                  onPress={() => navigation.navigate('Leaderboard')}
+                />
               )}
             </View>
             </View>
@@ -551,7 +573,7 @@ const styles = StyleSheet.create({
 
   // ── DISCLAIMER
   disclaimer: {
-    fontSize: Typography.lg,
+    fontSize: Typography.xs,
     color: Colors.textDim,
     textAlign: 'center',
     paddingHorizontal: Spacing.lg,

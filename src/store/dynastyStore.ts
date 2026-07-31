@@ -643,3 +643,17 @@ AsyncStorage.getItem(STORAGE_KEY)
 useDynastyStore.subscribe((state) => {
   AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(pickPersistedState(state))).catch(() => {});
 });
+
+// Test-only Rings grant — replaces the old __DEV__ toolbar button on
+// DynastyHomeScreen (removed as a permanent player-facing affordance).
+// e2e/helpers.ts's ensureBenchPlayer and shop-purchase-flow.spec.ts still
+// need to afford a pack without grinding Daily Challenge currency; they now
+// call this via page.evaluate() instead of tapping a visible button.
+// __DEV__-gated the same way the old button was — Playwright's webServer
+// runs `expo start --web`, a dev bundle, so this exists in test runs but is
+// stripped from release builds along with every other __DEV__ branch.
+if (__DEV__) {
+  (globalThis as unknown as { __testGrantRings?: (amount: number) => void }).__testGrantRings = (amount: number) => {
+    useDynastyStore.getState().earnRings(amount, 'dev_grant');
+  };
+}

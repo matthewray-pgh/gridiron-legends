@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, Image, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
-import { PackRarity } from '../data/packs';
+import { PackRarity, PackTierId } from '../data/packs';
+import { packArtFor } from '../data/packArt';
 import { PackPullResult } from '../store/dynastyStore';
 import { PackPlayerCard, RARITY_COLOR } from './PackPlayerCard';
 import { SecondaryButton } from './SecondaryButton';
@@ -27,6 +28,10 @@ const HOLD_AFTER_FLIP: Record<PackRarity, number> = {
 };
 
 interface PackRevealSequenceProps {
+  // Which tier's foil-pack art (assets/packs, data/packArt.ts) to show on
+  // the idle/ripping pack — the pull's actual rarity odds aren't known
+  // until it's opened, but the pack's own tier art is known up front.
+  tierId: PackTierId;
   // Fired the instant the pack is tapped — this is where the parent should
   // call the store's openPack() (a real, order-committing mutation), not
   // before. Returning null (e.g. the gate re-checked and failed) leaves the
@@ -45,10 +50,16 @@ interface PackRevealSequenceProps {
 // Tap → rip → flip-through-one-at-a-time reveal. Deliberately built from
 // plain RN Animated (matches PackPlayerCard.tsx's existing convention)
 // rather than reaching for reanimated for one screen's choreography.
-export function PackRevealSequence({ onOpen, onDone, cardCount, subtitle }: PackRevealSequenceProps) {
+export function PackRevealSequence({ tierId, onOpen, onDone, cardCount, subtitle }: PackRevealSequenceProps) {
   const { width: winWidth } = useWindowDimensions();
   const cardWidth = Math.min(winWidth * 0.56, 220);
   const cardHeight = cardWidth * 1.45;
+  // Idle/ripping pack art gets its own, bigger sizing — a real focal-point
+  // product shot rather than a small boxed placeholder — sized at the pack
+  // art's actual ~3:4 aspect (assets/packs) instead of the flip-card ratio
+  // above, so nothing crops or letterboxes.
+  const packWidth = Math.min(winWidth * 0.72, 300);
+  const packHeight = packWidth * (4 / 3);
 
   const [phase, setPhase] = useState<'idle' | 'ripping' | 'reveal'>('idle');
   const [pulls, setPulls] = useState<PackPullResult[] | null>(null);
@@ -161,10 +172,10 @@ export function PackRevealSequence({ onOpen, onDone, cardCount, subtitle }: Pack
   const packScale = packPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] });
   const packGlowOpacity = packPulse.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.6] });
 
-  const leftTranslateX = leftRip.interpolate({ inputRange: [0, 1], outputRange: [0, -cardWidth * 0.9] });
+  const leftTranslateX = leftRip.interpolate({ inputRange: [0, 1], outputRange: [0, -packWidth * 0.9] });
   const leftRotate = leftRip.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-28deg'] });
   const leftOpacity = leftRip.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
-  const rightTranslateX = rightRip.interpolate({ inputRange: [0, 1], outputRange: [0, cardWidth * 0.9] });
+  const rightTranslateX = rightRip.interpolate({ inputRange: [0, 1], outputRange: [0, packWidth * 0.9] });
   const rightRotate = rightRip.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '28deg'] });
   const rightOpacity = rightRip.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
 
@@ -198,31 +209,31 @@ export function PackRevealSequence({ onOpen, onDone, cardCount, subtitle }: Pack
         {phase !== 'reveal' && (
           <TouchableOpacity activeOpacity={0.9} onPress={handleTapPack} disabled={phase !== 'idle'}>
             <Animated.View style={{ transform: [{ scale: packScale }] }}>
-              <View style={[styles.packBox, { width: cardWidth, height: cardHeight * 0.72 }]}>
+              <View style={[styles.packBox, { width: packWidth, height: packHeight }]}>
                 <Animated.View style={[styles.packGlow, { opacity: packGlowOpacity }]} />
 
                 <Animated.View
                   style={[
                     styles.packHalf,
                     styles.packHalfLeft,
-                    { width: cardWidth / 2, height: cardHeight * 0.72 },
+                    { width: packWidth / 2, height: packHeight },
                     { transform: [{ translateX: leftTranslateX }, { rotate: leftRotate }], opacity: leftOpacity },
                   ]}
                 >
-                  <View style={[styles.packHalfInner, { width: cardWidth, height: cardHeight * 0.72 }]}>
-                    <Text style={styles.packEmblem}>◆{'\n'}TAP TO{'\n'}OPEN</Text>
+                  <View style={[styles.packHalfInner, { width: packWidth, height: packHeight }]}>
+                    <Image source={packArtFor(tierId)} style={styles.packArtImage} resizeMode="contain" />
                   </View>
                 </Animated.View>
                 <Animated.View
                   style={[
                     styles.packHalf,
                     styles.packHalfRight,
-                    { width: cardWidth / 2, height: cardHeight * 0.72 },
+                    { width: packWidth / 2, height: packHeight },
                     { transform: [{ translateX: rightTranslateX }, { rotate: rightRotate }], opacity: rightOpacity },
                   ]}
                 >
-                  <View style={[styles.packHalfInner, { width: cardWidth, height: cardHeight * 0.72, left: -cardWidth / 2 }]}>
-                    <Text style={styles.packEmblem}>◆{'\n'}TAP TO{'\n'}OPEN</Text>
+                  <View style={[styles.packHalfInner, { width: packWidth, height: packHeight, left: -packWidth / 2 }]}>
+                    <Image source={packArtFor(tierId)} style={styles.packArtImage} resizeMode="contain" />
                   </View>
                 </Animated.View>
               </View>
@@ -324,13 +335,16 @@ const styles = StyleSheet.create({
   packHalf: { position: 'absolute', top: 0, overflow: 'hidden' },
   packHalfLeft: { left: 0, borderTopLeftRadius: Radius.lg, borderBottomLeftRadius: Radius.lg },
   packHalfRight: { right: 0, borderTopRightRadius: Radius.lg, borderBottomRightRadius: Radius.lg },
+  // No border/background frame (removed — the real pack art carries its
+  // own transparent-background artwork, sized to its actual aspect ratio
+  // via packWidth/packHeight above, so it doesn't need a boxed backing).
   packHalfInner: {
-    position: 'absolute', top: 0, left: 0, borderRadius: Radius.lg, borderWidth: 2, borderColor: Colors.gold,
-    backgroundColor: '#1B140A', alignItems: 'center', justifyContent: 'center',
+    position: 'absolute', top: 0, left: 0, alignItems: 'center', justifyContent: 'center',
   },
-  packEmblem: {
-    color: Colors.gold, fontFamily: Font.primaryBold, fontSize: Typography.lg, letterSpacing: 1, textAlign: 'center', lineHeight: 22,
-  },
+  // Fills packHalfInner's exact box (same web-sizing-fix pattern as
+  // PackPlayerCard.tsx's cardImage). contain, not cover — the box is sized
+  // at the art's real ~3:4 aspect so nothing crops.
+  packArtImage: { width: '100%', height: '100%' },
   tapHint: {
     marginTop: Spacing.lg, textAlign: 'center', color: Colors.textMuted, fontSize: Typography.sm,
     fontFamily: Font.mono, letterSpacing: 1,

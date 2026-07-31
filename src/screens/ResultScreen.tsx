@@ -19,11 +19,12 @@ import { useResponsive } from '../hooks/useResponsive';
 import { useRewardedAd } from '../hooks/useRewardedAd';
 import { dailyRandom } from '../utils/seededRandom';
 import { TOTAL_SEASON_GAMES, simulateSeasonResults } from '../utils/seasonSim';
+import { getRowStatMetrics } from '../utils/statMetrics';
 import { BrandBackground } from '../components/BrandBackground';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { SecondaryButton } from '../components/SecondaryButton';
 import { RewardedAdModal } from '../components/RewardedAdModal';
-import { PackShieldBadge } from '../components/PackShieldBadge';
+import { EmblemArt } from '../components/EmblemArt';
 import { FadeInOut } from '../components/animation/FadeInOut';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -75,7 +76,7 @@ function PackRewardCard({ tier, onContinue }: { tier: PackTier; onContinue: () =
       <View style={styles.packRewardCard}>
         <Text style={styles.seasonRewardTitle}>SEASON REWARD</Text>
         <Animated.View style={{ transform: [{ scale: pop }] }}>
-          <PackShieldBadge tierId={tier.id} size={72} />
+          <EmblemArt tierId={tier.id} size={130} />
         </Animated.View>
         <Text style={styles.packRewardEarned}>You earned a {tier.label}!</Text>
         <PrimaryButton label="CONTINUE →" onPress={onContinue} style={styles.packRewardBtn} />
@@ -274,14 +275,22 @@ export function ResultScreen() {
 
   function renderRosterRow(pos: Position) {
     const player = roster[pos];
+    // Box-score stat readout replaces the always-on OVR number here, to
+    // match the precedent already set by PlayerRow/PlayerRowStats on the
+    // draft list and Dynasty roster (docs/handoff/09-ovr-visibility-
+    // reversal.md gates raw OVR behind SHOW_DEBUG_OVR everywhere else —
+    // this row was the one place still showing it unconditionally).
+    const statText = player
+      ? getRowStatMetrics(player).slice(0, 2).map((m) => `${m.value} ${m.label}`).join(' • ')
+      : '';
     return (
       <View key={pos} style={styles.rosterRow}>
         <View style={styles.rosterLeft}>
           <Text style={styles.rosterPos}>{pos}</Text>
-          <Text style={styles.rosterName}>{player?.name}</Text>
+          <Text style={styles.rosterName} numberOfLines={1}>{player?.name}</Text>
           {SHOW_DEBUG_OVR && player && <Text style={styles.debugOvr}>{player.rating}</Text>}
         </View>
-        {player && <Text style={styles.rosterOvr}>{player.rating} OVR</Text>}
+        {statText.length > 0 && <Text style={styles.rosterStats} numberOfLines={1}>{statText}</Text>}
       </View>
     );
   }
@@ -492,11 +501,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: Colors.bgPrimary,
   },
-  rosterLeft: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  rosterLeft: { flexDirection: 'row', gap: 8, alignItems: 'center', flexShrink: 1 },
   rosterPos: { fontSize: Typography.xs, color: Colors.textDim, minWidth: 36, fontFamily: Font.secondarySemiBold },
-  rosterName: { fontSize: Typography.base, color: Colors.textPrimary, fontFamily: Font.secondaryMedium },
+  rosterName: { fontSize: Typography.base, color: Colors.textPrimary, fontFamily: Font.secondaryMedium, flexShrink: 1 },
   debugOvr: { fontSize: Typography.md, color: Colors.gold, fontFamily: Font.primaryBold },
-  rosterOvr: { fontSize: Typography.sm, color: Colors.gold, fontFamily: Font.secondarySemiBold },
+  rosterStats: { fontSize: Typography.sm, color: Colors.textSecondary, fontFamily: Font.secondarySemiBold, marginLeft: 8, flexShrink: 0 },
   simSoonText: {
     fontSize: Typography.sm, color: Colors.textMuted, fontFamily: Font.secondaryRegular,
     textAlign: 'center', marginTop: 10,

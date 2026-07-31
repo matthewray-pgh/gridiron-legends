@@ -4,9 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
-import { PACK_CARD_COUNT, PACK_TIERS } from '../data/packs';
+import { PACK_CARD_COUNT, PACK_TIERS, TODO_BALANCE_TROPHY_ALL_RINGS_PER_CARD } from '../data/packs';
 import { PackPlacement, PackPullResult, PackResolution, useDynastyStore } from '../store/dynastyStore';
 import { PrimaryButton } from '../components/PrimaryButton';
+import { SecondaryButton } from '../components/SecondaryButton';
 import { BrandBackground } from '../components/BrandBackground';
 import { PackPullGrid } from '../components/PackPullGrid';
 import { PackRevealSequence } from '../components/PackRevealSequence';
@@ -32,9 +33,12 @@ type Route = RouteProp<RootStackParamList, 'PackOpening'>;
 // Bench choice — each kept card is auto-placed (starts if its slot is
 // open, otherwise benches, same full-bench-auto-release behavior as
 // before) once "Add Selected" is pressed. That button only enables once at
-// least one card is checked; a separate low-emphasis "Skip" action lets the
-// player decline every pull instead (doc 17 section 3 — previously the
-// only way off this screen once `pulls` was set).
+// least one card is checked; a separate "Trophy In All" action lets the
+// player cash in every non-duplicate pull for a flat, rarity-blind Rings
+// amount instead (TODO_BALANCE_TROPHY_ALL_RINGS_PER_CARD, data/packs.ts) —
+// deliberately worse value than actually rostering the cards, but still the
+// only way off this screen without keeping at least one (doc 17 section 3
+// originally added a no-reward "Skip" here; this replaces it).
 export function PackOpeningScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
@@ -47,6 +51,7 @@ export function PackOpeningScreen() {
   const roster = useDynastyStore((s) => s.roster);
   const openPack = useDynastyStore((s) => s.openPack);
   const resolvePackPulls = useDynastyStore((s) => s.resolvePackPulls);
+  const earnRings = useDynastyStore((s) => s.earnRings);
 
   const tier = pack ? PACK_TIERS.find((t) => t.id === pack.tierId) : undefined;
   // Pinned once on mount so the title stays put through the reveal — openPack()
@@ -72,6 +77,11 @@ export function PackOpeningScreen() {
 
   const checkedCount = Object.values(checked).filter(Boolean).length;
   const totalRingsRefund = (pulls ?? []).reduce((sum, card) => sum + (card.duplicate ? card.ringsRefund : 0), 0);
+  // Duplicates already auto-resolved to Rings the instant the pack was
+  // opened (openPack in dynastyStore.ts) — only non-duplicate pulls are
+  // actually up for grabs here, same scope "Add Selected" already covers.
+  const trophyAllCount = (pulls ?? []).filter((card) => !card.duplicate).length;
+  const trophyAllReward = trophyAllCount * TODO_BALANCE_TROPHY_ALL_RINGS_PER_CARD;
 
   // Packs are a post-draft reward — the initial draft (DynastyHomeScreen's
   // "Draft Team") has to be completed first. currentSeason only increments
@@ -142,6 +152,18 @@ export function PackOpeningScreen() {
     closeReveal();
   }
 
+  // Cashes in every non-duplicate pull at once for a flat, rarity-blind
+  // Rings amount instead of adding any of them to the roster — replaces the
+  // old no-reward "Skip" action as the only other way off this screen.
+  // Deliberately worse than "Add Selected" (TODO_BALANCE_TROPHY_ALL_RINGS_
+  // PER_CARD, data/packs.ts) so trophying in isn't a real alternative to
+  // actually building the roster out.
+  function handleTrophyAll() {
+    if (!pulls) return;
+    if (trophyAllReward > 0) earnRings(trophyAllReward, 'pack_trophy_all');
+    closeReveal();
+  }
+
   return (
     <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
       <BrandBackground variant="header" style={styles.toolbar}>
@@ -163,6 +185,7 @@ export function PackOpeningScreen() {
             </>
           ) : (pack && tier) || revealStarted ? (
             <PackRevealSequence
+              tierId={titleTier?.id ?? 'rookie'}
               onOpen={handleRevealOpen}
               onDone={handleRevealDone}
               cardCount={PACK_CARD_COUNT}
@@ -180,14 +203,19 @@ export function PackOpeningScreen() {
             {totalRingsRefund > 0 && (
               <Text style={styles.refundHint}>+{totalRingsRefund} <RingsIcon size={12} /> from duplicates</Text>
             )}
-            <TouchableOpacity onPress={closeReveal} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={styles.skipAllText}>Skip — nothing will be added to your roster</Text>
-            </TouchableOpacity>
-            <PrimaryButton
-              label={`Add Selected (${checkedCount}) to Roster`}
-              onPress={handleAddSelected}
-              disabled={checkedCount === 0}
-            />
+            <View style={styles.actionButtonRow}>
+              <SecondaryButton
+                label={`TROPHY ALL +${trophyAllReward}`}
+                onPress={handleTrophyAll}
+                style={styles.trophyAllBtn}
+              />
+              <PrimaryButton
+                label={`Add Selected (${checkedCount}) to Roster`}
+                onPress={handleAddSelected}
+                disabled={checkedCount === 0}
+                style={styles.addSelectedBtn}
+              />
+            </View>
           </View>
         </>
       )}
@@ -220,5 +248,11 @@ const styles = StyleSheet.create({
 
   actionBar: { padding: 14, gap: 10 },
   refundHint: { color: Colors.gold, fontSize: Typography.sm, textAlign: 'center', fontFamily: Font.secondarySemiBold },
-  skipAllText: { color: Colors.textMuted, fontSize: Typography.sm, fontFamily: Font.secondaryMedium, textAlign: 'center' },
+  // "Trophy In All" (secondary) + "Add Selected" (primary) side by side —
+  // same two-button-row pattern as PackOddsSheet's Close/Buy footer, so
+  // Trophy In All reads as a real button, not a bare text link, without
+  // matching Add Selected's full CTA weight.
+  actionButtonRow: { flexDirection: 'row', gap: 10 },
+  trophyAllBtn: { flex: 1 },
+  addSelectedBtn: { flex: 2 },
 });

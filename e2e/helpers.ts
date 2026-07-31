@@ -81,15 +81,14 @@ export async function openFirstAvailablePack(page: Page) {
 // Every card in a pack can land on a player already owned (roster, bench,
 // or Hall of Fame — see dynastyStore.ts's isDuplicate), which auto-refunds
 // to Rings instead of adding anyone new. Rather than assume any single pack
-// yields a keeper, keep opening packs (buying more with the __DEV__ Rings
-// grant once free ones run out) until the bench actually has someone —
-// call this from a fresh DynastyHome mount.
+// yields a keeper, keep opening packs (topping up Rings via the __DEV__-only
+// __testGrantRings hook once free ones run out) until the bench actually has
+// someone — call this from a fresh DynastyHome mount.
 export async function ensureBenchPlayer(page: Page, maxAttempts = 6) {
   for (let i = 0; i < maxAttempts; i++) {
     if ((await page.getByTestId('roster-bench-row').count()) > 0) return;
 
-    const devGrant = page.getByText('DEV +500', { exact: true });
-    if ((await devGrant.count()) > 0) await devGrant.click();
+    await page.evaluate(() => (window as any).__testGrantRings?.(500));
 
     await page.getByRole('button', { name: 'Shop', exact: true }).click();
     if ((await page.getByText('OPEN', { exact: true }).count()) === 0) {
