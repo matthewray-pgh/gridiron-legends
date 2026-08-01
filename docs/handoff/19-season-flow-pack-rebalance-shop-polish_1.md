@@ -312,7 +312,11 @@ resulting table, for reference:
   unaffected by the rarity-band rebalance in §2; still a flat refund
   regardless of the duplicate's rarity. Worth a future look now that
   rarity bands are shifting, but out of scope here.
-- `PACK_CARD_COUNT` — confirmed staying at 4, no code change needed.
+- `PACK_CARD_COUNT` — **correction (see docs/handoff/20-economy-balance-
+  signoff.md, section 1b):** this doc previously said "confirmed staying at
+  4, no code change needed." That was wrong — the shipped code has always
+  been `PACK_CARD_COUNT = 5`, confirmed correct with the user. This doc's
+  own numbers above should be read as 5-card packs, not 4.
 - Doc 18's shield badges, waiting-strip cap/tile, and shelf tile
   components — unaffected structurally by dropping the tab; the same
   tiles are just reused inside a sheet instead of a tab's content area.

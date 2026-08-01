@@ -213,7 +213,7 @@
 
         <div class="tierCard rookie">
           <div class="tierTop">
-            <div><div class="tierName">Rookie Pack</div><div class="tierCardsCount">4 cards</div></div>
+            <div><div class="tierName">Rookie Pack</div><div class="tierCardsCount">5 cards</div></div>
             <div class="tierBadge rookie">BASE</div>
           </div>
           <div class="oddsBar">
@@ -235,7 +235,7 @@
         <div class="tierCard pro">
           <div class="tierGlow" style="background:var(--rarityRare);"></div>
           <div class="tierTop">
-            <div><div class="tierName">Pro Pack</div><div class="tierCardsCount">4 cards</div></div>
+            <div><div class="tierName">Pro Pack</div><div class="tierCardsCount">5 cards</div></div>
             <div class="tierBadge pro">RARE+</div>
           </div>
           <div class="oddsBar">
@@ -257,7 +257,7 @@
         <div class="tierCard legend">
           <div class="tierGlow" style="background:var(--rarityLegend);"></div>
           <div class="tierTop">
-            <div><div class="tierName">Legend Pack</div><div class="tierCardsCount">4 cards</div></div>
+            <div><div class="tierName">Legend Pack</div><div class="tierCardsCount">5 cards</div></div>
             <div class="tierBadge legend">ELITE+</div>
           </div>
           <div class="oddsBar">
@@ -309,7 +309,7 @@
   <div class="modal" id="modalBox">
     <div class="modalTitle" id="modalTitle">LEGEND PACK ODDS</div>
     <div class="modalSubtitle" id="modalSubtitle"></div>
-    <div class="modalPrice" id="modalPrice">650 💍 · 4 cards per pack</div>
+    <div class="modalPrice" id="modalPrice">650 💍 · 5 cards per pack</div>
     <div class="oddsTable" id="modalOddsTable"></div>
     <div class="guaranteeBox">
       <div class="guaranteeBoxTitle">Guarantee</div>
@@ -330,9 +330,9 @@ const TIERS = {
   rookie: { name: 'ROOKIE PACK', price: 100, odds: [45,35,15,5],
     guarantee: 'No guarantee — every card rolls independently at the standard rate.', cls: 'tier-rookie' },
   pro: { name: 'PRO PACK', price: 280, odds: [20,40,30,10],
-    guarantee: 'At least 1 of the 4 cards is Rare or better. If all 4 rolls land Common, the lowest card is upgraded automatically.', cls: 'tier-pro' },
+    guarantee: 'At least 1 of the 5 cards is Rare or better. If all 5 rolls land Common, the lowest card is upgraded automatically.', cls: 'tier-pro' },
   legend: { name: 'LEGEND PACK', price: 650, odds: [5,20,45,30],
-    guarantee: 'At least 1 of the 4 cards is Elite or better. If all 4 rolls land below Elite, the lowest-rarity card is upgraded automatically.', cls: '' },
+    guarantee: 'At least 1 of the 5 cards is Elite or better. If all 5 rolls land below Elite, the lowest-rarity card is upgraded automatically.', cls: '' },
 };
 const RARITY_LABELS = ['Common','Rare','Elite','Legend'];
 const RARITY_COLORS = ['var(--rarityCommon)','var(--rarityRare)','var(--rarityElite)','var(--rarityLegend)'];
@@ -362,7 +362,7 @@ function openModal(tierKey){
   document.getElementById('modalSubtitle').textContent = currentEraLabel ? ('ERA LOCKED · ' + currentEraLabel) : '';
   const totalPrice = t.price + currentSurcharge;
   document.getElementById('modalPrice').textContent =
-    (currentSurcharge > 0 ? (t.price + ' 💍 base + ' + currentSurcharge + ' 💍 era lock') : (t.price + ' 💍')) + ' · 4 cards';
+    (currentSurcharge > 0 ? (t.price + ' 💍 base + ' + currentSurcharge + ' 💍 era lock') : (t.price + ' 💍')) + ' · 5 cards';
 
   const table = document.getElementById('modalOddsTable');
   table.innerHTML = t.odds.map((pct, i) => `

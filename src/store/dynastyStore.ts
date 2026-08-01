@@ -108,36 +108,33 @@ export const TODO_BALANCE_SEASON_END_PACK_TIER = {
 
 // docs/handoff/13-ad-monetization-economy.md, section 1 — Shop's always-
 // available "Watch an ad for Rings" button. Reward scales on a daily
-// watch streak rather than a flat per-watch amount. Two open questions the
-// doc left undecided are resolved here as the simplest options (both
-// explicitly "not decided" in the doc, confirmed with the user for this
-// pass): a missed calendar day fully resets the streak to Day 1 rather than
-// a softer partial rollback, and the Day 7+ reward holds flat forever
-// rather than creeping upward — either alternative needs an extra invented
-// number (how many tiers to roll back, or a creep rate/ceiling) that
-// nothing in the doc specifies. Proposed values, not confirmed game
-// balance — product sign-off still needed before real use.
+// watch streak rather than a flat per-watch amount. A missed calendar day
+// fully resets the streak to Day 1 rather than a softer partial rollback,
+// and the Day 7+ reward holds flat forever rather than creeping upward.
+// Finalized (docs/handoff/20-economy-balance-signoff.md, section 3b) — the
+// first-watch bonus that used to stack on top of this table is gone; the
+// first watch of the day now pays the plain streak value below, which is
+// why every tier here is rescaled up from the earlier proposal (e.g. Day 1
+// 15 -> 20) rather than left as-is.
 export const TODO_BALANCE_SHOP_AD_STREAK_RINGS = {
-  day1: 15,
-  day2: 25,
-  day3: 35,
-  day4: 50,
-  day5: 65,
-  day6: 80,
+  day1: 20,
+  day2: 30,
+  day3: 40,
+  day4: 55,
+  day5: 70,
+  day6: 85,
   day7Plus: 100,
 } as const;
 
 export const TODO_BALANCE_SHOP_AD_MAX_WATCHES_PER_DAY = 3;
 
-// docs/handoff/19-season-flow-pack-rebalance-shop-polish_1.md, section 7 —
-// a one-time first-watch-of-the-day bonus stacked on top of the streak
-// table above, rather than a rescale: making Day 1 itself worth flat 100
-// would equal today's *best* streak day immediately, collapsing the reason
-// to keep the streak going. Stacking preserves the escalation's intent
-// while still making the first watch of a session feel like a bigger
-// payoff. Flagged as the conservative option, not the only one discussed —
-// confirm this direction (vs. a full-curve rescale) before treating final.
-export const TODO_BALANCE_SHOP_AD_FIRST_WATCH_BONUS = 50;
+// Finalized (docs/handoff/20-economy-balance-signoff.md, section 3b) — flat
+// reward for the 2nd/3rd ad watch of the day, replacing the old design
+// where every watch paid the same escalating streak value (which let a
+// maxed streak pay 100+150+100+100 = 350/day from ads alone). Only the
+// first watch of the day advances/pays the streak table above; watches 2-3
+// are a smaller flat top-up.
+export const TODO_BALANCE_SHOP_AD_BONUS_WATCH_RINGS = 30;
 
 function shopAdStreakRingsForDay(streakDay: number): number {
   const table = TODO_BALANCE_SHOP_AD_STREAK_RINGS;
@@ -172,13 +169,16 @@ export const TODO_BALANCE_INITIAL_DRAFT_BONUS_PACKS = 2;
 // retirement had "no payout currently implemented" (docs/handoff/08-dynasty-
 // gameplay-redesign.md). Reuses the same rarity bands packs.ts pulls from
 // (ratingToRarity), so a retired player's payout is graded the same way a
-// pack pull's rarity is. TODO_BALANCE placeholder, not confirmed game
-// balance.
+// pack pull's rarity is. Finalized (docs/handoff/20-economy-balance-signoff.md,
+// section 2b) — deliberately not scaled by source pack tier; Legend Pack's
+// lower proportional return (46% of cost) vs. Rookie's (~100%) is a
+// confirmed trade-off, not a bug: the Legend payout can't go higher without
+// making Rookie-pack flipping profitable.
 export const TODO_BALANCE_RETIRE_RINGS_BY_RARITY: Record<PackRarity, number> = {
-  common: 20,
-  rare: 50,
-  elite: 120,
-  legend: 300,
+  common: 5,
+  rare: 10,
+  elite: 30,
+  legend: 100,
 };
 
 // Exported so the roster editor UI (RosterManager.tsx/PlayerDetailPanel)
@@ -209,6 +209,11 @@ interface DynastyState {
   shopAdStreakDay: number;
   lastShopAdWatchDate: number | null;
   shopAdWatchesToday: number;
+  // One-time "Streak Maxed!" moment (docs/handoff/20-economy-balance-
+  // signoff.md, section 3d) — flips true the first time a watch lands the
+  // streak at Day 7+, so the Shop can show a one-off banner instead of the
+  // escalation just silently plateauing.
+  shopAdStreakMaxedSeen: boolean;
 
   earnRings: (amount: number, source: string) => void;
   // eraLock adds TODO_BALANCE_ERA_LOCK_SURCHARGE_RINGS to the tier's base
@@ -282,6 +287,7 @@ const INITIAL_DYNASTY_STATE: PersistedDynastyState = {
   shopAdStreakDay: 0,
   lastShopAdWatchDate: null,
   shopAdWatchesToday: 0,
+  shopAdStreakMaxedSeen: false,
 };
 
 // Pure preview of what watchShopAdForRings() would do right now, without
@@ -299,8 +305,9 @@ export function computeShopAdPreview(
   return {
     watchesRemainingToday: Math.max(0, TODO_BALANCE_SHOP_AD_MAX_WATCHES_PER_DAY - watchesToday),
     nextStreakDay,
-    nextReward: shopAdStreakRingsForDay(nextStreakDay)
-      + (isFirstWatchToday ? TODO_BALANCE_SHOP_AD_FIRST_WATCH_BONUS : 0),
+    nextReward: isFirstWatchToday
+      ? shopAdStreakRingsForDay(nextStreakDay)
+      : TODO_BALANCE_SHOP_AD_BONUS_WATCH_RINGS,
   };
 }
 
@@ -410,7 +417,7 @@ type PersistedDynastyState = Omit<
 const PERSISTED_KEYS: (keyof PersistedDynastyState)[] = [
   'rings', 'allTimeRecord', 'currentSeason', 'roster', 'bench',
   'hallOfFame', 'ownedPacks', 'lastDailyClaimDate',
-  'shopAdStreakDay', 'lastShopAdWatchDate', 'shopAdWatchesToday',
+  'shopAdStreakDay', 'lastShopAdWatchDate', 'shopAdWatchesToday', 'shopAdStreakMaxedSeen',
 ];
 
 function pickPersistedState(state: DynastyState): PersistedDynastyState {
@@ -450,7 +457,7 @@ export const useDynastyStore = create<DynastyState>()(
       },
 
       watchShopAdForRings: () => {
-        const { lastShopAdWatchDate, shopAdStreakDay, shopAdWatchesToday, rings } = get();
+        const { lastShopAdWatchDate, shopAdStreakDay, shopAdWatchesToday, shopAdStreakMaxedSeen, rings } = get();
         const today = todaySeedBase();
         const isNewDay = lastShopAdWatchDate !== today;
         const watchesToday = isNewDay ? 0 : shopAdWatchesToday;
@@ -458,14 +465,16 @@ export const useDynastyStore = create<DynastyState>()(
 
         const nextStreakDay = nextShopAdStreakDay(lastShopAdWatchDate, shopAdStreakDay, today);
         const isFirstWatchToday = watchesToday === 0;
-        const reward = shopAdStreakRingsForDay(nextStreakDay)
-          + (isFirstWatchToday ? TODO_BALANCE_SHOP_AD_FIRST_WATCH_BONUS : 0);
+        const reward = isFirstWatchToday
+          ? shopAdStreakRingsForDay(nextStreakDay)
+          : TODO_BALANCE_SHOP_AD_BONUS_WATCH_RINGS;
 
         set({
           rings: rings + reward,
           lastShopAdWatchDate: today,
           shopAdWatchesToday: watchesToday + 1,
           shopAdStreakDay: nextStreakDay,
+          shopAdStreakMaxedSeen: shopAdStreakMaxedSeen || nextStreakDay >= 7,
         });
         return reward;
       },
