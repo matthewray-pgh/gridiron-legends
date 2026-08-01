@@ -52,15 +52,15 @@ const RARITY_RATING_BANDS: Record<PackRarity, { min: number; max: number }> = {
 // docs/handoff/03-legacy-mode.md > DECISION NEEDED ("dupe protection").
 export const TODO_BALANCE_DUPE_REFUND_RINGS = 25;
 
-// TODO_BALANCE: flat per-card Rings value for "Trophy In All" — the
-// PackOpeningScreen action that cashes in every pulled card at once instead
-// of adding any to the roster (replaces the old no-reward "Skip"). Deliberately
-// flat/rarity-blind and pegged to the same floor as a duplicate's guaranteed
-// refund (TODO_BALANCE_DUPE_REFUND_RINGS) — confirmed with the user: this is
-// meant to read as clearly worse than keeping cards (which reach up to
-// TODO_BALANCE_RETIRE_RINGS_BY_RARITY's legend tier once rostered and later
-// retired), not a real alternative to actually building the roster out.
-export const TODO_BALANCE_TROPHY_ALL_RINGS_PER_CARD = 25;
+// Finalized (docs/handoff/20-economy-balance-signoff.md, section 2c) — flat
+// per-card Rings value for "Trophy In All", the PackOpeningScreen action
+// that cashes in every pulled card at once instead of adding any to the
+// roster (replaces the old no-reward "Skip"). Unprofitable against every
+// tier's cost-per-card (Rookie 20, Pro 56, Legend 130). Accepted tie with
+// Common's individual retire payout (10 vs. TODO_BALANCE_RETIRE_RINGS_BY_
+// RARITY's 5) rather than adjusted — Common/Rare are the least consequential
+// tier, not worth touching the approved Rare/Elite/Legend retire numbers for.
+export const TODO_BALANCE_TROPHY_ALL_RINGS_PER_CARD = 10;
 
 // TODO_BALANCE: flat Rings surcharge for locking a pack purchase to one era
 // (docs/handoff/gridiron-legends-shop-mockups.html) — narrows the pull pool

@@ -59,6 +59,12 @@ function findTier(tierId: PackTierId): PackTier | undefined {
 // (docs/handoff/13-ad-monetization-economy.md, section 1) — reward scales
 // on the daily watch streak rather than a flat per-watch amount. Shared by
 // both layouts like the pack tiles below.
+//
+// Only the first watch of the day is "the event" (streak + full reward);
+// watches 2-3 are a flat bonus top-up (docs/handoff/20-economy-balance-
+// signoff.md, section 3d) — the card sizes down for those so the smaller
+// payout reads as a smaller moment rather than just a smaller number on the
+// same-looking card.
 function ShopAdCard({ preview, onWatch, disabled, justEarned, style }: {
   preview: { watchesRemainingToday: number; nextStreakDay: number; nextReward: number };
   onWatch: () => void;
@@ -68,6 +74,25 @@ function ShopAdCard({ preview, onWatch, disabled, justEarned, style }: {
 }) {
   const dayLabel = preview.nextStreakDay >= 7 ? 'DAY 7+' : `DAY ${preview.nextStreakDay}`;
   const displayEarned = useLastNonNull(justEarned);
+  const isBonusWatch = preview.watchesRemainingToday > 0
+    && preview.watchesRemainingToday < TODO_BALANCE_SHOP_AD_MAX_WATCHES_PER_DAY;
+
+  if (isBonusWatch) {
+    return (
+      <View style={[styles.adCard, styles.adCardBonus, style]}>
+        <FadeInOut visible={justEarned !== null}>
+          <Text style={styles.adCardEarned}>+{displayEarned} <RingsIcon size={13} /> EARNED</Text>
+        </FadeInOut>
+        <TouchableOpacity style={styles.adWatchBtnBonus} onPress={onWatch} activeOpacity={0.85}>
+          <Text style={styles.adWatchBtnBonusText}>
+            +{preview.nextReward} <RingsIcon size={12} color={Colors.gold} /> bonus watch available
+          </Text>
+          <Text style={styles.adPillChevron}>›</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.adCard, style]}>
       <View style={styles.adCardTop}>
@@ -107,10 +132,11 @@ function ShopAdCard({ preview, onWatch, disabled, justEarned, style }: {
 // it's a real income avenue, so this is now a full-width banner with the
 // same visual weight as the pack tiles below it rather than a footnote
 // above them.
-function ShopAdPill({ preview, onPress, justEarned }: {
+function ShopAdPill({ preview, onPress, justEarned, justHitStreakMax }: {
   preview: { watchesRemainingToday: number; nextReward: number };
   onPress: () => void;
   justEarned: number | null;
+  justHitStreakMax: boolean;
 }) {
   const pillState = justEarned !== null ? 'earned' : preview.watchesRemainingToday > 0 ? 'watch' : 'none';
   const { scale, onPressIn, onPressOut } = usePressScale(0.97);
@@ -122,7 +148,9 @@ function ShopAdPill({ preview, onPress, justEarned }: {
           <FadeInOut key={pillState} duration={180} style={styles.adPillTextWrap}>
             <Text style={styles.adPillText} numberOfLines={1}>
               {justEarned !== null
-                ? <>+{justEarned} <RingsIcon size={14} /> earned</>
+                ? justHitStreakMax
+                  ? <>🏆 Streak Maxed! +{justEarned} <RingsIcon size={14} /></>
+                  : <>+{justEarned} <RingsIcon size={14} /> earned</>
                 : preview.watchesRemainingToday > 0
                   ? <>Watch Reward Ad · +{preview.nextReward} <RingsIcon size={14} /></>
                   : 'No ad watches left today'}
@@ -286,11 +314,17 @@ export function ShopScreen() {
   const shopAdStreakDay = useDynastyStore((s) => s.shopAdStreakDay);
   const lastShopAdWatchDate = useDynastyStore((s) => s.lastShopAdWatchDate);
   const shopAdWatchesToday = useDynastyStore((s) => s.shopAdWatchesToday);
+  const shopAdStreakMaxedSeen = useDynastyStore((s) => s.shopAdStreakMaxedSeen);
   const watchShopAdForRings = useDynastyStore((s) => s.watchShopAdForRings);
 
   const [selectedEra, setSelectedEra] = useState<GeneratedEra | null>(null);
   const [oddsSheetTierId, setOddsSheetTierId] = useState<PackTierId | null>(null);
   const [adRingsJustEarned, setAdRingsJustEarned] = useState<number | null>(null);
+  // One-time "Streak Maxed!" moment (docs/handoff/20-economy-balance-
+  // signoff.md, section 3d) — captured just before the watch that flips
+  // shopAdStreakMaxedSeen true, so the pill's earned-pop can call it out
+  // instead of the escalation just silently plateauing at Day 7+.
+  const [adJustHitStreakMax, setAdJustHitStreakMax] = useState(false);
   const [adSheetOpen, setAdSheetOpen] = useState(false);
   // "See all" opens a bottom sheet listing every owned pack (docs/handoff/
   // 19-season-flow-pack-rebalance-shop-polish_1.md, section 4) — supersedes
@@ -318,17 +352,24 @@ export function ShopScreen() {
   async function handleWatchShopAd() {
     if (adPreview.watchesRemainingToday <= 0) return;
     setAdSheetOpen(false);
+    const willHitStreakMax = !shopAdStreakMaxedSeen && adPreview.nextStreakDay >= 7;
     const watched = await requestAd();
     if (!watched) return;
     const earned = watchShopAdForRings();
     if (earned > 0) {
+      setAdJustHitStreakMax(willHitStreakMax);
       setAdRingsJustEarned(earned);
       setTimeout(() => setAdRingsJustEarned(null), 2500);
     }
   }
 
   const shopAdPill = SHOP_AD_RINGS_ENABLED && (
-    <ShopAdPill preview={adPreview} justEarned={adRingsJustEarned} onPress={() => setAdSheetOpen(true)} />
+    <ShopAdPill
+      preview={adPreview}
+      justEarned={adRingsJustEarned}
+      justHitStreakMax={adJustHitStreakMax}
+      onPress={() => setAdSheetOpen(true)}
+    />
   );
 
   function openPendingPack(packId: string) {
@@ -613,6 +654,17 @@ const styles = StyleSheet.create({
   },
   adWatchBtnDisabled: { backgroundColor: 'transparent', borderColor: Colors.border },
   adWatchBtnText: { color: Colors.bgDark, fontFamily: Font.primaryBold, fontSize: Typography.lg, letterSpacing: 0.6 },
+
+  // Smaller, quieter treatment for the 2nd/3rd watch of the day (docs/
+  // handoff/20-economy-balance-signoff.md, section 3d) — a top-up
+  // affordance, not the full-card "event" the first watch gets.
+  adCardBonus: { padding: 12, borderWidth: 1, borderColor: Colors.border },
+  adWatchBtnBonus: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    minHeight: 40, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.gold,
+    backgroundColor: 'transparent', paddingHorizontal: 14,
+  },
+  adWatchBtnBonusText: { color: Colors.gold, fontFamily: Font.primaryBold, fontSize: Typography.sm, letterSpacing: 0.3 },
 
   adPill: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
