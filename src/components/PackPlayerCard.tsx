@@ -103,7 +103,7 @@ export function PackPlayerCard({ card, selected = false, onPress, width = DEFAUL
   }
 
   const { player } = card;
-  const cardImage = cardArtFor(player.id);
+  const cardImage = cardArtFor(player.id, player.position);
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.85} disabled={!onPress} testID={testID}>

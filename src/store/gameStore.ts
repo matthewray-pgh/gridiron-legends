@@ -151,6 +151,13 @@ export interface GameState {
   eraLockResult: LockResult;
   drillPending: DrillPending | null;
   drillOvrBonusPending: number;
+  // docs/handoff/21-economy-balance-signoff.md section 8 — hitting both
+  // locks additionally flags the highest-rated candidate in that round's
+  // actual eligible pool (never displayed as a number, just a visual
+  // flag — see PlayerRow's `suggested` prop). Set once both tracks lock in
+  // lockDrillTrack(), cleared on the next pick/round same as
+  // drillOvrBonusPending above.
+  drillSuggestedPlayerId: string | null;
 
   setMode: (mode: GameMode) => void;
   beginDraftSession: (params: { teamScope: TeamScope; selectedEras: EraToken[] }) => void;
@@ -190,6 +197,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   eraLockResult: 'pending',
   drillPending: null,
   drillOvrBonusPending: 0,
+  drillSuggestedPlayerId: null,
 
   setMode: (mode) => set({ mode }),
 
@@ -211,6 +219,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       eraLockResult: 'pending',
       drillPending: null,
       drillOvrBonusPending: 0,
+      drillSuggestedPlayerId: null,
     });
   },
 
@@ -309,6 +318,19 @@ export const useGameStore = create<GameState>((set, get) => ({
     const rerollBonus = nextTeamLock === 'hit' ? DRILL_TEAM_LOCK_REROLL_BONUS : 0;
     const ovrBonus = nextEraLock === 'hit' ? DRILL_ERA_LOCK_OVR_BONUS : 0;
 
+    // docs/handoff/21-economy-balance-signoff.md section 8 — hitting BOTH
+    // locks additively adds a draft suggestion on top of the reroll/OVR
+    // bonuses above (never a replacement — see that doc's "additive by
+    // design" note): the highest-rated candidate in this round's actual
+    // eligible pool, computed against the same open-positions set
+    // currentCandidates() would use once revealed.
+    const suggestedPlayerId = nextTeamLock === 'hit' && nextEraLock === 'hit'
+      ? getAllPlayersForSpin(drillPending.spin, get().openPositions())
+        .reduce<Player | null>((best, candidate) => (
+          !best || candidate.rating > best.rating ? candidate : best
+        ), null)?.id ?? null
+      : null;
+
     set({
       teamLockResult: nextTeamLock,
       eraLockResult: nextEraLock,
@@ -320,6 +342,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       spinState: 'revealed',
       rerollsRemaining: get().rerollsRemaining + rerollBonus,
       drillOvrBonusPending: ovrBonus,
+      drillSuggestedPlayerId: suggestedPlayerId,
     });
   },
 
@@ -391,6 +414,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       // the next round's top-rated candidate either.
       currentSpin: null,
       drillOvrBonusPending: 0,
+      drillSuggestedPlayerId: null,
       spinState: isComplete ? 'picked' : 'pre',
       isComplete,
     });
@@ -413,5 +437,6 @@ export const useGameStore = create<GameState>((set, get) => ({
       eraLockResult: 'pending',
       drillPending: null,
       drillOvrBonusPending: 0,
+      drillSuggestedPlayerId: null,
     }),
 }));

@@ -4,6 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<!-- Google Analytics (GA4) — TODO: replace G-XXXXXXXXXX with the real
+     Measurement ID (GA4 property > Admin > Data Streams > this web
+     stream). Same placeholder across every marketing page and the app's
+     public/index.html — a repo-wide find/replace of G-XXXXXXXXXX is all
+     that's needed once the real ID exists. -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-XXXXXXXXXX');
+</script>
+
 <!-- ============================================================
      SEO — core meta
      ============================================================ -->
@@ -383,10 +396,11 @@
     margin-bottom: 20px;
     flex-wrap: wrap;
   }
-  footer .foot-links span {
+  footer .foot-links a {
     font-size: 13px;
     color: var(--steel-dark);
   }
+  footer .foot-links a:hover { color: var(--gold-bright); }
   footer .disclaimer {
     font-size: 12px;
     color: var(--steel-dark);
@@ -539,9 +553,9 @@
   <!-- Footer -->
   <footer>
     <div class="foot-links">
-      <span>About</span>
-      <span>Support</span>
-      <span>Terms</span>
+      <a href="/about.html">About</a>
+      <a href="/contact.html">Contact</a>
+      <a href="/privacy.html">Privacy</a>
     </div>
     <p class="disclaimer">
       Undefeated: Gridiron Legends is not affiliated with or endorsed by
