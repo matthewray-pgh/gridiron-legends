@@ -25,6 +25,7 @@ import { PrimaryButton } from '../components/PrimaryButton';
 import { SecondaryButton } from '../components/SecondaryButton';
 import { RewardedAdModal } from '../components/RewardedAdModal';
 import { EmblemArt } from '../components/EmblemArt';
+import { RingsIcon } from '../components/RingsIcon';
 import { FadeInOut } from '../components/animation/FadeInOut';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -50,7 +51,7 @@ function DailyRewardBanner({ earned }: { earned: boolean }) {
       <Animated.View style={[styles.rewardBanner, { transform: [{ scale: pop }] }]}>
         <Text style={styles.rewardText}>
           {earned
-            ? `🪙 +${TODO_BALANCE_RINGS_SOURCES.dailyChallengeCompletion} RINGS EARNED`
+            ? <>+{TODO_BALANCE_RINGS_SOURCES.dailyChallengeCompletion} <RingsIcon size={13} /> RINGS EARNED</>
             : 'Already completed today — replay earns no Rings'}
         </Text>
       </Animated.View>

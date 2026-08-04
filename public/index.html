@@ -4,6 +4,22 @@
     <meta charset="utf-8" />
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+
+    <!-- Google Analytics (GA4) — TODO: replace G-XXXXXXXXXX with the real
+         Measurement ID (same placeholder used across marketing/*.html — a
+         repo-wide find/replace of G-XXXXXXXXXX covers every page at once).
+         This only fires the initial-load pageview; React Navigation's
+         client-side route changes don't trigger new gtag('event', 'page_view')
+         calls on their own — wire those up separately if per-screen
+         tracking inside the app ever matters. -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-XXXXXXXXXX');
+    </script>
+
     <title>%WEB_TITLE%</title>
     <!-- PWA / "Add to Home Screen" support (docs/handoff/14-reset-icon-rewards-undefeated.md,
          section 2). Paths are relative (no leading slash) so they resolve the

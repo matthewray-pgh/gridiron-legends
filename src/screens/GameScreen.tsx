@@ -48,6 +48,7 @@ export function GameScreen() {
     currentPlayer,
     currentSpin,
     rerollsRemaining,
+    drillSuggestedPlayerId,
   } = useGameStore();
 
   // docs/handoff/09-ovr-visibility-reversal.md reverses the earlier "OVR
@@ -192,6 +193,7 @@ export function GameScreen() {
                           name={candidate.name}
                           meta={`${candidate.team} · ${parseYear(candidate.years)}`}
                           ovr={SHOW_DEBUG_OVR ? candidate.rating : undefined}
+                          suggested={candidate.id === drillSuggestedPlayerId}
                           selected={selected}
                           onPress={() => handleSelectPlayer(index)}
                           right={<PlayerRowStats metrics={getRowStatMetrics(candidate)} />}

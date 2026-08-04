@@ -71,10 +71,8 @@ export interface PackResolution {
   placement: PackPlacement;
 }
 
-// TODO_BALANCE: none of the amounts below are confirmed game balance — see
-// docs/handoff/03-legacy-mode.md > DECISION NEEDED ("Rings currency",
-// "Packs"). Stubbed as named placeholders per that doc's instruction not to
-// invent real numbers; update these constants once product signs off.
+// Finalized (docs/handoff/20-economy-balance-signoff.md, sections 3b/4) —
+// "unchanged" alongside that pass's ad-economy rework.
 //
 // dailyChallengeCompletion bumped 15 -> 40: at 15/day a Rookie pack (100)
 // took ~7 days and Legend (650) ~44 days with no other earn source, making
@@ -89,9 +87,10 @@ export const TODO_BALANCE_RINGS_SOURCES = {
 export const BENCH_CAPACITY = 6;
 
 // docs/handoff/08-dynasty-gameplay-redesign.md > point 4: exact reward
-// wasn't locked down beyond "one or two packs" — named constant, easy to
-// retune once product signs off. Each pack now opens PACK_CARD_COUNT cards
-// (data/packs.ts), so this is packs, not individual cards.
+// wasn't locked down beyond "one or two packs" — resolved to 1 and approved
+// for ship (docs/handoff/20-economy-balance-signoff.md, section 4, "Ship
+// as-is"). Each pack now opens PACK_CARD_COUNT cards (data/packs.ts), so
+// this is packs, not individual cards.
 export const TODO_BALANCE_SEASON_END_PACKS = 1;
 
 // docs/handoff/13-ad-monetization-economy.md, section 3 — the season-end

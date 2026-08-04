@@ -17,7 +17,7 @@ export const LEADERBOARD_ENABLED = false;
 // flag (that's a permanent rule, not a testing aid — see data/players.ts
 // sortRecords and GameScreen.tsx's groupedCandidates). Flip to `false` (or
 // delete the display code) before launch.
-export const SHOW_DEBUG_OVR = true;
+export const SHOW_DEBUG_OVR = false;
 
 // Ad monetization (docs/handoff/13-ad-monetization-economy.md) — per-
 // placement rather than one master flag (confirmed with the user: lets one

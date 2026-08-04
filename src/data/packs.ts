@@ -48,8 +48,9 @@ const RARITY_RATING_BANDS: Record<PackRarity, { min: number; max: number }> = {
   legend: { min: 93, max: 100 },
 };
 
-// TODO_BALANCE: dupe-pull Rings refund value is a placeholder — see
-// docs/handoff/03-legacy-mode.md > DECISION NEEDED ("dupe protection").
+// Finalized unchanged (docs/handoff/20-economy-balance-signoff.md, section
+// 3c) — already small relative to the ad economy's 200 Rings/day ceiling,
+// didn't need adjustment alongside that rework.
 export const TODO_BALANCE_DUPE_REFUND_RINGS = 25;
 
 // Finalized (docs/handoff/20-economy-balance-signoff.md, section 2c) — flat
@@ -89,13 +90,14 @@ export interface PackTier {
   description: string;
 }
 
-// TODO_BALANCE: tier costs and odds are placeholders pending product
-// balancing — see docs/handoff/03-legacy-mode.md > DECISION NEEDED
-// ("Packs") and docs/handoff/gridiron-legends-shop-mockups.html. Weights
-// shifted toward higher rarities across all three tiers (docs/handoff/
-// 19-season-flow-pack-rebalance-shop-polish_1.md, section 2) — still
-// placeholder numbers pending real playtesting, just re-anchored to higher
-// floors / more high-tier weight per pack rather than the original values.
+// Approved for ship (docs/handoff/20-economy-balance-signoff.md, section 1)
+// — "current odds approved, feels right in-game." Weights were re-anchored
+// once already (docs/handoff/19-season-flow-pack-rebalance-shop-polish_1.md,
+// section 2) toward higher rarities across all three tiers after a math
+// check showed a drafted roster's ~90 avgRating sat inside the old Legend
+// band. That doc's own "Open flag" still stands, though: approval here is
+// "ship this curve," not "this curve is verified correct" — it's still an
+// unconfirmed guess long-term, just no longer blocking release.
 export const PACK_TIERS: PackTier[] = [
   {
     id: 'rookie',

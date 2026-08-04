@@ -392,7 +392,7 @@ export function RosterSaveBar({ editor, onHeightChange }: {
               ))}
             </ScrollView>
             <View style={styles.pendingRetireTotalRow}>
-              <Text style={styles.pendingRetireTotalLabel}>Trophies earned if saved</Text>
+              <Text style={styles.pendingRetireTotalLabel}>Rings earned if saved</Text>
               <Text style={styles.pendingRetireTotalValue}>+{totalRetireValue} <RingsIcon size={13} /></Text>
             </View>
           </View>

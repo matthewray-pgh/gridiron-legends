@@ -111,9 +111,14 @@ export function TwoMinuteDrillSpinScreen() {
 
   const teamBonus = teamLockResult === 'hit';
   const eraBonus = eraLockResult === 'hit';
+  // docs/handoff/21-economy-balance-signoff.md section 8 — additive on top
+  // of the two per-track bonuses above, not a replacement: hitting both
+  // also flags a draft suggestion once the candidate list loads.
+  const bothBonus = teamBonus && eraBonus;
   const bonusLine = [
     teamBonus ? `+${DRILL_TEAM_LOCK_REROLL_BONUS} reroll (team lock)` : null,
     eraBonus ? `+${DRILL_ERA_LOCK_OVR_BONUS} OVR first pick (era lock)` : null,
+    bothBonus ? '★ draft suggestion unlocked' : null,
   ].filter(Boolean).join('   ');
 
   return (
