@@ -379,10 +379,21 @@ function applySeasonOutcome(
   };
 }
 
+function lowestRatedBenchIndex(bench: Player[]): number {
+  let lowestIndex = 0;
+  bench.forEach((player, i) => {
+    if (player.rating < bench[lowestIndex].rating) lowestIndex = i;
+  });
+  return lowestIndex;
+}
+
 // Bench is full — auto-release the lowest-rated occupant to make room
 // rather than blocking the incoming player or asking a separate question
 // per card (confirmed with the user: pack resolution is a single batched
-// choice, not a sequential decision chain).
+// choice, not a sequential decision chain). previewPackResolutionReleases
+// below mirrors this same rule read-only, so the UI can warn *before*
+// committing to it — this silently swapping out an existing bench player
+// with zero warning was itself reported as a bug.
 function makeRoomOnBench(
   bench: Player[],
   hallOfFame: HallOfFameEntry[],
@@ -393,13 +404,47 @@ function makeRoomOnBench(
   if (bench.length < BENCH_CAPACITY) {
     return { bench: [...bench, incoming], hallOfFame };
   }
-  let lowestIndex = 0;
-  bench.forEach((player, i) => {
-    if (player.rating < bench[lowestIndex].rating) lowestIndex = i;
-  });
+  const lowestIndex = lowestRatedBenchIndex(bench);
   const released = bench[lowestIndex];
   const nextBench = [...bench.slice(0, lowestIndex), ...bench.slice(lowestIndex + 1), incoming];
   return { bench: nextBench, hallOfFame: [...hallOfFame, makeHallOfFameEntry(released, currentSeason, allTimeRecord)] };
+}
+
+// Read-only dry run of resolvePackPulls' bench-capacity handling — returns
+// whoever would get auto-retired to make room, without touching the store.
+// PackOpeningScreen calls this before actually resolving a batch of "Add
+// Selected" picks so it can confirm with the player first instead of
+// silently swapping an existing bench player out for Rings.
+export function previewPackResolutionReleases(
+  resolutions: PackResolution[],
+  roster: DynastyRoster,
+  bench: Player[],
+): Player[] {
+  let nextRoster = roster;
+  let nextBench = bench;
+  const released: Player[] = [];
+
+  function makeRoom(incoming: Player) {
+    if (nextBench.length < BENCH_CAPACITY) {
+      nextBench = [...nextBench, incoming];
+      return;
+    }
+    const lowestIndex = lowestRatedBenchIndex(nextBench);
+    released.push(nextBench[lowestIndex]);
+    nextBench = [...nextBench.slice(0, lowestIndex), ...nextBench.slice(lowestIndex + 1), incoming];
+  }
+
+  resolutions.forEach(({ player, placement }) => {
+    if (placement === 'start') {
+      const displaced = nextRoster[player.position];
+      nextRoster = { ...nextRoster, [player.position]: player };
+      if (displaced) makeRoom(displaced);
+    } else {
+      makeRoom(player);
+    }
+  });
+
+  return released;
 }
 
 const STORAGE_KEY = 'dynasty-store';

@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Animated, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Alert, Animated, Platform, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Font, Radius, Spacing, Typography } from '../theme/colors';
 import { PACK_CARD_COUNT, PACK_TIERS, TODO_BALANCE_TROPHY_ALL_RINGS_PER_CARD } from '../data/packs';
-import { PackPlacement, PackPullResult, PackResolution, useDynastyStore } from '../store/dynastyStore';
+import { PackPlacement, PackPullResult, PackResolution, previewPackResolutionReleases, useDynastyStore } from '../store/dynastyStore';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { SecondaryButton } from '../components/SecondaryButton';
 import { BrandBackground } from '../components/BrandBackground';
@@ -49,6 +49,7 @@ export function PackOpeningScreen() {
   const pack = useDynastyStore((s) => s.ownedPacks.find((p) => p.id === packId));
   const currentSeason = useDynastyStore((s) => s.currentSeason);
   const roster = useDynastyStore((s) => s.roster);
+  const bench = useDynastyStore((s) => s.bench);
   const openPack = useDynastyStore((s) => s.openPack);
   const resolvePackPulls = useDynastyStore((s) => s.resolvePackPulls);
   const earnRings = useDynastyStore((s) => s.earnRings);
@@ -136,6 +137,19 @@ export function PackOpeningScreen() {
     setRevealStarted(false);
   }
 
+  function commitAddSelected(resolutions: PackResolution[]) {
+    resolvePackPulls(resolutions);
+    closeReveal();
+  }
+
+  // Bench (and roster) capacity never actually blocks adding pack pulls —
+  // resolvePackPulls auto-retires the lowest-rated bench player to make
+  // room instead (dynastyStore.ts's makeRoomOnBench). That's a deliberate
+  // "batched choice, not a sequential decision chain" design, but doing it
+  // with zero warning read as a bug (roster/bench limits looking
+  // unenforced, since nothing visibly blocks the add — it just silently
+  // swaps someone out). previewPackResolutionReleases runs the same rule
+  // read-only so this can confirm first.
   function handleAddSelected() {
     if (!pulls || checkedCount === 0) return;
 
@@ -148,8 +162,26 @@ export function PackOpeningScreen() {
         return { player, placement };
       });
 
-    resolvePackPulls(resolutions);
-    closeReveal();
+    const wouldRelease = previewPackResolutionReleases(resolutions, roster, bench);
+    if (wouldRelease.length === 0) {
+      commitAddSelected(resolutions);
+      return;
+    }
+
+    const names = wouldRelease.map((p) => p.name).join(', ');
+    const message = `Your bench is full. Adding ${checkedCount === 1 ? 'this card' : 'these cards'} will auto-retire ${names} for Rings to make room. Continue?`;
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Bench is full\n\n${message}`)) commitAddSelected(resolutions);
+      return;
+    }
+    Alert.alert(
+      'Bench is full',
+      message,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Continue', style: 'destructive', onPress: () => commitAddSelected(resolutions) },
+      ],
+    );
   }
 
   // Cashes in every non-duplicate pull at once for a flat, rarity-blind

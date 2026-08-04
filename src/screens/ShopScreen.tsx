@@ -10,7 +10,7 @@ import {
 } from '../data/packs';
 import { GENERATED_ERA_OPTIONS, GeneratedEra } from '../data/players';
 import {
-  computeShopAdPreview, OwnedPack, PackSource, TODO_BALANCE_SHOP_AD_MAX_WATCHES_PER_DAY, totalOwnedPacks, useDynastyStore,
+  computeShopAdPreview, OwnedPack, PackSource, totalOwnedPacks, useDynastyStore,
 } from '../store/dynastyStore';
 import { SHOP_AD_RINGS_ENABLED } from '../config/featureFlags';
 import { PackArt } from '../components/PackArt';
@@ -22,7 +22,7 @@ import { PackOddsSheet } from '../components/PackOddsSheet';
 import { RewardedAdModal } from '../components/RewardedAdModal';
 import { useRewardedAd } from '../hooks/useRewardedAd';
 import { useResponsive } from '../hooks/useResponsive';
-import { useBounceOnIncrease, useCountUp, useLastNonNull, usePressScale, useShake } from '../hooks/useAnimations';
+import { useBounceOnIncrease, useCountUp, usePressScale, useShake } from '../hooks/useAnimations';
 import { FadeInOut } from '../components/animation/FadeInOut';
 import { RingsIcon } from '../components/RingsIcon';
 import type { RootStackParamList } from '../navigation/types';
@@ -57,77 +57,11 @@ function findTier(tierId: PackTierId): PackTier | undefined {
 
 // Shop's always-available "Watch Reward Ad for Rings" placement
 // (docs/handoff/13-ad-monetization-economy.md, section 1) — reward scales
-// on the daily watch streak rather than a flat per-watch amount. Shared by
-// both layouts like the pack tiles below.
-//
-// Only the first watch of the day is "the event" (streak + full reward);
-// watches 2-3 are a flat bonus top-up (docs/handoff/20-economy-balance-
-// signoff.md, section 3d) — the card sizes down for those so the smaller
-// payout reads as a smaller moment rather than just a smaller number on the
-// same-looking card.
-function ShopAdCard({ preview, onWatch, disabled, justEarned, style }: {
-  preview: { watchesRemainingToday: number; nextStreakDay: number; nextReward: number };
-  onWatch: () => void;
-  disabled: boolean;
-  justEarned: number | null;
-  style?: StyleProp<ViewStyle>;
-}) {
-  const dayLabel = preview.nextStreakDay >= 7 ? 'DAY 7+' : `DAY ${preview.nextStreakDay}`;
-  const displayEarned = useLastNonNull(justEarned);
-  const isBonusWatch = preview.watchesRemainingToday > 0
-    && preview.watchesRemainingToday < TODO_BALANCE_SHOP_AD_MAX_WATCHES_PER_DAY;
-
-  if (isBonusWatch) {
-    return (
-      <View style={[styles.adCard, styles.adCardBonus, style]}>
-        <FadeInOut visible={justEarned !== null}>
-          <Text style={styles.adCardEarned}>+{displayEarned} <RingsIcon size={13} /> EARNED</Text>
-        </FadeInOut>
-        <TouchableOpacity style={styles.adWatchBtnBonus} onPress={onWatch} activeOpacity={0.85}>
-          <Text style={styles.adWatchBtnBonusText}>
-            +{preview.nextReward} <RingsIcon size={12} color={Colors.gold} /> bonus watch available
-          </Text>
-          <Text style={styles.adPillChevron}>›</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  return (
-    <View style={[styles.adCard, style]}>
-      <View style={styles.adCardTop}>
-        <Text style={styles.adCardTitle}>Watch Reward Ad for Rings</Text>
-        <View style={styles.adCardStreakBadge}>
-          <Text style={styles.adCardStreakText}>{dayLabel} STREAK</Text>
-        </View>
-      </View>
-      <Text style={styles.adCardSub}>
-        {preview.watchesRemainingToday > 0
-          ? `${preview.watchesRemainingToday}/${TODO_BALANCE_SHOP_AD_MAX_WATCHES_PER_DAY} watches left today`
-          : 'Come back tomorrow for more'}
-      </Text>
-      <FadeInOut visible={justEarned !== null}>
-        <Text style={styles.adCardEarned}>+{displayEarned} <RingsIcon size={13} /> EARNED</Text>
-      </FadeInOut>
-      <TouchableOpacity
-        style={[styles.adWatchBtn, disabled && styles.adWatchBtnDisabled]}
-        onPress={onWatch}
-        disabled={disabled}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.adWatchBtnText}>
-          {preview.watchesRemainingToday > 0
-            ? <>▶ WATCH REWARD AD · +{preview.nextReward} <RingsIcon size={13} color={Colors.bgDark} /></>
-            : 'NO WATCHES LEFT TODAY'}
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-// Trigger for the ad-for-Rings card (item 5, docs/handoff/15-shop-pack-
-// flow-streamlining.md) — the full ShopAdCard only renders inside the
-// bottom sheet this opens. Originally sized as a small compact pill to
+// on the daily watch streak rather than a flat per-watch amount. This pill
+// *is* the watch button (onPress goes straight to handleWatchShopAd) — it
+// used to just open a confirmation sheet with the real button inside, but
+// that sheet showed nothing the pill didn't already (reward amount, watch
+// state), so it was a redundant tap before an already-informed action.
 // avoid competing with the Buy buttons; flagged as too easy to miss given
 // it's a real income avenue, so this is now a full-width banner with the
 // same visual weight as the pack tiles below it rather than a footnote
@@ -325,7 +259,6 @@ export function ShopScreen() {
   // shopAdStreakMaxedSeen true, so the pill's earned-pop can call it out
   // instead of the escalation just silently plateauing at Day 7+.
   const [adJustHitStreakMax, setAdJustHitStreakMax] = useState(false);
-  const [adSheetOpen, setAdSheetOpen] = useState(false);
   // "See all" opens a bottom sheet listing every owned pack (docs/handoff/
   // 19-season-flow-pack-rebalance-shop-polish_1.md, section 4) — supersedes
   // doc 18's My Packs tab, which is now redundant with the waiting strip.
@@ -351,7 +284,6 @@ export function ShopScreen() {
 
   async function handleWatchShopAd() {
     if (adPreview.watchesRemainingToday <= 0) return;
-    setAdSheetOpen(false);
     const willHitStreakMax = !shopAdStreakMaxedSeen && adPreview.nextStreakDay >= 7;
     const watched = await requestAd();
     if (!watched) return;
@@ -368,7 +300,7 @@ export function ShopScreen() {
       preview={adPreview}
       justEarned={adRingsJustEarned}
       justHitStreakMax={adJustHitStreakMax}
-      onPress={() => setAdSheetOpen(true)}
+      onPress={handleWatchShopAd}
     />
   );
 
@@ -576,25 +508,6 @@ export function ShopScreen() {
         )}
       />
 
-      {/* Ad-for-Rings sheet (item 5) — reuses the same overlay/sheet look as
-          PackOddsSheet above (styles.sheetOverlay/sheet/sheetWide/sheetHandle,
-          previously unused leftovers from before that sheet was its own
-          component) rather than a new sheet primitive, since ShopAdCard's
-          content shape doesn't fit PackOddsSheet's tier-odds-specific props. */}
-      <Modal visible={adSheetOpen} transparent animationType={isWide ? 'fade' : 'slide'} onRequestClose={() => setAdSheetOpen(false)}>
-        <Pressable style={[styles.sheetOverlay, isWide && styles.sheetOverlayWide]} onPress={() => setAdSheetOpen(false)}>
-          <Pressable style={[styles.sheet, isWide && styles.sheetWide]} onPress={(e) => e.stopPropagation()}>
-            {!isWide && <View style={styles.sheetHandle} />}
-            <ShopAdCard
-              preview={adPreview}
-              onWatch={handleWatchShopAd}
-              disabled={adPreview.watchesRemainingToday <= 0}
-              justEarned={adRingsJustEarned}
-            />
-          </Pressable>
-        </Pressable>
-      </Modal>
-
       {/* My Packs sheet (docs/handoff/19-season-flow-pack-rebalance-shop-
           polish_1.md, section 4) — "See all" beyond WAITING_STRIP_CAP opens
           this instead of navigating into a separate tab; same tile family
@@ -632,39 +545,6 @@ export function ShopScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bgPrimary },
-
-  adCard: {
-    backgroundColor: Colors.bgCard, borderWidth: 1.5, borderColor: Colors.gold, borderRadius: Radius.lg,
-    padding: 16, marginBottom: Spacing.lg,
-  },
-  adCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  adCardTitle: { fontSize: Typography.md, color: Colors.textPrimary, fontFamily: Font.primaryBold, letterSpacing: 0.3 },
-  adCardStreakBadge: { borderWidth: 1, borderColor: Colors.gold, borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 3 },
-  adCardStreakText: { fontSize: Typography.xs, color: Colors.gold, fontFamily: Font.mono, letterSpacing: 0.5 },
-  adCardSub: { fontSize: Typography.base, color: Colors.textMuted, fontFamily: Font.secondaryRegular, marginBottom: 12 },
-  adCardEarned: {
-    fontSize: Typography.sm, color: Colors.gold, fontFamily: Font.primaryBold, marginBottom: 10, letterSpacing: 0.5,
-  },
-  // alignSelf: 'flex-start' so this hugs its label instead of stretching
-  // to the card's full width (adCard's default column/stretch layout).
-  adWatchBtn: {
-    alignSelf: 'flex-start',
-    minHeight: 46, borderRadius: Radius.md, borderWidth: 1, borderColor: '#F5DC7A',
-    backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20,
-  },
-  adWatchBtnDisabled: { backgroundColor: 'transparent', borderColor: Colors.border },
-  adWatchBtnText: { color: Colors.bgDark, fontFamily: Font.primaryBold, fontSize: Typography.lg, letterSpacing: 0.6 },
-
-  // Smaller, quieter treatment for the 2nd/3rd watch of the day (docs/
-  // handoff/20-economy-balance-signoff.md, section 3d) — a top-up
-  // affordance, not the full-card "event" the first watch gets.
-  adCardBonus: { padding: 12, borderWidth: 1, borderColor: Colors.border },
-  adWatchBtnBonus: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    minHeight: 40, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.gold,
-    backgroundColor: 'transparent', paddingHorizontal: 14,
-  },
-  adWatchBtnBonusText: { color: Colors.gold, fontFamily: Font.primaryBold, fontSize: Typography.sm, letterSpacing: 0.3 },
 
   adPill: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -851,14 +731,9 @@ const styles = StyleSheet.create({
   sidebarWaitingGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
 
   sheetOverlay: { flex: 1, backgroundColor: '#000000A8', justifyContent: 'flex-end' },
-  sheetOverlayWide: { justifyContent: 'center', alignItems: 'center' },
   sheet: {
     backgroundColor: Colors.bgCard, borderTopLeftRadius: 20, borderTopRightRadius: 20,
     paddingHorizontal: Spacing.lg, paddingTop: 20, paddingBottom: 24, borderTopWidth: 1.5, borderTopColor: Colors.rarityLegend,
-  },
-  sheetWide: {
-    maxWidth: 420, width: '100%', alignSelf: 'center',
-    borderRadius: 20, borderWidth: 1.5, borderColor: Colors.rarityLegend,
   },
   sheetHandle: { width: 36, height: 4, backgroundColor: Colors.border, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
   sheetTitle: { fontFamily: Font.primaryBold, fontSize: Typography.xl, letterSpacing: 0.5, textAlign: 'center', color: Colors.green },
