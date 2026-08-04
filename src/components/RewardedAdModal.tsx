@@ -35,7 +35,7 @@ export function RewardedAdModal({ visible, onComplete, onCancel }: RewardedAdMod
         <View style={styles.card}>
           <Text style={styles.label}>AD PLAYING…</Text>
           <Text style={styles.countdown}>{secondsLeft}</Text>
-          <Text style={styles.hint}>Simulated ad — no ad network is connected yet.</Text>
+          <Text style={styles.hint}>Simulated ad — real ads aren't available in a web browser.</Text>
           <Pressable onPress={onCancel} hitSlop={10} style={styles.cancelBtn}>
             <Text style={styles.cancelText}>Cancel</Text>
           </Pressable>

@@ -161,9 +161,35 @@ export function DynastyHomeScreen() {
   // record with no visual — mode must be set here since this flow never
   // touches gameStore's draft machinery, so gameStore.mode could otherwise
   // be stale from an unrelated earlier run.
-  function handleStartSeason() {
+  function beginSeason() {
     setGameMode('dynasty');
     navigation.navigate('Result', { dynastyContinuation: true });
+  }
+
+  // editor.dirty means there are staged Bench/Start/Retire moves that
+  // haven't gone through "Save Changes" yet (useRosterEditor.handleSave) —
+  // navigating away here abandons that staged session with no commit, same
+  // as tapping Discard, but previously with no warning at all that it was
+  // about to happen. Same web/native confirm split as handleResetDynasty
+  // above (window.confirm is a no-op on react-native-web's Alert).
+  function handleStartSeason() {
+    if (!editor.dirty) {
+      beginSeason();
+      return;
+    }
+    const message = 'You have unsaved roster changes (Bench/Start/Retire moves). Starting the season will discard them — go back and tap Save Changes first if you want to keep them.';
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Discard unsaved roster changes?\n\n${message}`)) beginSeason();
+      return;
+    }
+    Alert.alert(
+      'Discard unsaved roster changes?',
+      message,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Discard & Start Season', style: 'destructive', onPress: beginSeason },
+      ],
+    );
   }
 
   // Entering Dynasty with no roster yet now always lands here first (rather
