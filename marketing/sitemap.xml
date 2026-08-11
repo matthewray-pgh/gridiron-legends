@@ -6,8 +6,7 @@
   web ships as CSR by default). If individual app screens ever get
   server-rendered or get their own static routes, add them here.
 
-  TODO: update <loc> to the real production domain before launch,
-  and bump <lastmod> whenever a given page's content changes.
+  Bump <lastmod> whenever a given page's content changes.
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
@@ -31,6 +30,12 @@
   <url>
     <loc>https://undefeatedgridironlegends.com/privacy.html</loc>
     <lastmod>2026-08-02</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://undefeatedgridironlegends.com/terms.html</loc>
+    <lastmod>2026-08-11</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>

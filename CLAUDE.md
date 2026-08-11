@@ -23,11 +23,22 @@ deploy path.
     `marketing/*.html` + `sitemap.xml` + `robots.txt` into `dist/` root,
     copies static marketing images into `dist/assets/` (kept separate
     from the app's own Metro-hashed assets under `dist/play/`), and
-    writes a `dist/_redirects` file so `/play/*` deep links fall back to
-    `dist/play/index.html` (200, SPA-style) instead of 404ing.
-  - If you ever touch this script, keep the `/play/` split and the
-    `_redirects` rule — removing either breaks either routing or the
-    root/app collision this was built to avoid.
+    writes a `dist/_redirects` file.
+  - **`/play/*` deep-link fallback is handled by a Pages Function, not
+    `_redirects`.** Cloudflare's redirects engine rejects
+    `/play/*  /play/index.html  200` as a self-referential infinite loop
+    (the destination matches the rule's own source pattern) and silently
+    drops it — confirmed against `wrangler pages dev`, not just a local
+    quirk. `functions/play/[[catchall]].js` (repo root, alongside
+    `marketing/` and `scripts/`) is the actual fallback: it catches any
+    `/play/*` request with no matching static file and returns
+    `/play/index.html` via `env.ASSETS.fetch()` with a real 200. Without
+    it, Cloudflare's nested-`404.html` behavior still serves the right
+    app content, but with a 404 status instead of 200.
+  - If you ever touch this script, keep the `/play/` split — removing it
+    breaks the root/app collision this was built to avoid. The
+    `_redirects` file's `/play` (no trailing slash) rule is still valid
+    and needed; don't assume its rejected `/play/*` line does anything.
 - **Hosting**: Cloudflare Pages, Git-integrated — builds and deploys
   automatically on every push to `main`; every PR gets its own preview URL
 - **Domain**: registered through Cloudflare Registrar, DNS managed in the
@@ -37,10 +48,9 @@ deploy path.
   juggling and no GitHub-side cert flow involved
 - **Analytics**: Cloudflare Web Analytics, enabled on the Pages project
   (cookieless, no consent banner needed)
-- **Known open TODOs surfaced by the build script**: `iphone-splash.png`
-  and `social-share.png` may not exist yet under `marketing/assets/` or
-  `assets/` — the script warns rather than fails if they're missing, but
-  the marketing page will have a broken image until they're added.
+- Both `iphone-splash.png` and `social-share.png` exist under
+  `marketing/assets/` — the build script still warns rather than fails
+  if either goes missing, so re-check after any asset reshuffle.
 
 If asked to change hosting/deploy config, confirm with the user before
 switching away from Cloudflare Pages — this was a deliberate choice over
@@ -51,10 +61,12 @@ GitHub Pages and Vercel.
 - Google AdSense is the target ad provider. AdSense requires a live,
   fully-functional site on the real domain before applying — do not treat
   "add ads" as a pre-launch blocker; it comes after the site is live.
-- `marketing/privacy.html`, `marketing/about.html`, `marketing/contact.html`
-  exist to satisfy AdSense's trust-page requirements. They contain `TODO`
-  comments for the real domain and contact email — check these are filled
-  in before treating the site as launch-ready.
+- `marketing/privacy.html`, `marketing/about.html`, `marketing/contact.html`,
+  `marketing/terms.html` exist to satisfy AdSense's trust-page requirements
+  (Terms of Use isn't an AdSense requirement itself, but was added for
+  liability coverage and to reinforce the NFL non-affiliation language).
+  They contain `TODO` comments for the real domain and contact email —
+  check these are filled in before treating the site as launch-ready.
 - Legal disclaimer (NFL non-affiliation) must remain visible; this project
   is not affiliated with or endorsed by the NFL, NFLPA, or any NFL team.
 

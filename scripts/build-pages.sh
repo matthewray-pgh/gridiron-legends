@@ -24,6 +24,7 @@ echo "==> Copying marketing site into dist/"
 cp marketing/index.html   dist/index.html
 cp marketing/about.html   dist/about.html
 cp marketing/privacy.html dist/privacy.html
+cp marketing/terms.html   dist/terms.html
 cp marketing/contact.html dist/contact.html
 cp marketing/sitemap.xml  dist/sitemap.xml
 cp marketing/robots.txt   dist/robots.txt
@@ -53,8 +54,8 @@ copy_marketing_asset "stadium-bg.png"
 copy_marketing_asset "field-bg.png"
 copy_marketing_asset "favicon.png"
 copy_marketing_asset "icon.png"
-copy_marketing_asset "iphone-splash.png"   # TODO: confirm this exists — referenced in the CTA band
-copy_marketing_asset "social-share.png"    # TODO: known-missing per earlier OG/Twitter meta tag TODOs
+copy_marketing_asset "iphone-splash.png"   # referenced in the CTA band
+copy_marketing_asset "social-share.png"    # referenced by OG/Twitter meta tags
 
 echo "==> Writing _redirects for SPA routing under /play/"
 cat > dist/_redirects <<'EOF'
@@ -64,7 +65,7 @@ EOF
 
 echo "==> Done. dist/ is ready to deploy:"
 echo "    dist/index.html        (marketing landing page)"
-echo "    dist/about.html, privacy.html, contact.html"
+echo "    dist/about.html, privacy.html, terms.html, contact.html"
 echo "    dist/sitemap.xml, robots.txt"
 echo "    dist/assets/*          (marketing images)"
 echo "    dist/play/*            (the game, Expo web export)"
