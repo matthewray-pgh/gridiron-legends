@@ -1,7 +1,14 @@
 {
   "name": "gridiron-legends",
   "compatibility_date": "2026-08-12",
+  "main": "src/worker.js",
   "assets": {
-    "directory": "./dist"
+    // Merged output from scripts/build-pages.sh:
+    //   dist/index.html, about.html, privacy.html, terms.html, contact.html
+    //   dist/play/          (the Expo web app)
+    "directory": "./dist",
+    // Lets src/worker.js call env.ASSETS.fetch() to serve /play/ as the
+    // SPA fallback for deep links with no matching static file.
+    "binding": "ASSETS"
   }
 }
