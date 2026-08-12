@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Builds a single Cloudflare Pages deploy that merges two things into one
+# Builds a single Cloudflare Workers deploy that merges two things into one
 # dist/ output:
 #   - the marketing landing page + legal pages, served at the domain root
 #   - the Expo web app (the actual game), served under /play/
 #
-# Cloudflare Pages settings:
-#   Build command:    bash scripts/build-pages.sh
-#   Output directory: dist
+# Cloudflare dashboard settings (Workers Builds):
+#   Build command:   bash scripts/build-pages.sh
+#   Deploy command:  npx wrangler deploy   (reads wrangler.jsonc for the rest)
 set -euo pipefail
 
 echo "==> Cleaning dist/"
@@ -15,10 +15,6 @@ mkdir -p dist
 
 echo "==> Building the app into dist/play/"
 npx expo export -p web --output-dir dist/play
-
-# SPA fallback: any deep link under /play/... (e.g. /play/leaderboard) needs
-# to still load the app's index.html so client-side routing can take over.
-cp dist/play/index.html dist/play/404.html
 
 echo "==> Copying marketing site into dist/"
 cp marketing/index.html   dist/index.html
@@ -57,11 +53,11 @@ copy_marketing_asset "icon.png"
 copy_marketing_asset "iphone-splash.png"   # referenced in the CTA band
 copy_marketing_asset "social-share.png"    # referenced by OG/Twitter meta tags
 
-echo "==> Writing _redirects for SPA routing under /play/"
-cat > dist/_redirects <<'EOF'
-/play    /play/index.html   200
-/play/*  /play/index.html   200
-EOF
+# NOTE: no _redirects file is written here anymore. A /play/* SPA-fallback
+# rule in _redirects gets rejected by Cloudflare as a self-referential
+# rule (destination matches the rule's own source pattern) and is silently
+# dropped. That fallback is instead handled by src/worker.js at deploy
+# time via the ASSETS binding — see wrangler.jsonc's "main" field.
 
 echo "==> Done. dist/ is ready to deploy:"
 echo "    dist/index.html        (marketing landing page)"
@@ -69,4 +65,4 @@ echo "    dist/about.html, privacy.html, terms.html, contact.html"
 echo "    dist/sitemap.xml, robots.txt"
 echo "    dist/assets/*          (marketing images)"
 echo "    dist/play/*            (the game, Expo web export)"
-echo "    dist/_redirects        (SPA fallback for /play/*)"
+echo "    /play/* SPA fallback handled by src/worker.js, not this script"

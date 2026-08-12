@@ -4,14 +4,17 @@
 
 ## Hosting & Deployment
 
-**Decision: Cloudflare Pages.** Do not use GitHub Pages, `gh api .../pages`,
-or GitHub's Let's Encrypt cert flow — that was an earlier, rejected approach
-and is not what's deployed. If you find `.github/workflows/deploy-pages.yml`
-(GitHub Pages) in this repo, treat it as retired/disabled, not the active
-deploy path.
+**Decision: Cloudflare Workers (static assets + a custom worker script),
+via Workers Builds.** Originally deployed as Cloudflare Pages (Git-integrated);
+migrated to Workers on 2026-08-12 to get a real worker script for `/play/*`
+SPA-fallback routing (Pages' `_redirects` couldn't express that rule — see
+below). Do not use GitHub Pages, `gh api .../pages`, or GitHub's Let's
+Encrypt cert flow — that was an earlier, rejected approach and is not what's
+deployed. If you find `.github/workflows/deploy-pages.yml` (GitHub Pages) in
+this repo, treat it as retired/disabled, not the active deploy path.
 
 - **Site structure (Option A, confirmed)**: marketing site and app are
-  ONE Cloudflare Pages project, not two. Marketing lands at `/`, the game
+  ONE Cloudflare project, not two. Marketing lands at `/`, the game
   lives under `/play/`. This matches what `marketing/index.html` and
   `marketing/sitemap.xml` already assume (CTA links point at `/play`) —
   don't "fix" those links to point at a separate domain/subdomain.
@@ -21,40 +24,42 @@ deploy path.
   - Output directory: `dist`
   - The script: exports the Expo app into `dist/play/`, copies
     `marketing/*.html` + `sitemap.xml` + `robots.txt` into `dist/` root,
-    copies static marketing images into `dist/assets/` (kept separate
-    from the app's own Metro-hashed assets under `dist/play/`), and
-    writes a `dist/_redirects` file.
-  - **`/play/*` deep-link fallback is handled by a Pages Function, not
-    `_redirects`.** Cloudflare's redirects engine rejects
-    `/play/*  /play/index.html  200` as a self-referential infinite loop
-    (the destination matches the rule's own source pattern) and silently
-    drops it — confirmed against `wrangler pages dev`, not just a local
-    quirk. `functions/play/[[catchall]].js` (repo root, alongside
-    `marketing/` and `scripts/`) is the actual fallback: it catches any
-    `/play/*` request with no matching static file and returns
-    `/play/index.html` via `env.ASSETS.fetch()` with a real 200. Without
-    it, Cloudflare's nested-`404.html` behavior still serves the right
-    app content, but with a 404 status instead of 200.
-  - If you ever touch this script, keep the `/play/` split — removing it
-    breaks the root/app collision this was built to avoid. The
-    `_redirects` file's `/play` (no trailing slash) rule is still valid
-    and needed; don't assume its rejected `/play/*` line does anything.
-- **Hosting**: Cloudflare Pages, Git-integrated — builds and deploys
-  automatically on every push to `main`; every PR gets its own preview URL
+    and copies static marketing images into `dist/assets/` (kept
+    separate from the app's own Metro-hashed assets under `dist/play/`).
+  - It no longer writes a `dist/_redirects` file — `/play/*` fallback is
+    handled by `src/worker.js` instead (see below). If you ever touch
+    this script, keep the `/play/` split — removing it breaks the
+    root/app collision this was built to avoid.
+- **`/play/*` SPA fallback is `src/worker.js`, not `_redirects`.**
+  Cloudflare's redirects engine rejects `/play/*  /play/index.html  200`
+  as a self-referential infinite loop (the destination matches the
+  rule's own source pattern) and silently drops it — confirmed against
+  `wrangler pages dev`'s actual redirects engine, not a local quirk. An
+  earlier fix used a Pages Function (`functions/play/[[catchall]].js`),
+  but Pages Functions' auto-discovered `functions/` folder convention is
+  not honored by `wrangler deploy` (the Workers deploy path this project
+  now uses) — that file was deleted as dead code once `src/worker.js`
+  took over the same job via `wrangler.jsonc`'s `main` field and the
+  `assets.binding: "ASSETS"` binding.
+- **Hosting**: Cloudflare Workers, via Workers Builds (Git-integrated) —
+  builds and deploys automatically on every push to `main`. The
+  Cloudflare dashboard project must be configured for Workers Builds,
+  not classic Pages Git integration, with deploy command
+  `npx wrangler deploy` (reads the rest from `wrangler.jsonc`).
 - **Domain**: registered through Cloudflare Registrar, DNS managed in the
   same Cloudflare account
-- **Custom domain + SSL**: configured entirely inside the Cloudflare Pages
-  project (Custom Domains tab) — auto-provisioned, no manual DNS record
-  juggling and no GitHub-side cert flow involved
-- **Analytics**: Cloudflare Web Analytics, enabled on the Pages project
+- **Custom domain + SSL**: configured entirely inside the Cloudflare
+  Workers project (Custom Domains / Triggers) — auto-provisioned, no
+  manual DNS record juggling and no GitHub-side cert flow involved
+- **Analytics**: Cloudflare Web Analytics, enabled on the project
   (cookieless, no consent banner needed)
 - Both `iphone-splash.png` and `social-share.png` exist under
   `marketing/assets/` — the build script still warns rather than fails
   if either goes missing, so re-check after any asset reshuffle.
 
-If asked to change hosting/deploy config, confirm with the user before
-switching away from Cloudflare Pages — this was a deliberate choice over
-GitHub Pages and Vercel.
+If asked to change hosting/deploy config again, confirm with the user
+before switching away from Cloudflare Workers — this migration from Pages
+was itself a deliberate, confirmed choice, not an accident to revert.
 
 ## Monetization & Legal
 
