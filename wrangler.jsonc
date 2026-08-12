@@ -1,10 +1,7 @@
 {
-  // Must match the "Project Name" you enter in the Cloudflare dashboard
-  // when connecting this repo, or the build will fail.
   "name": "gridiron-legends",
-  // Pages-specific key — without this, Cloudflare Pages won't treat this
-  // file as its config source at all (this is the Workers static-assets
-  // schema otherwise; see CLAUDE.md's "Decision: Cloudflare Pages").
-  "pages_build_output_dir": "./dist",
-  "compatibility_date": "2026-08-11"
+  "compatibility_date": "2026-08-12",
+  "assets": {
+    "directory": "./dist"
+  }
 }
