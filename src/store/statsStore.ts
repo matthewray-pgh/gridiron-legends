@@ -21,9 +21,9 @@ interface StatsState {
 }
 
 export const useStatsStore = create<StatsState>((set, get) => ({
-  streak: 5,
-  totalGames: 42,
-  bestRecord: '18-2',
+  streak: 0,
+  totalGames: 0,
+  bestRecord: '0-0',
   leaderboard: [
     { rank: 1, username: 'GridironKing88', record: '18-2', wins: 18, flag: '🇺🇸' },
     { rank: 2, username: 'FootballIQ_Pro', record: '17-3', wins: 17, flag: '🇨🇦' },
