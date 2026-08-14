@@ -125,6 +125,15 @@ function pickSpinResult(params: {
   };
 }
 
+// A multi-slot-eligible player (e.g. an RB eligible for both RB and FLEX)
+// otherwise stays in the candidate pool for every position they're still
+// eligible for even after being drafted into one of them — getAllPlayersForSpin
+// only knows about open *positions*, not which individual players are
+// already sitting in the roster under a different slot.
+function draftedPlayerIds(roster: Partial<Record<Position, Player>>): Set<string> {
+  return new Set(Object.values(roster).map((player) => player!.id));
+}
+
 export interface GameState {
   mode: GameMode;
   teamScope: TeamScope;
@@ -326,6 +335,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     // currentCandidates() would use once revealed.
     const suggestedPlayerId = nextTeamLock === 'hit' && nextEraLock === 'hit'
       ? getAllPlayersForSpin(drillPending.spin, get().openPositions())
+        .filter((candidate) => !draftedPlayerIds(get().roster).has(candidate.id))
         .reduce<Player | null>((best, candidate) => (
           !best || candidate.rating > best.rating ? candidate : best
         ), null)?.id ?? null
@@ -357,7 +367,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   currentCandidates: () => {
     const currentSpin = get().currentSpin;
     if (!currentSpin) return [];
-    return getAllPlayersForSpin(currentSpin, get().openPositions());
+    return getAllPlayersForSpin(currentSpin, get().openPositions())
+      .filter((player) => !draftedPlayerIds(get().roster).has(player.id));
   },
 
   currentPlayer: () => {

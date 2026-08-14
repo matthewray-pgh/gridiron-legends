@@ -24,6 +24,7 @@ cp marketing/terms.html   dist/terms.html
 cp marketing/contact.html dist/contact.html
 cp marketing/sitemap.xml  dist/sitemap.xml
 cp marketing/robots.txt   dist/robots.txt
+cp marketing/ads.txt      dist/ads.txt
 
 # Marketing's HTML references images with literal, unhashed paths
 # (assets/stadium-bg.png, assets/field-bg.png, /assets/favicon.png, etc.).
