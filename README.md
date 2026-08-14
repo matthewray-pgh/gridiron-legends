@@ -1,13 +1,15 @@
 # Gridiron Legends
 
-Gridiron Legends is a mobile game prototype built with Expo + React Native where players draft all-time football rosters and simulate a 20-game season.
+Gridiron Legends is a mobile/web game built with Expo + React Native where players spin for era-locked players to draft all-time football rosters and simulate a 20-game season.
 
 This repository currently includes:
-- Home, Game, Results, and Leaderboard screens
-- Browse-and-pick roster drafting flow
-- Multiple game modes (Daily, Classic, Gridiron IQ)
+- Home, Spin, Two-Minute Drill, Game, Results, Leaderboard, Dynasty, Shop, Pack Opening, and Hall of Fame screens
+- Spin-to-reveal roster drafting flow, with a "Lock It In" skill-spin variant (Two-Minute Drill)
+- Multiple game modes: Daily Challenge, Classic, Offense Only, Two-Minute Drill, and Dynasty (persistent-save mode with Rings currency, packs, and retirement/Hall of Fame)
 - Season simulation and share output
+- A marketing site (`marketing/`) served alongside the app under `/play/`
 - Zustand state management and typed navigation
+- Feature flags (`src/config/featureFlags.ts`) gating Dynasty, Leaderboard, Hall of Fame, and ad placements independently
 
 ## Tech Stack
 
@@ -16,6 +18,8 @@ This repository currently includes:
 - React Navigation (native stack)
 - Zustand
 - React Native Reanimated
+- react-native-google-mobile-ads (AdMob, rewarded ads)
+- Hosted on Cloudflare Workers (see `CLAUDE.md` for deploy details)
 
 ## Getting Started
 
@@ -98,19 +102,36 @@ cd data_generator
 ../.venv/bin/python generator.py
 ```
 
+## Deployment
+
+Hosted on Cloudflare Workers (static assets + `src/worker.js` for `/play/*`
+SPA-fallback routing), deployed automatically via Workers Builds on every
+push to `main`. Build locally with:
+
+```bash
+bash scripts/build-pages.sh
+```
+
+This exports the Expo web app into `dist/play/` and copies the marketing
+site (`marketing/`) into `dist/` root as one combined deploy — marketing
+lands at `/`, the game at `/play/`. See `CLAUDE.md` for the full hosting
+history and rationale.
+
 ## Gameplay Notes
 
-- Draft positions: QB, RB, WR, TE, FLEX, EDGE, DT, LB, CB, S, D-FLEX
-- Browse the full candidate list for the open position and tap any eligible player to assign them to any eligible open slot
-- Gridiron IQ mode hides OVR/tier so picks are made blind, rather than limiting how many players you can browse
+- Draft positions: QB, RB, WR, TE, FLEX, EDGE, DT, LB, CB, S, D-FLEX (Offense Only mode drops to 9 offense-side slots)
+- Each round spins a team + era; the resulting candidate pool is filtered to players eligible for a still-open slot and not already drafted into another slot
+- Two-Minute Drill adds a timed "Lock It In" mechanic on top of the spin for reroll/OVR bonuses
+- Daily Challenge uses a seeded RNG so every player gets the same spins/results on a given calendar day
+- Dynasty mode persists a roster across seasons (AsyncStorage-backed), earning Rings currency and packs, with retired players tracked in Hall of Fame
 - Final roster simulates a full 20-game run
 
 ## Product Direction
 
 Planned milestones:
-- Real backend services (Supabase + Fastify)
-- Daily global seed generation
-- Persistent profiles and streak tracking
+- Real backend (Supabase — Postgres + Auth + Storage, called client-side; a thin Cloudflare Workers layer if deeper server logic is ever needed)
+- Cross-device sync for roster/streak/Dynasty progress (currently client-side only via AsyncStorage)
+- Leaderboard and cross-device Hall of Fame, both gated behind the future backend
 - Async friend challenges and matchmaking
 - Push notifications and achievements
 
