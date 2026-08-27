@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Google Analytics (GA4) — TODO: replace G-XXXXXXXXXX with the real
+     Measurement ID (see marketing/index.html for the fuller note). -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-XXXXXXXXXX');
+</script>
+
+<title>FAQ — Undefeated: Gridiron Legends</title>
+<meta name="description" content="Frequently asked questions about Undefeated: Gridiron Legends — how the season simulation works, what OVR means, saving progress, and more.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://undefeatedgridironlegends.com/faq.html">
+
+<link rel="icon" href="/assets/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/assets/icon.png">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "How is the season simulated — is it random, stat-based, or both?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Both. Each game's outcome is weighted by your roster's average overall rating against a difficulty level that rises as the season goes on, but every game keeps some randomness — a strong roster is favored, not guaranteed, and a weak roster always keeps a chance."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What does OVR mean and how is it calculated?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "OVR is a player's overall rating, generated from their real NFL statistical production using a formula specific to their position, then ranked against their peers at that position. It reflects actual on-field production, not a subjective score."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How often does the Daily Challenge roster change?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Once a day. A new Daily Challenge unlocks every day, generated from a seed tied to the calendar date, so everyone who plays that day gets the identical sequence of spins and season outcome for a given roster."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is my progress saved?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, but only locally on your device via your browser's storage. There's no account system and no cross-device sync yet, so clearing your browser's site data or switching devices/browsers will lose your progress."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is Undefeated: Gridiron Legends affiliated with the NFL?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Undefeated: Gridiron Legends is an independently developed game and is not affiliated with, endorsed by, or sponsored by the NFL, NFLPA, or any NFL team."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is it free? Are there ads?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, it's free to play with no signup required. The site displays ads to support hosting, and Dynasty mode has optional rewarded ads for bonus in-game currency or a pack upgrade — never required to keep playing."
+      }
+    }
+  ]
+}
+</script>
+
+<style>
+  :root {
+    --bg: #0b0e14;
+    --card: #131722;
+    --border: #232838;
+    --text: #e7ebf3;
+    --muted: #9aa3b5;
+    --gold: #D4A017;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+  }
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+  }
+  a { color: var(--gold); }
+  h1 { font-size: 28px; margin-bottom: 24px; }
+  h2 {
+    font-size: 17px;
+    margin-top: 32px;
+    margin-bottom: 8px;
+    color: var(--gold);
+  }
+  p, li { color: var(--text); font-size: 15px; }
+  ul { padding-left: 20px; }
+  .back {
+    display: inline-block;
+    margin-bottom: 32px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 14px;
+  }
+  .back:hover { color: var(--gold); }
+  .faq-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px 20px 18px;
+    margin-bottom: 16px;
+  }
+  .faq-item h2 { margin-top: 20px; }
+  .disclaimer {
+    margin-top: 40px;
+    padding: 16px 20px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <a class="back" href="/">&larr; Back to Undefeated: Gridiron Legends</a>
+
+  <h1>Frequently Asked Questions</h1>
+
+  <p>
+    Real questions about how Undefeated: Gridiron Legends works. For a
+    full walkthrough of the draft, modes, and Dynasty mode, see
+    <a href="/how-to-play.html">How to Play</a>.
+  </p>
+
+  <div class="faq-item">
+    <h2>How is the season simulated — is it random, stat-based, or both?</h2>
+    <p>
+      Both. Each of your season's 20 games is weighted by your roster's
+      average overall rating against a difficulty level that rises as
+      the season goes on, so the back half of the schedule is tougher
+      than the front half. A strong roster is favored in every game, but
+      never guaranteed — there's always some randomness, so even a
+      maxed-out roster can drop a game, and even a weak roster keeps a
+      puncher's chance.
+    </p>
+  </div>
+
+  <div class="faq-item">
+    <h2>What does OVR mean and how is it calculated?</h2>
+    <p>
+      OVR is a player's overall rating. It's generated from their actual
+      NFL statistical production for that season — passing, rushing,
+      receiving, or defensive stats depending on position — run through a
+      formula specific to their position, then ranked against every
+      other player at that position to produce the final number. It's
+      not a subjective or hand-picked score. In-game, players are also
+      grouped into three tiers built on top of that rating: Elite, the
+      baseline tier every player in the pool has cleared; Legend, for
+      standout seasons; and GOAT, reserved for the statistical outliers
+      at the very top of a position.
+    </p>
+  </div>
+
+  <div class="faq-item">
+    <h2>How often does the Daily Challenge roster change?</h2>
+    <p>
+      Once a day. A new Daily Challenge unlocks every day at midnight,
+      generated from a seed tied to that calendar date — so everyone who
+      plays Daily Challenge on a given day gets the exact same sequence
+      of team/era spins and the exact same season outcome for a given
+      roster. Only your first completion of the day counts toward
+      rewards and your streak; replaying the same day's challenge won't
+      earn anything extra.
+    </p>
+  </div>
+
+  <div class="faq-item">
+    <h2>Is my progress saved?</h2>
+    <p>
+      Yes, but only locally, in your browser's storage on the device
+      you're playing on. There's no account system yet, so progress
+      isn't tied to you — it's tied to that specific browser. Clearing
+      your browser's site data, switching devices, or switching browsers
+      will lose it. Cross-device sync isn't available yet; if it's ever
+      added, it'll be called out here and in the game itself.
+    </p>
+  </div>
+
+  <div class="faq-item">
+    <h2>Is Undefeated: Gridiron Legends affiliated with the NFL?</h2>
+    <p>
+      No. Undefeated: Gridiron Legends is an independently developed
+      game and is not affiliated with, endorsed by, or sponsored by the
+      NFL, NFLPA, or any NFL team. Player names and statistics are used
+      in a commentary/fantasy-sports context.
+    </p>
+  </div>
+
+  <div class="faq-item">
+    <h2>Is it free? Are there ads?</h2>
+    <p>
+      Yes — the game is free to play and doesn't require an account or
+      signup. The site displays ads to help cover hosting costs. In
+      Dynasty mode, there are also optional rewarded ads you can watch
+      for bonus in-game currency or a pack upgrade at the end of a
+      season — these are always optional and never required to keep
+      playing.
+    </p>
+  </div>
+
+  <div class="faq-item">
+    <h2>Do I need to create an account?</h2>
+    <p>
+      No. There's no signup or login anywhere in the game — you can
+      start drafting immediately. This also means progress is tied to
+      your browser rather than an account (see "Is my progress saved?"
+      above).
+    </p>
+  </div>
+
+  <div class="faq-item">
+    <h2>What players and eras are included?</h2>
+    <p>
+      The player pool is built from real NFL statistical history, split
+      into five eras spanning 2000 through 2025. When you draft, you
+      spin for a team and an era each round rather than freely searching
+      for a specific player — see
+      <a href="/how-to-play.html#draft">how the draft works</a> for the
+      full mechanic.
+    </p>
+  </div>
+
+  <div class="faq-item">
+    <h2>What's the difference between the game modes?</h2>
+    <p>
+      Classic is the standard 12-round draft with no clock and full
+      stats. Daily Challenge is the same draft, but seeded to the
+      calendar date so everyone gets the same result that day. Offense
+      Only is a shorter 9-round, offense-exclusive draft. Two-Minute
+      Drill adds a timing-based lock mechanic to each spin. All four
+      share the same 20-game season simulation. Full breakdown on the
+      <a href="/how-to-play.html#modes">How to Play</a> page.
+    </p>
+  </div>
+
+  <p class="disclaimer">
+    Undefeated: Gridiron Legends is not affiliated with or endorsed by
+    the NFL, NFLPA, or any NFL team. Player names and statistics are
+    used in a commentary/fantasy-sports context.
+  </p>
+
+</div>
+</body>
+</html>
