@@ -72,6 +72,14 @@ was itself a deliberate, confirmed choice, not an accident to revert.
   liability coverage and to reinforce the NFL non-affiliation language).
   They contain `TODO` comments for the real domain and contact email —
   check these are filled in before treating the site as launch-ready.
+- `marketing/how-to-play.html` and `marketing/faq.html` exist to fix a
+  separate AdSense finding — "low value content" — flagged because, once
+  `/play` is excluded as a non-crawlable SPA (see above), the site had
+  only one landing page plus four short legal pages of crawlable text.
+  These two pages add genuine, original explainer content (see
+  `docs/handoff/22-marketing-content-expansion.md`). Keep them in sync
+  with `scripts/build-pages.sh` and `marketing/sitemap.xml` if renamed
+  or removed.
 - Legal disclaimer (NFL non-affiliation) must remain visible; this project
   is not affiliated with or endorsed by the NFL, NFLPA, or any NFL team.
 

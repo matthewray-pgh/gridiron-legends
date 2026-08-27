@@ -16,15 +16,27 @@ mkdir -p dist
 echo "==> Building the app into dist/play/"
 npx expo export -p web --output-dir dist/play
 
+# The app is a client-side-rendered SPA — Google's crawlers (both regular
+# search indexing and AdSense's content-quality review) don't execute JS,
+# so they'd otherwise see an empty shell here and count it as thin/low-value
+# content against the whole site. noindex tells them to skip evaluating
+# this section as content at all, keeping review scoped to the marketing
+# pages, which have real crawlable text.
+echo "==> Marking dist/play/ as noindex (SPA shell, not crawlable content)"
+sed -i.bak 's#<head>#<head>\n    <meta name="robots" content="noindex, follow">#' dist/play/index.html
+rm -f dist/play/index.html.bak
+
 echo "==> Copying marketing site into dist/"
-cp marketing/index.html   dist/index.html
-cp marketing/about.html   dist/about.html
-cp marketing/privacy.html dist/privacy.html
-cp marketing/terms.html   dist/terms.html
-cp marketing/contact.html dist/contact.html
-cp marketing/sitemap.xml  dist/sitemap.xml
-cp marketing/robots.txt   dist/robots.txt
-cp marketing/ads.txt      dist/ads.txt
+cp marketing/index.html       dist/index.html
+cp marketing/about.html       dist/about.html
+cp marketing/how-to-play.html dist/how-to-play.html
+cp marketing/faq.html         dist/faq.html
+cp marketing/privacy.html     dist/privacy.html
+cp marketing/terms.html       dist/terms.html
+cp marketing/contact.html     dist/contact.html
+cp marketing/sitemap.xml      dist/sitemap.xml
+cp marketing/robots.txt       dist/robots.txt
+cp marketing/ads.txt          dist/ads.txt
 
 # Marketing's HTML references images with literal, unhashed paths
 # (assets/stadium-bg.png, assets/field-bg.png, /assets/favicon.png, etc.).
@@ -62,7 +74,7 @@ copy_marketing_asset "social-share.png"    # referenced by OG/Twitter meta tags
 
 echo "==> Done. dist/ is ready to deploy:"
 echo "    dist/index.html        (marketing landing page)"
-echo "    dist/about.html, privacy.html, terms.html, contact.html"
+echo "    dist/about.html, how-to-play.html, faq.html, privacy.html, terms.html, contact.html"
 echo "    dist/sitemap.xml, robots.txt"
 echo "    dist/assets/*          (marketing images)"
 echo "    dist/play/*            (the game, Expo web export)"

@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Google Analytics (GA4) — TODO: replace G-XXXXXXXXXX with the real
+     Measurement ID (see marketing/index.html for the fuller note). -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-XXXXXXXXXX');
+</script>
+
+<title>How to Play — Undefeated: Gridiron Legends</title>
+<meta name="description" content="How Undefeated: Gridiron Legends works — drafting, game modes, ratings, season simulation, and Dynasty mode explained.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://undefeatedgridironlegends.com/how-to-play.html">
+
+<link rel="icon" href="/assets/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/assets/icon.png">
+
+<style>
+  :root {
+    --bg: #0b0e14;
+    --card: #131722;
+    --border: #232838;
+    --text: #e7ebf3;
+    --muted: #9aa3b5;
+    --gold: #D4A017;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+  }
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+  }
+  a { color: var(--gold); }
+  h1 { font-size: 28px; margin-bottom: 24px; }
+  h2 {
+    font-size: 19px;
+    margin-top: 40px;
+    margin-bottom: 12px;
+    color: var(--gold);
+  }
+  h3 {
+    font-size: 16px;
+    margin-top: 24px;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  p, li { color: var(--text); font-size: 15px; }
+  ul { padding-left: 20px; }
+  .back {
+    display: inline-block;
+    margin-bottom: 32px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 14px;
+  }
+  .back:hover { color: var(--gold); }
+  .toc {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin: 28px 0;
+  }
+  .toc p { margin: 0 0 8px; color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .toc ul { margin: 0; padding-left: 18px; }
+  .toc li { font-size: 14px; margin-bottom: 4px; }
+  .disclaimer {
+    margin-top: 40px;
+    padding: 16px 20px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <a class="back" href="/">&larr; Back to Undefeated: Gridiron Legends</a>
+
+  <h1>How to Play</h1>
+
+  <p>
+    Undefeated: Gridiron Legends is a roster-drafting game: you build a
+    team out of real NFL players pulled from different eras of the
+    league, then watch a simulated 20-game season decide whether your
+    roster can run the table. This page walks through the mechanics in
+    detail — the draft, the different modes, what ratings mean, how the
+    season is simulated, and what Dynasty mode adds once you're done
+    drafting.
+  </p>
+
+  <div class="toc">
+    <p>On this page</p>
+    <ul>
+      <li><a href="#core-loop">The core loop</a></li>
+      <li><a href="#draft">How the draft works</a></li>
+      <li><a href="#modes">Game modes explained</a></li>
+      <li><a href="#ratings">What player stats and ratings mean</a></li>
+      <li><a href="#simulation">How the season simulation works</a></li>
+      <li><a href="#dynasty">Dynasty mode</a></li>
+    </ul>
+  </div>
+
+  <h2 id="core-loop">The core loop</h2>
+  <p>
+    Every run in Undefeated: Gridiron Legends follows the same arc. First
+    you draft a roster, filling each position on your team one round at a
+    time from a pool of real players pulled from NFL history — a run
+    might land you a 2003 quarterback next to a 2019 cornerback, since
+    nothing restricts you to a single era or team unless you choose to.
+    Once every slot is filled, your roster's season plays out as a
+    20-game simulation, one result at a time, and you watch your record
+    build toward — or fall short of — a perfect 20-0. There's no
+    mid-season editing once the season starts: the roster you build in
+    the draft is the roster that plays the whole season.
+  </p>
+
+  <h2 id="draft">How the draft works</h2>
+  <p>
+    Each round of the draft, you spin two reels — one for an NFL team,
+    one for an era of NFL history — and the combination determines which
+    players are eligible for that round. You then pick one eligible
+    player to fill the position slot that round is drafting for. The
+    standard draft (used by Classic, Daily Challenge, Two-Minute Drill,
+    and Dynasty's initial draft) runs 12 rounds, one per roster slot:
+    quarterback, running back, wide receiver, tight end, two flex slots
+    that can be filled by any running back, wide receiver, or tight end,
+    edge rusher, defensive tackle, linebacker, cornerback, safety, and a
+    defensive flex slot open to any defensive position. The first six
+    rounds draft your offense; the last six draft your defense.
+  </p>
+  <p>
+    Before the draft begins, you make two setup choices: whether to draw
+    from all 32 teams or lock the whole draft to a single franchise, and
+    which era (or eras) of NFL history to pull players from — the pool
+    is split into five eras spanning 2000 through 2025. A drafted
+    player's real position always stays attached to them even if you
+    slot them into a flex spot, and once a player is on your roster
+    they're removed from the pool for every other slot, so you'll never
+    see the same name twice. Every draft also starts with one free
+    reroll if a spin doesn't land where you want.
+  </p>
+  <p>
+    One detail worth knowing: the candidates shown each round are listed
+    oldest-season-first, then alphabetically — never sorted by rating.
+    That's deliberate, so the order of the list never tips you off to
+    who the "best" pick is before you've had a chance to look at their
+    actual production.
+  </p>
+
+  <h2 id="modes">Game modes explained</h2>
+
+  <h3>Classic</h3>
+  <p>
+    The baseline mode: a full 12-round draft with no clock, choose your
+    all-teams-or-one-team and era settings up front, and a complete stat
+    readout on every candidate as you draft. If you want to think
+    carefully about each pick, this is the mode built for that.
+  </p>
+
+  <h3>Daily Challenge</h3>
+  <p>
+    The same 12-round draft as Classic, but every spin and the season
+    simulation itself are generated from a seed tied to the calendar
+    date. That means everyone who plays Daily Challenge on a given day
+    gets the exact same sequence of team/era spins and the exact same
+    season outcome for a given roster — your run is directly comparable
+    to anyone else who played that day. Only your first completion each
+    day counts toward rewards and your streak; you can replay the same
+    day's challenge, but it won't earn anything extra. A new challenge
+    unlocks every day at midnight.
+  </p>
+
+  <h3>Offense Only</h3>
+  <p>
+    A shorter, 9-round draft made up entirely of offensive slots —
+    quarterback, two running back slots, two wide receiver slots, tight
+    end, and two flex slots — with no defense to fill and no
+    offense/defense split to the rounds. It's the fastest way to build a
+    team if you just want to argue about skill-position talent.
+  </p>
+
+  <h3>Two-Minute Drill</h3>
+  <p>
+    The same 12-round roster as Classic, but the spin itself becomes a
+    timing challenge: instead of a simple reveal, the team and era each
+    sweep back and forth on their own bar, and you have to tap "Lock" at
+    the right moment to land in a gold zone. Landing the team zone earns
+    you an extra reroll; landing the era zone gives that round's eventual
+    pick a small ratings boost; landing both flags the round's strongest
+    eligible candidate for you. The actual team and era aren't revealed
+    until you've locked both, so you can't use timing to peek at the
+    result early.
+  </p>
+
+  <p>
+    All four modes share the same season simulation and the same
+    20-game season length — the differences are in how you draft, not
+    in how the season plays out once you're done.
+  </p>
+
+  <h2 id="ratings">What player stats and ratings mean</h2>
+  <p>
+    Every player in the game is rated using their actual NFL statistical
+    production, not a hand-picked or subjective score. Behind the scenes,
+    each player-season is scored using a formula specific to their
+    position — a quarterback's score weighs passing yards, touchdowns,
+    interceptions, and efficiency; an edge rusher's weighs tackles,
+    sacks, tackles for loss, and quarterback hits, and so on for every
+    position. That raw score is then converted into an overall rating by
+    ranking the player against everyone else at their position, so a
+    rating reflects how a player's season stacked up statistically
+    against their peers, not an arbitrary number.
+  </p>
+  <p>
+    Every player in the pool has already cleared a bar to be included at
+    all, and in-game they're grouped into three tiers: Elite is the
+    baseline tier, Legend covers standout seasons, and GOAT is reserved
+    for the statistical outliers at the very top of a position. While
+    you're drafting, each candidate shows the stat lines that matter most
+    for their position — passing and rushing numbers for offense,
+    tackles and sacks for the front seven, and so on — so you can judge
+    talent directly from real production. A single numeric overall rating
+    isn't shown pick-by-pick; once your draft is complete, you'll see
+    your full roster's overall rating on the summary screen.
+  </p>
+
+  <h2 id="simulation">How the season simulation works</h2>
+  <p>
+    Once your roster is set, the 20-game season is simulated using your
+    team's average overall rating against a difficulty level that rises
+    as the season goes on — the back half of the schedule is tougher than
+    the front half. A stronger roster is favored in every game, but the
+    simulation always keeps some randomness in play: even a maxed-out
+    roster isn't a guaranteed win, and even a weak roster keeps a
+    puncher's chance. That's intentional — a perfect season is meant to
+    be a real, earned outcome, not something a strong enough draft
+    guarantees automatically.
+  </p>
+  <p>
+    Daily Challenge is the one exception: instead of ordinary randomness,
+    its season uses the same date-seeded sequence as its draft, so the
+    same roster produces the same 20-game outcome for everyone who plays
+    that day's challenge.
+  </p>
+
+  <h2 id="dynasty">Dynasty mode</h2>
+  <p>
+    Dynasty mode takes the same draft you know from Classic and turns it
+    into the start of an ongoing team, rather than a single one-off
+    season. After your initial 12-round draft, your roster carries
+    forward — finishing a season doesn't reset anything, it just records
+    the result to your all-time record and moves you into the next
+    season with the same team.
+  </p>
+  <p>
+    Finishing a Dynasty season earns you a card pack and Rings, the
+    game's soft currency. Rings can also be earned by retiring or
+    releasing players you no longer need, or by watching an optional
+    rewarded ad — never required — for a bonus. Rings buy packs of your
+    choosing: higher-tier packs cost more but guarantee better players
+    inside. Opened packs add new players to your six-slot bench, and a
+    dedicated roster editor lets you start a bench player into your
+    lineup, swap a player between eligible slots, or retire/release a
+    player to make room, with every change staged so you can review it
+    before saving.
+  </p>
+  <p>
+    Like the rest of the game, Dynasty progress is saved locally on your
+    device only — there's no account system and no cross-device sync
+    yet, so clearing your browser's site data or switching devices will
+    reset it. See the <a href="/faq.html">FAQ</a> for more on how saving
+    works.
+  </p>
+
+  <p class="disclaimer">
+    Undefeated: Gridiron Legends is not affiliated with or endorsed by
+    the NFL, NFLPA, or any NFL team. Player names and statistics are
+    used in a commentary/fantasy-sports context.
+  </p>
+
+</div>
+</body>
+</html>
