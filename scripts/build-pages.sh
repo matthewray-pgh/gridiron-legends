@@ -16,27 +16,27 @@ mkdir -p dist
 echo "==> Building the app into dist/play/"
 npx expo export -p web --output-dir dist/play
 
-# The app is a client-side-rendered SPA — Google's crawlers (both regular
-# search indexing and AdSense's content-quality review) don't execute JS,
-# so they'd otherwise see an empty shell here and count it as thin/low-value
-# content against the whole site. noindex tells them to skip evaluating
-# this section as content at all, keeping review scoped to the marketing
-# pages, which have real crawlable text.
-echo "==> Marking dist/play/ as noindex (SPA shell, not crawlable content)"
-sed -i.bak 's#<head>#<head>\n    <meta name="robots" content="noindex, follow">#' dist/play/index.html
-rm -f dist/play/index.html.bak
+# NOTE: this used to inject a noindex meta tag into dist/play/index.html.
+# That was reversed on 2026-09-05 — see CLAUDE.md's "AdSense & SEO"
+# section for the reasoning. Short version: noindex hid the site's actual
+# substance (the game) from Google's content evaluation entirely, which
+# likely made the "low value content" AdSense flag worse, not better —
+# everything left crawlable was marketing copy *about* a product Google
+# couldn't see, rather than the product itself. /play stays indexable.
+# It remains excluded from ad serving separately (no ad script is added
+# to dist/play/index.html, and/or via AdSense's Page Exclusions tool) —
+# that's a distinct concern from indexing and doesn't need noindex to
+# enforce it.
 
 echo "==> Copying marketing site into dist/"
-cp marketing/index.html       dist/index.html
-cp marketing/about.html       dist/about.html
-cp marketing/how-to-play.html dist/how-to-play.html
-cp marketing/faq.html         dist/faq.html
-cp marketing/privacy.html     dist/privacy.html
-cp marketing/terms.html       dist/terms.html
-cp marketing/contact.html     dist/contact.html
-cp marketing/sitemap.xml      dist/sitemap.xml
-cp marketing/robots.txt       dist/robots.txt
-cp marketing/ads.txt          dist/ads.txt
+cp marketing/index.html   dist/index.html
+cp marketing/about.html   dist/about.html
+cp marketing/privacy.html dist/privacy.html
+cp marketing/terms.html   dist/terms.html
+cp marketing/contact.html dist/contact.html
+cp marketing/sitemap.xml  dist/sitemap.xml
+cp marketing/robots.txt   dist/robots.txt
+cp marketing/ads.txt      dist/ads.txt
 
 # Marketing's HTML references images with literal, unhashed paths
 # (assets/stadium-bg.png, assets/field-bg.png, /assets/favicon.png, etc.).
@@ -74,7 +74,7 @@ copy_marketing_asset "social-share.png"    # referenced by OG/Twitter meta tags
 
 echo "==> Done. dist/ is ready to deploy:"
 echo "    dist/index.html        (marketing landing page)"
-echo "    dist/about.html, how-to-play.html, faq.html, privacy.html, terms.html, contact.html"
+echo "    dist/about.html, privacy.html, terms.html, contact.html"
 echo "    dist/sitemap.xml, robots.txt"
 echo "    dist/assets/*          (marketing images)"
 echo "    dist/play/*            (the game, Expo web export)"
